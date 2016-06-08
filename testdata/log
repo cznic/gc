@@ -1,0 +1,5 @@
+# _/home/jnml/src/github.com/cznic/gc/testdata
+./badtype.go:7: invalid recursive type t
+./scope.go:5: a redeclared in this block
+	previous declaration at ./badtype.go:5
+./scope.go:11: undefined: f
