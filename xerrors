@@ -2,5 +2,5 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-PACKAGE IDENTIFIER ';' FUNC LTLT
+PACKAGE IDENTIFIER ';' GO FUNC LTLT
 	"anonymous functions cannot have generic type parameters"

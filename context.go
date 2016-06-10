@@ -70,33 +70,33 @@ type Model struct {
 }
 
 type testContext struct {
-	errChecks   []xc.Token  //
-	errChecksMu sync.Mutex  //
-	exampleAST  interface{} //
-	exampleRule int         //
+	errChecks   []xc.Token
+	errChecksMu sync.Mutex
+	exampleAST  interface{}
+	exampleRule int
 }
 
 type contextOptions struct {
-	disableNoBuildableFilesError bool  //
-	enableGenerics               bool  //
-	errLimit                     int32 //
-	errLimit0                    int32 //
+	disableNoBuildableFilesError bool
+	enableGenerics               bool
+	errLimit                     int32
+	errLimit0                    int32
 }
 
 // Context represents data shared by all packages loaded by LoadPackages.
 type Context struct {
-	Model       Model               //
-	fileCentral *xc.FileCentral     //
-	goarch      string              //
-	goos        string              //
-	gopaths     []string            //
-	goroot      string              //
-	options     *contextOptions     //
-	report      *xc.Report          //
-	searchPaths []string            //
-	tags        map[string]struct{} //
-	test        *testContext        //
-	universe    *Scope              //
+	fileCentral *xc.FileCentral
+	goarch      string
+	goos        string
+	gopaths     []string
+	goroot      string
+	model       Model
+	options     *contextOptions
+	report      *xc.Report
+	searchPaths []string
+	tags        map[string]struct{}
+	test        *testContext
+	universe    *Scope
 }
 
 // NewContext returns a newly created Context.
@@ -105,7 +105,7 @@ func NewContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt
 		return nil, err
 	}
 
-	return newContext(goos, goarch, goroot, gopaths, tags, opts...)
+	return newContext(goos, goarch, goroot, gopaths, tags, opts...) //TODO Unite
 }
 
 func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt) (*Context, error) {
@@ -117,12 +117,12 @@ func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt
 	report := xc.NewReport()
 	report.ErrLimit = -1
 	c := &Context{
-		Model:       ArchMap[goarch],
 		fileCentral: xc.NewFileCentral(),
 		goarch:      goarch,
 		goos:        goos,
 		gopaths:     gopaths,
 		goroot:      goroot,
+		model:       ArchMap[goarch],
 		options:     &contextOptions{errLimit: 10},
 		report:      report,
 		searchPaths: searchPaths,
@@ -132,6 +132,8 @@ func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt
 	for _, v := range tags {
 		c.tags[v] = struct{}{}
 	}
+	c.tags[goos] = struct{}{}
+	c.tags[goarch] = struct{}{}
 	for _, v := range opts {
 		if err := v(c); err != nil {
 			return nil, err

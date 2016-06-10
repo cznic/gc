@@ -93,6 +93,7 @@ func init() {
 
 var (
 	testTags = []string{
+		"cgo",
 		"go1.1",
 		"go1.2",
 		"go1.3",
@@ -382,4 +383,18 @@ func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string,
 	for _, v := range a {
 		fmt.Fprintf(logw, "%s %s\n", v.Msg, v.Pos)
 	}
+}
+
+func TestTmp(t *testing.T) {
+	c, err := newContext("", "", "", nil, nil, EnableGenerics())
+	if err != nil {
+		panic("internal error")
+	}
+	c.newPackage("", "").loadString("", `
+package foo
+
+var fn3 = func«t»(Vector«t») {}
+`,
+	)
+	t.Log(errStr(c.errors()))
 }

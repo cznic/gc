@@ -3,12 +3,12 @@
 // license that can be found in the LICENSE file.
 
 //go:generate go run generate.go
+//go:generate golex -o scanner.go scanner.l
 //go:generate stringer -type ScopeKind
 //go:generate stringer -type ValueKind
-//go:generate golex -o scanner.go scanner.l
 //go:generate go run generate.go -2
 
-// Package gc is a Go compiler front end. Work in progess (3.35%).
+// Package gc is a Go compiler front end. Work in progess (5.34%).
 //
 // CGO
 //

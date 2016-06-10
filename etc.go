@@ -20,7 +20,9 @@ import (
 var (
 	printHooks = strutil.PrettyPrintHooks{}
 
+	idC          = dict.SID("C")
 	idDot        = dict.SID(".")
+	idInit       = dict.SID("init")
 	idUnderscore = dict.SID("_")
 )
 

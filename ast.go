@@ -198,31 +198,6 @@ func (n *Block) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
-// BlockOpt represents data reduced by productions:
-//
-//	BlockOpt:
-//	        /* empty */
-//	|       Block        // Case 1
-type BlockOpt struct {
-	Block *Block
-}
-
-func (n *BlockOpt) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *BlockOpt) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *BlockOpt) Pos() token.Pos {
-	if n == nil {
-		return 0
-	}
-
-	return n.Block.Pos()
-}
-
 // Body represents data reduced by production:
 //
 //	Body:
@@ -575,12 +550,12 @@ func (n *ConstSpecList) Pos() token.Pos {
 // Elif represents data reduced by production:
 //
 //	Elif:
-//	        "else" If IfHeader Body
+//	        "else" "if" IfHeader Body
 type Elif struct {
 	Body     *Body
-	If       *If
 	IfHeader *IfHeader
 	Token    xc.Token
+	Token2   xc.Token
 }
 
 func (n *Elif) fragment() interface{} { return n }
@@ -905,13 +880,42 @@ func (n *ForStatement) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
+// FuncBodyOpt represents data reduced by productions:
+//
+//	FuncBodyOpt:
+//	        /* empty */
+//	|       Block        // Case 1
+type FuncBodyOpt struct {
+	Block *Block
+}
+
+func (n *FuncBodyOpt) fragment() interface{} { return n }
+
+// String implements fmt.Stringer.
+func (n *FuncBodyOpt) String() string {
+	return PrettyString(n)
+}
+
+// Pos reports the position of the first component of n or zero if it's empty.
+func (n *FuncBodyOpt) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
+	return n.Block.Pos()
+}
+
 // FuncDecl represents data reduced by production:
 //
 //	FuncDecl:
-//	        FuncOrMethod BlockOpt
+//	        "func" ReceiverOpt IDENTIFIER GenericParametersOpt Signature FuncBodyOpt
 type FuncDecl struct {
-	BlockOpt     *BlockOpt
-	FuncOrMethod *FuncOrMethod
+	FuncBodyOpt          *FuncBodyOpt
+	GenericParametersOpt *GenericParametersOpt
+	ReceiverOpt          *ReceiverOpt
+	Signature            *Signature
+	Token                xc.Token
+	Token2               xc.Token
 }
 
 func (n *FuncDecl) fragment() interface{} { return n }
@@ -923,40 +927,16 @@ func (n *FuncDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *FuncDecl) Pos() token.Pos {
-	return n.FuncOrMethod.Pos()
-}
-
-// FuncOrMethod represents data reduced by production:
-//
-//	FuncOrMethod:
-//	        Function ReceiverOpt IDENTIFIER GenericArgumentsOpt Signature
-type FuncOrMethod struct {
-	Function            *Function
-	GenericArgumentsOpt *GenericArgumentsOpt
-	ReceiverOpt         *ReceiverOpt
-	Signature           *Signature
-	Token               xc.Token
-}
-
-func (n *FuncOrMethod) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *FuncOrMethod) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *FuncOrMethod) Pos() token.Pos {
-	return n.Function.Pos()
+	return n.Token.Pos()
 }
 
 // FuncType represents data reduced by production:
 //
 //	FuncType:
-//	        Function Signature
+//	        "func" Signature
 type FuncType struct {
-	Function  *Function
 	Signature *Signature
+	Token     xc.Token
 }
 
 func (n *FuncType) fragment() interface{} { return n }
@@ -968,39 +948,19 @@ func (n *FuncType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *FuncType) Pos() token.Pos {
-	return n.Function.Pos()
-}
-
-// Function represents data reduced by production:
-//
-//	Function:
-//	        "func"
-type Function struct {
-	Token xc.Token
-}
-
-func (n *Function) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *Function) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *Function) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
 // GenericArgumentList represents data reduced by productions:
 //
 //	GenericArgumentList:
-//	        GenericArgumentListItem
-//	|       GenericArgumentList ',' GenericArgumentListItem  // Case 1
+//	        Typ
+//	|       GenericArgumentList ',' Typ  // Case 1
 type GenericArgumentList struct {
-	Case                    int
-	GenericArgumentList     *GenericArgumentList
-	GenericArgumentListItem *GenericArgumentListItem
-	Token                   xc.Token
+	Case                int
+	GenericArgumentList *GenericArgumentList
+	Token               xc.Token
+	Typ                 *Typ
 }
 
 func (n *GenericArgumentList) reverse() *GenericArgumentList {
@@ -1033,61 +993,21 @@ func (n *GenericArgumentList) Pos() token.Pos {
 	case 1:
 		return n.GenericArgumentList.Pos()
 	case 0:
-		return n.GenericArgumentListItem.Pos()
+		return n.Typ.Pos()
 	default:
 		panic("internal error")
 	}
-}
-
-// GenericArgumentListItem represents data reduced by production:
-//
-//	GenericArgumentListItem:
-//	        Typ
-type GenericArgumentListItem struct {
-	Typ *Typ
-}
-
-func (n *GenericArgumentListItem) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *GenericArgumentListItem) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericArgumentListItem) Pos() token.Pos {
-	return n.Typ.Pos()
-}
-
-// GenericArguments represents data reduced by production:
-//
-//	GenericArguments:
-//	        "«" GenericArgumentList "»"
-type GenericArguments struct {
-	GenericArgumentList *GenericArgumentList
-	Token               xc.Token
-	Token2              xc.Token
-}
-
-func (n *GenericArguments) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *GenericArguments) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericArguments) Pos() token.Pos {
-	return n.Token.Pos()
 }
 
 // GenericArgumentsOpt represents data reduced by productions:
 //
 //	GenericArgumentsOpt:
 //	        /* empty */
-//	|       GenericArguments  // Case 1
+//	|       "«" GenericArgumentList "»"  // Case 1
 type GenericArgumentsOpt struct {
-	GenericArguments *GenericArguments
+	GenericArgumentList *GenericArgumentList
+	Token               xc.Token
+	Token2              xc.Token
 }
 
 func (n *GenericArgumentsOpt) fragment() interface{} { return n }
@@ -1103,19 +1023,19 @@ func (n *GenericArgumentsOpt) Pos() token.Pos {
 		return 0
 	}
 
-	return n.GenericArguments.Pos()
+	return n.Token.Pos()
 }
 
 // GenericParameterList represents data reduced by productions:
 //
 //	GenericParameterList:
-//	        GenericParameterListItem
-//	|       GenericParameterList ',' GenericParameterListItem  // Case 1
+//	        IDENTIFIER
+//	|       GenericParameterList ',' IDENTIFIER  // Case 1
 type GenericParameterList struct {
-	Case                     int
-	GenericParameterList     *GenericParameterList
-	GenericParameterListItem *GenericParameterListItem
-	Token                    xc.Token
+	Case                 int
+	GenericParameterList *GenericParameterList
+	Token                xc.Token
+	Token2               xc.Token
 }
 
 func (n *GenericParameterList) reverse() *GenericParameterList {
@@ -1148,77 +1068,37 @@ func (n *GenericParameterList) Pos() token.Pos {
 	case 1:
 		return n.GenericParameterList.Pos()
 	case 0:
-		return n.GenericParameterListItem.Pos()
+		return n.Token.Pos()
 	default:
 		panic("internal error")
 	}
 }
 
-// GenericParameterListItem represents data reduced by production:
+// GenericParametersOpt represents data reduced by productions:
 //
-//	GenericParameterListItem:
-//	        IDENTIFIER
-type GenericParameterListItem struct {
-	Token xc.Token
-}
-
-func (n *GenericParameterListItem) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *GenericParameterListItem) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericParameterListItem) Pos() token.Pos {
-	return n.Token.Pos()
-}
-
-// GenericParams represents data reduced by production:
-//
-//	GenericParams:
-//	        "«" GenericParameterList "»"
-type GenericParams struct {
+//	GenericParametersOpt:
+//	        /* empty */
+//	|       "«" GenericParameterList "»"  // Case 1
+type GenericParametersOpt struct {
 	GenericParameterList *GenericParameterList
 	Token                xc.Token
 	Token2               xc.Token
 }
 
-func (n *GenericParams) fragment() interface{} { return n }
+func (n *GenericParametersOpt) fragment() interface{} { return n }
 
 // String implements fmt.Stringer.
-func (n *GenericParams) String() string {
+func (n *GenericParametersOpt) String() string {
 	return PrettyString(n)
 }
 
 // Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericParams) Pos() token.Pos {
-	return n.Token.Pos()
-}
-
-// GenericParamsOpt represents data reduced by productions:
-//
-//	GenericParamsOpt:
-//	        /* empty */
-//	|       GenericParams  // Case 1
-type GenericParamsOpt struct {
-	GenericParams *GenericParams
-}
-
-func (n *GenericParamsOpt) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *GenericParamsOpt) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericParamsOpt) Pos() token.Pos {
+func (n *GenericParametersOpt) Pos() token.Pos {
 	if n == nil {
 		return 0
 	}
 
-	return n.GenericParams.Pos()
+	return n.Token.Pos()
 }
 
 // IdentifierList represents data reduced by productions:
@@ -1294,26 +1174,6 @@ func (n *IdentifierOpt) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
-// If represents data reduced by production:
-//
-//	If:
-//	        "if"
-type If struct {
-	Token xc.Token
-}
-
-func (n *If) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *If) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *If) Pos() token.Pos {
-	return n.Token.Pos()
-}
-
 // IfHeader represents data reduced by productions:
 //
 //	IfHeader:
@@ -1352,13 +1212,13 @@ func (n *IfHeader) Pos() token.Pos {
 // IfStatement represents data reduced by production:
 //
 //	IfStatement:
-//	        If IfHeader Body ElifList ElseOpt
+//	        "if" IfHeader Body ElifList ElseOpt
 type IfStatement struct {
 	Body     *Body
 	ElifList *ElifList
 	ElseOpt  *ElseOpt
-	If       *If
 	IfHeader *IfHeader
+	Token    xc.Token
 }
 
 func (n *IfStatement) fragment() interface{} { return n }
@@ -1370,7 +1230,7 @@ func (n *IfStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *IfStatement) Pos() token.Pos {
-	return n.If.Pos()
+	return n.Token.Pos()
 }
 
 // ImportDecl represents data reduced by productions:
@@ -1865,10 +1725,12 @@ func (n *PackageClause) Pos() token.Pos {
 //	|       IDENTIFIER Typ        // Case 2
 //	|       Typ                   // Case 3
 type ParameterDecl struct {
-	Case   int
-	Token  xc.Token
-	Token2 xc.Token
-	Typ    *Typ
+	isParamName bool
+	nm          xc.Token
+	Case        int
+	Token       xc.Token
+	Token2      xc.Token
+	Typ         *Typ
 }
 
 func (n *ParameterDecl) fragment() interface{} { return n }
@@ -1944,6 +1806,7 @@ func (n *ParameterDeclList) Pos() token.Pos {
 //	        '(' ')'
 //	|       '(' ParameterDeclList CommaOpt ')'  // Case 1
 type Parameters struct {
+	list              []*ParameterDecl
 	Case              int
 	CommaOpt          *CommaOpt
 	ParameterDeclList *ParameterDeclList
@@ -2994,11 +2857,11 @@ func (n *TypeLiteral) Pos() token.Pos {
 // TypeSpec represents data reduced by production:
 //
 //	TypeSpec:
-//	        IDENTIFIER GenericParamsOpt Typ
+//	        IDENTIFIER GenericParametersOpt Typ
 type TypeSpec struct {
-	GenericParamsOpt *GenericParamsOpt
-	Token            xc.Token
-	Typ              *Typ
+	GenericParametersOpt *GenericParametersOpt
+	Token                xc.Token
+	Typ                  *Typ
 }
 
 func (n *TypeSpec) fragment() interface{} { return n }

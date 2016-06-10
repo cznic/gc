@@ -299,8 +299,8 @@
 [FAIL errorcheck: missing error] "redecl|no new" testdata/gc/fixedbugs/bug035.go:10:18
 [FAIL errorcheck: missing error] "redecl|no new" testdata/gc/fixedbugs/bug035.go:11:18
 [FAIL errorcheck: missing error] "undef" testdata/gc/fixedbugs/bug037.go:10:18
-[FAIL errorcheck: missing error] "redecl|redefinition" testdata/gc/fixedbugs/bug039.go:10:13
-[FAIL errorcheck: missing error] "duplicate argument|redefinition" testdata/gc/fixedbugs/bug040.go:10:11
+[PASS errorcheck] "redecl|redefinition": x redeclared, previous declaration at testdata/gc/fixedbugs/bug039.go:9:9 testdata/gc/fixedbugs/bug039.go:10:6
+[PASS errorcheck] "duplicate argument|redefinition": duplicate argument x testdata/gc/fixedbugs/bug040.go:10:2
 [FAIL errorcheck: missing error] "pointer|receiver" testdata/gc/fixedbugs/bug046.go:11:21
 [FAIL errorcheck: missing error] "nil|incompatible" testdata/gc/fixedbugs/bug049.go:10:16
 [PASS errorcheck] "package": package statement must be first testdata/gc/fixedbugs/bug050.go:7:1
@@ -329,7 +329,7 @@
 [PASS errorcheck] "syntax|signature": unexpected identifier, expected function/method signature or one of ['(', '.', ';', '}'] testdata/gc/fixedbugs/bug121.go:16:4
 [FAIL errorcheck: missing error] "too many" testdata/gc/fixedbugs/bug122.go:11:36
 [FAIL errorcheck: missing error] "func" testdata/gc/fixedbugs/bug123.go:10:17
-[FAIL errorcheck: missing error] "redeclared|redef" testdata/gc/fixedbugs/bug126.go:11:18
+[PASS errorcheck] "redeclared|redef": none redeclared, previous declaration at testdata/gc/fixedbugs/bug126.go:10:7 testdata/gc/fixedbugs/bug126.go:11:7
 [FAIL errorcheck: missing error] "illegal|incompatible|nil" testdata/gc/fixedbugs/bug127.go:10:21
 [FAIL errorcheck: missing error] "illegal|incompatible|nil" testdata/gc/fixedbugs/bug127.go:11:21
 [FAIL errorcheck: missing error] "convert|cannot|incompatible" testdata/gc/fixedbugs/bug131.go:11:19
@@ -361,7 +361,7 @@
 [FAIL errorcheck: missing error] "iota" testdata/gc/fixedbugs/bug186.go:15:11
 [FAIL errorcheck: missing error] "package" testdata/gc/fixedbugs/bug188.go:14:11
 [FAIL errorcheck: missing error] "too few" testdata/gc/fixedbugs/bug189.go:16:14
-[FAIL errorcheck: missing error] "redecl|redefinition" testdata/gc/fixedbugs/bug192.go:11:13
+[PASS errorcheck] "redecl|redefinition": fmt redeclared, previous declaration at testdata/gc/fixedbugs/bug192.go:9:8 testdata/gc/fixedbugs/bug192.go:11:5
 [FAIL errorcheck: missing error] "shift" testdata/gc/fixedbugs/bug193.go:13:24
 [FAIL errorcheck: missing error] "shift" testdata/gc/fixedbugs/bug193.go:14:24
 [FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:9:26
@@ -394,7 +394,7 @@
 [FAIL errorcheck: missing error] "recursive" testdata/gc/fixedbugs/bug224.go:9:11
 [FAIL errorcheck: error does not match] "[.][.][.]" "final argument": unexpected ), expected type or one of ['(', '*', '[', <-, chan, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug228.go:11:30
 [FAIL errorcheck: missing error] "[.][.][.]" testdata/gc/fixedbugs/bug228.go:13:22
-[FAIL errorcheck: missing error] "[.][.][.]" testdata/gc/fixedbugs/bug228.go:15:36
+[PASS errorcheck] "[.][.][.]": can only use ... as final argument in list testdata/gc/fixedbugs/bug228.go:15:15
 [PASS errorcheck] "[.][.][.]|syntax|type": unexpected ..., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug228.go:17:7
 [PASS errorcheck] "[.][.][.]|syntax|type": unexpected ..., expected optional generic parameters or type or one of ['(', '*', '[', <-, chan, func, identifier, interface, map, struct, «] testdata/gc/fixedbugs/bug228.go:19:8
 [FAIL errorcheck: missing error] "unexported" testdata/gc/fixedbugs/bug229.go:17:22
@@ -490,7 +490,7 @@
 [FAIL errorcheck: missing error] "len|value computed is not used" testdata/gc/fixedbugs/bug337.go:17:13
 [FAIL errorcheck: missing error] "type" testdata/gc/fixedbugs/bug340.go:14:11
 [FAIL errorcheck: missing error] "type interface \{\}|reference to undefined field or method" testdata/gc/fixedbugs/bug340.go:15:11
-[FAIL errorcheck: missing error] "duplicate argument|redefinition" testdata/gc/fixedbugs/bug342.go:12:21
+[PASS errorcheck] "duplicate argument|redefinition": duplicate argument x testdata/gc/fixedbugs/bug342.go:12:14
 [FAIL errorcheck: missing error] "jumps into block" testdata/gc/fixedbugs/bug344.go:17:14
 [FAIL errorcheck: error does not match] "unexpected literal 2.01|expected ';' or '}' or newline|not enough arguments to return": unexpected literal testdata/gc/fixedbugs/bug349.go:12:14
 [FAIL errorcheck: missing error] "T[.]m redeclared|redefinition" testdata/gc/fixedbugs/bug350.go:12:17
@@ -520,7 +520,7 @@
 [FAIL errorcheck: missing error] "stack frame too large" testdata/gc/fixedbugs/bug385_64.go:15:15
 [FAIL errorcheck: missing error] "cannot use 0 .type int.|has no methods" testdata/gc/fixedbugs/bug386.go:10:29
 [FAIL errorcheck: missing error] "cannot use -1 .type int.|has no methods" testdata/gc/fixedbugs/bug386.go:12:31
-[FAIL errorcheck: missing error] "cannot declare name runtime.UintType|mixed named and unnamed|undefined identifier" testdata/gc/fixedbugs/bug388.go:12:38
+[PASS errorcheck] "cannot declare name runtime.UintType|mixed named and unnamed|undefined identifier": mixed named and unnamed parameters testdata/gc/fixedbugs/bug388.go:12:10
 [FAIL errorcheck: missing error] "cannot declare name runtime.UintType|non-name on left side|undefined identifier" testdata/gc/fixedbugs/bug388.go:17:30
 [FAIL errorcheck: missing error] "non-name main.i|non-name on left side" testdata/gc/fixedbugs/bug388.go:22:14
 [PASS errorcheck] "unexpected [.]|expected type": unexpected ., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug388.go:27:10
@@ -684,6 +684,8 @@
 [PASS errorcheck] "unexpected :": unexpected :, expected one of [!=, %=, &&, &=, &^, &^=, '%', '&', '*', '+', ',', '-', '/', ';', '<', '=', '>', '^', '|', '}', *=, ++, +=, --, -=, /=, :=, <-, <<, <<=, <=, ==, >=, >>, >>=, ^=, case, default, {, |=, ||] testdata/gc/fixedbugs/issue14006.go:37:8
 [PASS errorcheck] "unexpected :": unexpected :, expected one of [!=, %=, &&, &=, &^, &^=, '%', '&', '*', '+', ',', '-', '/', ';', '<', '=', '>', '^', '|', '}', *=, ++, +=, --, -=, /=, :=, <-, <<, <<=, <=, ==, >=, >>, >>=, ^=, case, default, {, |=, ||] testdata/gc/fixedbugs/issue14006.go:43:8
 [FAIL errorcheck: missing error] "missing statement after label" testdata/gc/fixedbugs/issue14006.go:50:14
+[FAIL errorcheck: extra error] "label labelname already defined, previous declaration at testdata/gc/fixedbugs/issue14006.go:50:3" testdata/gc/fixedbugs/issue14006.go:56:3
+[FAIL errorcheck: extra error] "label labelname already defined, previous declaration at testdata/gc/fixedbugs/issue14006.go:50:3" testdata/gc/fixedbugs/issue14006.go:61:3
 [FAIL errorcheck: missing error] "cannot assign to true" testdata/gc/fixedbugs/issue14010.go:13:15
 [FAIL errorcheck: missing error] "not an expression" "cannot assign to byte" testdata/gc/fixedbugs/issue14010.go:14:15
 [FAIL errorcheck: missing error] "unknown T field" testdata/gc/fixedbugs/issue14136.go:17:69
@@ -788,9 +790,9 @@
 [FAIL errorcheck: missing error] "must be function call|must not be parenthesized" testdata/gc/fixedbugs/issue4468.go:26:11
 [FAIL errorcheck: missing error] "must be function call|must not be parenthesized" testdata/gc/fixedbugs/issue4468.go:27:14
 [FAIL errorcheck: missing error] "outside type switch" testdata/gc/fixedbugs/issue4470.go:13:22
-[FAIL errorcheck: missing error] "cannot declare init - must be func" testdata/gc/fixedbugs/issue4517a.go:9:14
-[FAIL errorcheck: missing error] "cannot declare init - must be func" testdata/gc/fixedbugs/issue4517b.go:9:16
-[FAIL errorcheck: missing error] "cannot declare init - must be func" testdata/gc/fixedbugs/issue4517c.go:9:16
+[PASS errorcheck] "cannot declare init - must be func": cannot declare init - must be function testdata/gc/fixedbugs/issue4517a.go:9:5
+[PASS errorcheck] "cannot declare init - must be func": cannot declare init - must be function testdata/gc/fixedbugs/issue4517b.go:9:7
+[PASS errorcheck] "cannot declare init - must be func": cannot declare init - must be function testdata/gc/fixedbugs/issue4517c.go:9:6
 [FAIL errorcheck: missing error] "cannot import package as init" testdata/gc/fixedbugs/issue4517d.go:9:19
 [FAIL errorcheck: missing error] "invalid operation|non-integer type|incompatible type" testdata/gc/fixedbugs/issue4545.go:16:26
 [FAIL errorcheck: missing error] "invalid operation|non-integer type" testdata/gc/fixedbugs/issue4545.go:17:26
@@ -1049,30 +1051,30 @@
 [FAIL errorcheck: missing error] "constant 1\.79769e\+308 overflows float64" testdata/gc/float_lit3.go:43:45
 [FAIL errorcheck: missing error] "constant -1\.79769e\+308 overflows float64" testdata/gc/float_lit3.go:46:46
 [FAIL errorcheck: missing error] "constant -1\.79769e\+308 overflows float64" testdata/gc/float_lit3.go:47:46
-[FAIL errorcheck: missing error] "duplicate argument a|definition" testdata/gc/func1.go:17:37
-[FAIL errorcheck: missing error] "named" testdata/gc/func3.go:16:20
-[FAIL errorcheck: missing error] "named" testdata/gc/func3.go:17:24
+[PASS errorcheck] "duplicate argument a|definition": duplicate argument a testdata/gc/func1.go:17:17
+[PASS errorcheck] "named": mixed named and unnamed parameters testdata/gc/func3.go:16:9
+[PASS errorcheck] "named": mixed named and unnamed parameters testdata/gc/func3.go:17:13
 [FAIL errorcheck: missing error] "named" testdata/gc/func3.go:18:28
 [FAIL errorcheck: missing error] "address of|invalid" testdata/gc/func4.go:15:17
 [FAIL errorcheck: missing error] "assign to|invalid" testdata/gc/func4.go:16:17
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:10:20
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:11:15
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:12:18
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:15:24
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:16:29
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:17:27
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:21:34
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:22:42
-[FAIL errorcheck: missing error] "duplicate argument j|redefinition|previous" testdata/gc/funcdup.go:23:42
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:25:27
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:26:35
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup.go:27:38
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup2.go:10:20
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup2.go:11:15
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup2.go:12:18
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup2.go:15:23
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup2.go:16:28
-[FAIL errorcheck: missing error] "duplicate argument i|redefinition|previous" testdata/gc/funcdup2.go:17:26
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:10:13
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:11:8
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:12:11
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:15:17
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:16:22
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:17:20
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:21:16
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:22:19
+[PASS errorcheck] "duplicate argument j|redefinition|previous": duplicate argument j testdata/gc/funcdup.go:23:24
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:25:12
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:26:17
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup.go:27:15
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup2.go:10:13
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup2.go:11:8
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup2.go:12:11
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup2.go:15:16
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup2.go:16:21
+[PASS errorcheck] "duplicate argument i|redefinition|previous": duplicate argument i testdata/gc/funcdup2.go:17:19
 [FAIL errorcheck: missing error] "goto L jumps over declaration of x at LINE+1|goto jumps over declaration" testdata/gc/goto.go:42:9
 [FAIL errorcheck: missing error] "goto L jumps over declaration of x at LINE+5|goto jumps over declaration" testdata/gc/goto.go:60:9
 [FAIL errorcheck: missing error] "goto L jumps over declaration of x at LINE+1|goto jumps over declaration" testdata/gc/goto.go:80:9
@@ -1109,7 +1111,7 @@
 [FAIL errorcheck: missing error] "goto L jumps into block starting at LINE-4|goto jumps into block" testdata/gc/goto.go:536:10
 [FAIL errorcheck: missing error] "redeclared|redefinition|incompatible" "imported and not used" testdata/gc/import1.go:13:19
 [FAIL errorcheck: missing error] "redeclared|redefinition|incompatible" "imported and not used: \x22math\x22 as fmt" testdata/gc/import1.go:17:13
-[FAIL errorcheck: error does not match] "imported and not used: \x22math\x22$": math redeclared, previous declaration at testdata/gc/import1.go:17:2 testdata/gc/import1.go:18:2
+[FAIL errorcheck: error does not match] "imported and not used: \x22math\x22$": math redeclared, previous declaration at testdata/gc/import1.go:17:2 testdata/gc/import1.go:18:4
 [PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:24:8
 [PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:25:8
 [PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:26:8
@@ -1189,7 +1191,7 @@
 [FAIL errorcheck: missing error] "label .*L3.* defined and not used" testdata/gc/label.go:21:5
 [FAIL errorcheck: missing error] "label .*L4.* defined and not used" testdata/gc/label.go:24:5
 [FAIL errorcheck: missing error] "label .*L5.* defined and not used" testdata/gc/label.go:27:5
-[FAIL errorcheck: missing error] "label .*L6.* already defined" testdata/gc/label.go:31:5
+[PASS errorcheck] "label .*L6.* already defined": label L6 already defined, previous declaration at testdata/gc/label.go:29:1 testdata/gc/label.go:31:1
 [FAIL errorcheck: missing error] "label .*defalt.* defined and not used" testdata/gc/label.go:53:10
 [FAIL errorcheck: missing error] "label go2 not defined" testdata/gc/label.go:64:11
 [FAIL errorcheck: missing error] "invalid continue label .*L2|continue is not in a loop" testdata/gc/label1.go:34:16
@@ -1219,8 +1221,8 @@
 [FAIL errorcheck: missing error] "invalid map key" testdata/gc/map1.go:47:16
 [FAIL errorcheck: missing error] "redeclared|redefinition" testdata/gc/method1.go:15:32
 [FAIL errorcheck: missing error] "redeclared|redefinition" testdata/gc/method1.go:18:20
-[FAIL errorcheck: missing error] "redeclared|redefinition" testdata/gc/method1.go:21:25
-[FAIL errorcheck: missing error] "redeclared|redefinition" testdata/gc/method1.go:24:25
+[PASS errorcheck] "redeclared|redefinition": f redeclared, previous declaration at testdata/gc/method1.go:20:6 testdata/gc/method1.go:21:6
+[PASS errorcheck] "redeclared|redefinition": g redeclared, previous declaration at testdata/gc/method1.go:23:6 testdata/gc/method1.go:24:6
 [FAIL errorcheck: missing error] "receiver.* pointer|invalid pointer or interface receiver" testdata/gc/method2.go:18:37
 [FAIL errorcheck: missing error] "receiver.* pointer|invalid pointer or interface receiver" testdata/gc/method2.go:19:37
 [FAIL errorcheck: missing error] "receiver.*interface|invalid pointer or interface receiver" testdata/gc/method2.go:24:37
@@ -1653,7 +1655,7 @@
 [FAIL errorcheck: missing error] "used as value" testdata/gc/syntax/chan1.go:17:16
 [FAIL errorcheck: error does not match] "need trailing comma before newline in composite literal|expecting comma or }": unexpected ;, expected one of [!=, &&, &^, '%', '&', '*', '+', ',', '-', '/', ':', '<', '>', '^', '|', '}', <-, <<, <=, ==, >=, >>, ||] testdata/gc/syntax/composite.go:10:4
 [FAIL errorcheck: error does not match] "unexpected literal \.3, expecting name or \(": unexpected literal, expected one of ['(', identifier] testdata/gc/syntax/ddd.go:10:6
-[FAIL errorcheck: error does not match] "else must be followed by if or statement block|expected .if. or .{.": unexpected ;, expected block statement or if or '{' testdata/gc/syntax/else.go:11:9
+[FAIL errorcheck: error does not match] "else must be followed by if or statement block|expected .if. or .{.": unexpected ;, expected block statement or one of ['{', if] testdata/gc/syntax/else.go:11:9
 [FAIL errorcheck: error does not match] "var declaration not allowed in for initializer": unexpected var, expected for statement header or one of ['!', '&', '(', '*', '+', '-', ';', '[', '^', <-, chan, func, identifier, interface, literal, map, range, struct, {] testdata/gc/syntax/forvar.go:11:6
 [FAIL errorcheck: missing error] "missing condition" testdata/gc/syntax/if.go:13:8
 [FAIL errorcheck: missing error] "missing condition" testdata/gc/syntax/if.go:16:13

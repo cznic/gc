@@ -102,7 +102,6 @@ import (
 	Assignment		"assignment"
 	BasicLiteral		"literal      "
 	Block			"block statement"
-	BlockOpt		"optional block"
 	Body			"block statement "
 	Call			"call"
 	ChanType		"channel type"
@@ -124,20 +123,15 @@ import (
 	File			"source file"
 	ForHeader		"for statement header"
 	ForStatement		"for statement"
-	FuncDecl		"function declaration"
-	FuncOrMethod		"function/method declaration"
+	FuncBodyOpt		"optional function body"
+	FuncDecl		"function/method declaration"
 	FuncType		"function type"
-	Function		"function"
 	GenericArgumentList	"generic argument list"
-	GenericArgumentListItem	"generic argument list item"
-	GenericArguments	"generic arguments"
+	GenericArgumentsOpt	"optional generic arguments"
 	GenericParameterList	"generic parameter list"
-	GenericParameterListItem "generic parameter list item"
-	GenericParams		"generic parameters"
-	GenericParamsOpt	"optional generic parameters"
+	GenericParametersOpt	"optional generic parameters"
 	IdentifierList		"identifier list"
 	IdentifierOpt		"optional identifier"
-	If			"if "
 	IfHeader		"if statement header"
 	IfStatement		"if statement"
 	ImportDecl		"import declaration"
@@ -278,14 +272,27 @@ BasicLiteral:
 	}
 
 Block:
-	'{' StatementList '}'
-
-BlockOpt:
-	/* empty */
-|        Block
+	'{'
+	{
+		if !lx.scope.isMergeScope {
+			lx.pushScope()
+		}
+		lx.scope.isMergeScope = false
+	}
+	StatementList '}'
+	{
+		lx.popScope()
+	}
 
 Body:
-	BODY StatementList '}'
+	BODY
+	{
+		lx.pushScope()
+	}
+	StatementList '}'
+	{
+		lx.popScope()
+	}
 
 
 Call:
@@ -331,15 +338,27 @@ ConstDecl:
 
 ConstSpec:
 	IdentifierList
+	{
+		lhs.decl(lx, nil, nil)
+	}
 |       IdentifierList '=' ExpressionList
+	{
+		lhs.decl(lx, nil, lhs.ExpressionList)
+	}
 |       IdentifierList Typ '=' ExpressionList
+	{
+		lhs.decl(lx, lhs.Typ, lhs.ExpressionList)
+	}
 
 ConstSpecList:
 	ConstSpec
 |       ConstSpecList ';' ConstSpec
 
 Elif:
-	"else" If IfHeader Body
+	"else" "if" IfHeader Body
+	{
+		lx.popScope() // Implicit block.
+	}
 
 ElifList:
 	/* empty */
@@ -390,49 +409,49 @@ ForHeader:
 |       SimpleStatementOpt
 
 ForStatement:
-	"for"
-	ForHeader Body
+	"for" ForHeader Body
+	{
+		lx.popScope() // Implicit block.
+	}
+
+FuncBodyOpt:
+	/* empty */
+	{
+		lx.popScope()
+	}
+|        Block
 
 FuncDecl:
-	FuncOrMethod BlockOpt
-
-FuncOrMethod:
-	Function ReceiverOpt IDENTIFIER GenericArgumentsOpt Signature
+	"func" ReceiverOpt IDENTIFIER GenericParametersOpt Signature
+	{
+		switch r := $2.(*ReceiverOpt); {
+		case r == nil: // Function.
+			lx.scope.Parent.declare(lx, newFuncDeclaration($3))
+		default: // Method.
+			//TODO
+		}
+	}
+	FuncBodyOpt
 
 /*yy:example "package a ; var b func()" */
 FuncType:
-	Function Signature
-
-Function:
-	"func"
+	"func" Signature
 
 GenericArgumentList:
-	GenericArgumentListItem
-|	GenericArgumentList ',' GenericArgumentListItem
-
-GenericArgumentListItem:
 	Typ
-
-GenericArguments:
-	"«" GenericArgumentList "»"
+|	GenericArgumentList ',' Typ
 
 GenericArgumentsOpt:
 	/* empty */
-|	GenericArguments
+|	"«" GenericArgumentList "»"
 
 GenericParameterList:
-	GenericParameterListItem
-|	GenericParameterList ',' GenericParameterListItem
-
-GenericParameterListItem:
 	IDENTIFIER
+|	GenericParameterList ',' IDENTIFIER
 
-GenericParams:
-	"«" GenericParameterList "»"
-
-GenericParamsOpt:
+GenericParametersOpt:
 	/* empty */
-|	GenericParams
+|	"«" GenericParameterList "»"
 
 IdentifierOpt:
 	/* empty */
@@ -442,16 +461,16 @@ IdentifierList:
 	IDENTIFIER
 |       IdentifierList ',' IDENTIFIER
 
-If:
-	"if"
-
 /*yy:example "package a ; switch b {" */
 IfHeader:
 	SimpleStatementOpt
 |       SimpleStatementOpt ';' SimpleStatementOpt
 
 IfStatement:
-	If IfHeader Body ElifList ElseOpt
+	"if" IfHeader Body ElifList ElseOpt
+	{
+		lx.popScope() // Implicit block.
+	}
 
 ImportDecl:
 	"import" '(' ')'
@@ -480,11 +499,24 @@ ImportList:
 
 InterfaceType:
 	"interface" LBrace '}'
-|       "interface" LBrace InterfaceMethodDeclList SemicolonOpt '}'
+|       "interface" LBrace
+	{
+		lx.pushScope()
+	}
+	InterfaceMethodDeclList SemicolonOpt '}'
+	{
+		lx.popScope()
+	}
 
 InterfaceMethodDecl:
 	IDENTIFIER
+	{
+		lx.pushScope()
+	}
 	Signature
+	{
+		lx.popScope()
+	}
 |       QualifiedIdent
 
 InterfaceMethodDeclList:
@@ -520,7 +552,14 @@ Operand:
 	'(' Expression ')'
 |       '(' TypeLiteral ')'
 |       BasicLiteral
-|       FuncType LBrace StatementList '}'
+|       FuncType
+	{
+		lx.scope.isMergeScope = false
+	}
+	LBrace StatementList '}'
+	{
+		lx.popScope()
+	}
 |       IDENTIFIER GenericArgumentsOpt
 
 QualifiedIdent:
@@ -544,6 +583,8 @@ PackageClause:
 		lhs.post(lx)
 	}
 
+//yy:field	isParamName	bool
+//yy:field	nm		xc.Token
 ParameterDecl:
 	"..." Typ
 |       IDENTIFIER "..." Typ
@@ -554,9 +595,13 @@ ParameterDeclList:
 	ParameterDecl
 |       ParameterDeclList ',' ParameterDecl
 
+//yy:field	list	[]*ParameterDecl
 Parameters:
 	'(' ')'
 |       '(' ParameterDeclList CommaOpt ')'
+	{
+		lhs.post(lx)
+	}
 
 PrimaryExpression:
 	Operand
@@ -640,6 +685,9 @@ StatementNonDecl:
 |       "go" Expression
 |       "goto" IDENTIFIER
 |       IDENTIFIER ':' Statement
+	{
+		lx.scope.declare(lx, newLabelDeclaration(lhs.Token))
+	}
 |       IfStatement
 |       "return" ExpressionListOpt
 |       SelectStatement
@@ -664,22 +712,39 @@ StructFieldDeclList:
 
 StructType:
 	"struct" LBrace '}'
-|       "struct" LBrace StructFieldDeclList SemicolonOpt '}'
+|       "struct" LBrace
+	{
+		lx.pushScope()
+	}
+	StructFieldDeclList SemicolonOpt '}'
+	{
+		lx.popScope()
+	}
 
 SwitchBody:
 	BODY '}'
-|       BODY SwitchCaseList '}'
+|       BODY
+	{
+		lx.pushScope()
+	}
+	SwitchCaseList '}'
+	{
+		lx.popScope()
+	}
 
 SwitchCase:
 	"case" ArgumentList ':'
 |       "case" ArgumentList '=' Expression ':'
 |       "case" ArgumentList ":=" Expression ':'
-|       "default" ':'
+|       "default" ':'	
 |	"case" error
 |	"default" error
 
 SwitchCaseBlock:
 	SwitchCase StatementList
+	{
+		lx.popScope() // Implicit block.
+	}
 
 SwitchCaseList:
 	SwitchCaseBlock
@@ -687,6 +752,9 @@ SwitchCaseList:
 
 SwitchStatement:
 	"switch" IfHeader SwitchBody
+	{
+		lx.popScope() // Implicit block.
+	}
 
 TopLevelDecl:
 	ConstDecl
@@ -707,6 +775,9 @@ Typ:
 |       ChanType
 /*yy:example "package a ; var b func ( )" */
 |       FuncType
+	{
+		lx.popScope()
+	}
 |       InterfaceType
 |       MapType
 |       QualifiedIdent GenericArgumentsOpt
@@ -724,13 +795,19 @@ TypeLiteral:
 |       ChanType
 /*yy:example "package a ; b(func())" */
 |       FuncType
+	{
+		lx.popScope()
+	}
 |       InterfaceType
 |       MapType
 |       SliceType
 |       StructType
 
 TypeSpec:
-	IDENTIFIER GenericParamsOpt Typ
+	IDENTIFIER GenericParametersOpt Typ
+	{
+		lx.scope.declare(lx, newTypeDeclaration(lhs.Token))
+	}
 
 TypeSpecList:
 	TypeSpec
@@ -753,8 +830,17 @@ VarDecl:
 
 VarSpec:
 	IdentifierList '=' ExpressionList
+	{
+		lhs.decl(lx, nil, lhs.ExpressionList)
+	}
 |       IdentifierList Typ
+	{
+		lhs.decl(lx, lhs.Typ, nil)
+	}
 |       IdentifierList Typ '=' ExpressionList
+	{
+		lhs.decl(lx, lhs.Typ, lhs.ExpressionList)
+	}
 
 VarSpecList:
 	VarSpec
