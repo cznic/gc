@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"go/scanner"
 	"go/token"
+	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,48 @@ import (
 	"sync/atomic"
 
 	"github.com/cznic/xc"
+)
+
+const (
+	// DefaultIntConstBits is the maximum untyped integer constant size.
+	DefaultIntConstBits = 512
+	// DefaultFloatConstPrec is the maximum untyped floating point constant precision.
+	DefaultFloatConstPrec = 512
+
+	builtin = `
+
+package builtin
+
+const (
+	true = 0 // Expression does not matter.
+	false
+	iota 
+)
+
+var nil int // Type does not matter.
+
+// Signatures do not matter.
+func append()
+func cap()
+func close()
+func complex()
+func copy()
+func delete()
+func imag()
+func len()
+func make()
+func new()
+func panic()
+func print()
+func println()
+func real()
+func recover()
+	
+type error interface {
+	Error() string
+}
+
+`
 )
 
 var (
@@ -74,6 +118,7 @@ type testContext struct {
 	errChecksMu sync.Mutex
 	exampleAST  interface{}
 	exampleRule int
+	pkgMap      map[string][]string
 }
 
 type contextOptions struct {
@@ -85,18 +130,40 @@ type contextOptions struct {
 
 // Context represents data shared by all packages loaded by LoadPackages.
 type Context struct {
-	fileCentral *xc.FileCentral
-	goarch      string
-	goos        string
-	gopaths     []string
-	goroot      string
-	model       Model
-	options     *contextOptions
-	report      *xc.Report
-	searchPaths []string
-	tags        map[string]struct{}
-	test        *testContext
-	universe    *Scope
+	bigIntMaxInt     *big.Int
+	bigIntMaxUint    *big.Int
+	bigIntMaxUintptr *big.Int
+	bigIntMinInt     *big.Int
+	boolType         Type
+	complex128Type   Type
+	fileCentral      *xc.FileCentral
+	float32Type      Type
+	float64Type      Type
+	floatConstPrec   uint
+	floatMaxInt      float64
+	floatMaxUint     float64
+	floatMaxUintptr  float64
+	floatMinInt      float64
+	goarch           string
+	goos             string
+	gopaths          []string
+	goroot           string
+	int32Type        Type
+	intConstBits     uint
+	intType          Type
+	maxInt           int64
+	maxUint          uint64
+	maxUintptr       uint64
+	minInt           int64
+	model            Model
+	options          *contextOptions
+	report           *xc.Report
+	searchPaths      []string
+	stringType       Type
+	tags             map[string]struct{}
+	test             *testContext
+	universe         *Scope
+	voidType         Type
 }
 
 // NewContext returns a newly created Context.
@@ -105,7 +172,7 @@ func NewContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt
 		return nil, err
 	}
 
-	return newContext(goos, goarch, goroot, gopaths, tags, opts...) //TODO Unite
+	return newContext(goos, goarch, goroot, gopaths, tags, opts...)
 }
 
 func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt) (*Context, error) {
@@ -116,19 +183,23 @@ func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt
 	}
 	report := xc.NewReport()
 	report.ErrLimit = -1
+	model := ArchMap[goarch]
 	c := &Context{
-		fileCentral: xc.NewFileCentral(),
-		goarch:      goarch,
-		goos:        goos,
-		gopaths:     gopaths,
-		goroot:      goroot,
-		model:       ArchMap[goarch],
-		options:     &contextOptions{errLimit: 10},
-		report:      report,
-		searchPaths: searchPaths,
-		tags:        map[string]struct{}{},
-		universe:    newScope(UniverseScope, nil),
+		fileCentral:    xc.NewFileCentral(),
+		floatConstPrec: DefaultFloatConstPrec,
+		goarch:         goarch,
+		goos:           goos,
+		gopaths:        gopaths,
+		goroot:         goroot,
+		intConstBits:   DefaultIntConstBits,
+		model:          model,
+		options:        &contextOptions{errLimit: 10},
+		report:         report,
+		searchPaths:    searchPaths,
+		tags:           map[string]struct{}{},
+		universe:       newScope(UniverseScope, nil),
 	}
+	c.setupLimits()
 	for _, v := range tags {
 		c.tags[v] = struct{}{}
 	}
@@ -140,11 +211,117 @@ func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt
 		}
 	}
 	c.options.errLimit0 = c.options.errLimit
+	if err := c.declareBuiltins(); err != nil {
+		return nil, err
+	}
 	return c, nil
+}
+
+func (c *Context) setupLimits() {
+	switch c.model.IntBytes {
+	case 4:
+		c.bigIntMaxInt = bigIntMaxInt32
+		c.bigIntMaxUint = bigIntMaxUint32
+		c.bigIntMinInt = bigIntMinInt32
+		c.floatMaxInt = math.MaxInt32
+		c.floatMaxUint = math.MaxUint32
+		c.floatMinInt = math.MinInt32
+		c.maxInt = math.MaxInt32
+		c.maxUint = math.MaxUint32
+		c.minInt = math.MinInt32
+	case 8:
+		c.bigIntMaxInt = bigIntMaxInt64
+		c.bigIntMaxUint = bigIntMaxUint64
+		c.bigIntMinInt = bigIntMinInt64
+		c.floatMaxInt = math.MaxInt64
+		c.floatMaxUint = math.MaxUint64
+		c.floatMinInt = math.MinInt64
+		c.maxInt = math.MaxInt64
+		c.maxUint = math.MaxUint64
+		c.minInt = math.MinInt64
+	default:
+		panic("invalid model IntBytes")
+	}
+	switch c.model.PtrBytes {
+	case 4:
+		c.bigIntMaxUintptr = bigIntMaxUint32
+		c.floatMaxUintptr = math.MaxUint32
+		c.maxUintptr = math.MaxUint32
+	case 8:
+		c.bigIntMaxUintptr = bigIntMaxUint64
+		c.floatMaxUintptr = math.MaxUint64
+		c.maxUintptr = math.MaxUint64
+	default:
+		panic("invalid model PtrBytes")
+	}
+}
+
+func (c *Context) declareBuiltins() error {
+	for _, v := range []struct {
+		name string
+		kind Kind
+	}{
+		{"bool", Bool},
+		{"complex64", Complex64},
+		{"complex128", Complex128},
+		{"float32", Float32},
+		{"float64", Float64},
+		{"int", Int},
+		{"int8", Int8},
+		{"int16", Int16},
+		{"int32", Int32},
+		{"int64", Int64},
+		{"string", String},
+		{"uint", Uint},
+		{"uint8", Uint8},
+		{"uint16", Uint16},
+		{"uint32", Uint32},
+		{"uint64", Uint64},
+		{"uintptr", Uintptr},
+	} {
+		t := xc.Token{Val: dict.SID(v.name)}
+		d := newTypeDeclaration(nil, t, nil)
+		d.ctx = c
+		base := d.base()
+		base.typ = d
+		base.kind = v.kind
+		c.universe.declare(nil, d)
+	}
+
+	b := c.universe.Bindings
+	b[dict.SID("byte")] = b[dict.SID("uint8")]
+	b[dict.SID("rune")] = b[dict.SID("int32")]
+
+	c.boolType = b[dict.SID("bool")].(*TypeDeclaration)
+	c.complex128Type = b[dict.SID("complex128")].(*TypeDeclaration)
+	c.float32Type = b[dict.SID("float32")].(*TypeDeclaration)
+	c.float64Type = b[dict.SID("float64")].(*TypeDeclaration)
+	c.int32Type = b[dict.SID("int32")].(*TypeDeclaration)
+	c.intType = b[dict.SID("int")].(*TypeDeclaration)
+	c.stringType = b[dict.SID("string")].(*TypeDeclaration)
+	c.voidType = newTupleType(c, nil)
+
+	p := c.newPackage("", "")
+	p.Scope = c.universe
+	if err := p.loadString("", builtin); err != nil {
+		return err
+	}
+
+	if t := c.test; t != nil && t.exampleRule != 0 {
+		return nil
+	}
+
+	b[dict.SID("true")].(*ConstDeclaration).Value = newConstValue(newBoolConst(true, c.boolType, true))
+	b[dict.SID("false")].(*ConstDeclaration).Value = newConstValue(newBoolConst(false, c.boolType, true))
+	return nil
 }
 
 func (c *Context) newPackage(importPath, directory string) *Package {
 	return newPackage(c, importPath, directory)
+}
+
+func (c *Context) err(n Node, format string, arg ...interface{}) bool {
+	return c.errPos(n.Pos(), format, arg...)
 }
 
 func (c *Context) errPos(pos token.Pos, format string, arg ...interface{}) bool {
@@ -174,13 +351,8 @@ func (c *Context) clearErrors() {
 }
 
 // DirectoryFromImportPath returns the directory where the source files of
-// package importPath are to be searched for. Relative import paths are
-// computed relative to basePath.
-func (c *Context) DirectoryFromImportPath(importPath, basePath string) (string, error) {
-	if strings.HasPrefix(importPath, "./") || strings.HasPrefix(importPath, "../") {
-		return filepath.Join(basePath, importPath), nil
-	}
-
+// package importPath are to be searched for.
+func (c *Context) DirectoryFromImportPath(importPath string) (string, error) {
 	for _, v := range c.searchPaths {
 		dir := filepath.Join(v, importPath)
 		fi, err := os.Stat(dir)
@@ -209,14 +381,19 @@ func (c *Context) DirectoryFromImportPath(importPath, basePath string) (string, 
 
 // FilesFromImportPath returns the directory where the source files for package
 // importPath are; a list of normal and testing (*_test.go) go source files or
-// an error, if any. A relative import path is considered to be relative to
-// basePath.
-func (c *Context) FilesFromImportPath(importPath, basePath string) (dir string, sourceFiles []string, testFiles []string, err error) {
+// an error, if any.
+func (c *Context) FilesFromImportPath(importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
+	if t := c.test; t != nil {
+		if sf, ok := t.pkgMap[importPath]; ok {
+			return filepath.Dir(sf[0]), sf, nil, nil
+		}
+	}
+
 	if importPath == "C" {
 		return "", nil, nil, nil
 	}
 
-	if dir, err = c.DirectoryFromImportPath(importPath, basePath); err != nil {
+	if dir, err = c.DirectoryFromImportPath(importPath); err != nil {
 		return "", nil, nil, err
 	}
 
@@ -269,7 +446,7 @@ func (c *Context) FilesFromImportPath(importPath, basePath string) (dir string, 
 	return dir, sourceFiles, testFiles, err
 }
 
-func (c *Context) oncePackage(n Node, importPath, basePath string) *xc.Once {
+func (c *Context) oncePackage(n Node, importPath string) *xc.Once {
 	var pos token.Pos
 	if n != nil {
 		pos = n.Pos()
@@ -277,7 +454,7 @@ func (c *Context) oncePackage(n Node, importPath, basePath string) *xc.Once {
 	return c.fileCentral.Once(
 		importPath,
 		func() interface{} {
-			dir, sourceFiles, _, err := c.FilesFromImportPath(importPath, basePath)
+			dir, sourceFiles, _, err := c.FilesFromImportPath(importPath)
 			p := c.newPackage(importPath, dir)
 			if err != nil {
 				c.errPos(pos, "%s", err)
@@ -323,7 +500,7 @@ func (c *Context) loadPackages(importPaths []string) (map[string]*Package, error
 	importPaths = dedup(importPaths)
 	onces := make([]*xc.Once, len(importPaths))
 	for i, v := range importPaths {
-		onces[i] = c.oncePackage(nil, v, "")
+		onces[i] = c.oncePackage(nil, v)
 	}
 
 	// Wait for all packages to load.
@@ -332,4 +509,56 @@ func (c *Context) loadPackages(importPaths []string) (map[string]*Package, error
 	}
 
 	return c.pkgMap(), c.errors()
+}
+
+func (c *Context) isBuiltin(d Declaration) bool {
+	return d != nil && d == c.universe.Bindings[d.Name()]
+}
+
+var untypedArithmeticBinOpTab = [maxKind][maxKind]Kind{
+	Int:        {Int: Int},
+	Int32:      {Int: Int, Int32: Int32},
+	Float64:    {Int: Float64, Int32: Float64, Float64: Float64},
+	Complex128: {Int: Complex128, Int32: Complex128, Float64: Complex128, Complex128: Complex128},
+}
+
+func (c *Context) untypedArithmeticBinOpType(a, b Type) Type {
+	ak := a.Kind()
+	bk := b.Kind()
+	if ak > bk {
+		ak, bk = bk, ak
+	}
+	switch untypedArithmeticBinOpTab[bk][ak] {
+	case Int32:
+		return c.int32Type
+	case Int:
+		return c.intType
+	case Float64:
+		return c.float64Type
+	case Complex128:
+		return c.complex128Type
+	default:
+		return nil
+	}
+}
+
+func (c *Context) arithmeticBinOpShape(a, b Const, n Node) (Const, Const) {
+	switch {
+	case a.Untyped():
+		switch {
+		case b.Untyped():
+			todo(n) //TODO
+		default:
+			todo(n) //TODO
+		}
+	case b.Untyped(): // !a.Untyped() && b.Untyped()
+		if d := b.Convert(a.Type()); d != nil {
+			return a, d
+		}
+
+		c.err(n, "constant %s overflows %s", b, a.Type())
+	default: // !a.Untyped() && !b.Untyped()
+		todo(n) //TODO
+	}
+	return nil, nil
 }

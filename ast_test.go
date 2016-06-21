@@ -20,6 +20,7 @@ func ExampleArgument() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example2.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -61,6 +62,7 @@ func ExampleArgumentList() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example4.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -83,6 +85,7 @@ func ExampleArgumentList_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example5.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -99,6 +102,7 @@ func ExampleArgumentList_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 'd',
 	// · · · · · · · · Token: example5.go:1:25: CHAR_LIT "'d'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
@@ -140,6 +144,7 @@ func ExampleArrayType_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example7.go:1:15: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -169,6 +174,7 @@ func ExampleAssignment() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example8.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -184,6 +190,7 @@ func ExampleAssignment() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example8.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -208,6 +215,7 @@ func ExampleAssignment_case01() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example9.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -223,6 +231,7 @@ func ExampleAssignment_case01() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example9.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -247,6 +256,7 @@ func ExampleAssignment_case02() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example10.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -262,6 +272,7 @@ func ExampleAssignment_case02() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example10.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -286,6 +297,7 @@ func ExampleAssignment_case03() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example11.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -301,6 +313,7 @@ func ExampleAssignment_case03() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example11.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -325,6 +338,7 @@ func ExampleAssignment_case04() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example12.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -340,6 +354,7 @@ func ExampleAssignment_case04() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example12.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -364,6 +379,7 @@ func ExampleAssignment_case05() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example13.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -379,6 +395,7 @@ func ExampleAssignment_case05() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example13.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -403,6 +420,7 @@ func ExampleAssignment_case06() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example14.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -418,6 +436,7 @@ func ExampleAssignment_case06() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example14.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -442,6 +461,7 @@ func ExampleAssignment_case07() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example15.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -457,6 +477,7 @@ func ExampleAssignment_case07() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example15.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -481,6 +502,7 @@ func ExampleAssignment_case08() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example16.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -496,6 +518,7 @@ func ExampleAssignment_case08() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example16.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -520,6 +543,7 @@ func ExampleAssignment_case09() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example17.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -535,6 +559,7 @@ func ExampleAssignment_case09() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example17.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -559,6 +584,7 @@ func ExampleAssignment_case10() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example18.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -574,6 +600,7 @@ func ExampleAssignment_case10() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example18.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -598,6 +625,7 @@ func ExampleAssignment_case11() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example19.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -613,6 +641,7 @@ func ExampleAssignment_case11() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example19.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -629,6 +658,7 @@ func ExampleBasicLiteral() {
 	fmt.Println(exampleAST(20, "package a ; 'b' %"))
 	// Output:
 	// &gc.BasicLiteral{
+	// · Value: 'b',
 	// · Token: example20.go:1:13: CHAR_LIT "'b'",
 	// }
 }
@@ -637,6 +667,7 @@ func ExampleBasicLiteral_case1() {
 	fmt.Println(exampleAST(21, "package a ; 1.98 %"))
 	// Output:
 	// &gc.BasicLiteral{
+	// · Value: 1.98,
 	// · Case: 1,
 	// · Token: example21.go:1:13: FLOAT_LIT "1.98",
 	// }
@@ -646,6 +677,7 @@ func ExampleBasicLiteral_case2() {
 	fmt.Println(exampleAST(22, "package a ; 98i %"))
 	// Output:
 	// &gc.BasicLiteral{
+	// · Value: (0+98i),
 	// · Case: 2,
 	// · Token: example22.go:1:13: IMAG_LIT "98i",
 	// }
@@ -655,6 +687,7 @@ func ExampleBasicLiteral_case3() {
 	fmt.Println(exampleAST(23, "package a ; 98 %"))
 	// Output:
 	// &gc.BasicLiteral{
+	// · Value: 98,
 	// · Case: 3,
 	// · Token: example23.go:1:13: INT_LIT "98",
 	// }
@@ -664,6 +697,7 @@ func ExampleBasicLiteral_case4() {
 	fmt.Println(exampleAST(24, "package a ; \"b\" %"))
 	// Output:
 	// &gc.BasicLiteral{
+	// · Value: "b",
 	// · Case: 4,
 	// · Token: example24.go:1:13: STRING_LIT "\"b\"",
 	// }
@@ -708,6 +742,7 @@ func ExampleCall_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 'c',
 	// · · · · · · · · Token: example30.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
@@ -735,6 +770,7 @@ func ExampleCall_case2() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 'c',
 	// · · · · · · · · Token: example31.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
@@ -854,6 +890,7 @@ func ExampleCompLitItem_case2() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example39.go:1:25: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -876,6 +913,7 @@ func ExampleCompLitItem_case3() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example40.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -901,6 +939,7 @@ func ExampleCompLitItem_case4() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example41.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -923,6 +962,7 @@ func ExampleCompLitItem_case5() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example42.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -936,6 +976,7 @@ func ExampleCompLitItem_case5() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'd',
 	// · · · · · · Token: example42.go:1:25: CHAR_LIT "'d'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -959,6 +1000,7 @@ func ExampleCompLitItemList() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example43.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -982,6 +1024,7 @@ func ExampleCompLitItemList_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example44.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -1000,6 +1043,7 @@ func ExampleCompLitItemList_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 'd',
 	// · · · · · · · · Token: example44.go:1:25: CHAR_LIT "'d'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
@@ -1025,6 +1069,7 @@ func ExampleCompLitType() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example45.go:1:15: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -1126,6 +1171,7 @@ func ExampleCompLitValue_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 'c',
 	// · · · · · · · · Token: example50.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
@@ -1204,6 +1250,7 @@ func ExampleConstSpec_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example55.go:1:23: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -1231,6 +1278,7 @@ func ExampleConstSpec_case2() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'd',
 	// · · · · · · · Token: example56.go:1:25: CHAR_LIT "'d'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -1346,6 +1394,7 @@ func ExampleExpression() {
 	// · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · Operand: &gc.Operand{
 	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
 	// · · · · · Token: example64.go:1:13: CHAR_LIT "'b'",
 	// · · · · },
 	// · · · · Case: 2,
@@ -1366,6 +1415,7 @@ func ExampleExpression_case01() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example65.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1379,6 +1429,7 @@ func ExampleExpression_case01() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example65.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1401,6 +1452,7 @@ func ExampleExpression_case02() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example66.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1414,6 +1466,7 @@ func ExampleExpression_case02() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example66.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1436,6 +1489,7 @@ func ExampleExpression_case03() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example67.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1449,6 +1503,7 @@ func ExampleExpression_case03() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example67.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1471,6 +1526,7 @@ func ExampleExpression_case04() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example68.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1484,6 +1540,7 @@ func ExampleExpression_case04() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example68.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1506,6 +1563,7 @@ func ExampleExpression_case05() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example69.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1519,6 +1577,7 @@ func ExampleExpression_case05() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example69.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1541,6 +1600,7 @@ func ExampleExpression_case06() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example70.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1554,6 +1614,7 @@ func ExampleExpression_case06() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example70.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1576,6 +1637,7 @@ func ExampleExpression_case07() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example71.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1589,6 +1651,7 @@ func ExampleExpression_case07() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example71.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1611,6 +1674,7 @@ func ExampleExpression_case08() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example72.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1624,6 +1688,7 @@ func ExampleExpression_case08() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example72.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1646,6 +1711,7 @@ func ExampleExpression_case09() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example73.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1659,6 +1725,7 @@ func ExampleExpression_case09() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example73.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1681,6 +1748,7 @@ func ExampleExpression_case10() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example74.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1694,6 +1762,7 @@ func ExampleExpression_case10() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example74.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1716,6 +1785,7 @@ func ExampleExpression_case11() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example75.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1729,6 +1799,7 @@ func ExampleExpression_case11() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example75.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1751,6 +1822,7 @@ func ExampleExpression_case12() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example76.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1764,6 +1836,7 @@ func ExampleExpression_case12() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example76.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1786,6 +1859,7 @@ func ExampleExpression_case13() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example77.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1799,6 +1873,7 @@ func ExampleExpression_case13() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example77.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1821,6 +1896,7 @@ func ExampleExpression_case14() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example78.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1834,6 +1910,7 @@ func ExampleExpression_case14() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example78.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1856,6 +1933,7 @@ func ExampleExpression_case15() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example79.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1869,6 +1947,7 @@ func ExampleExpression_case15() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example79.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1891,6 +1970,7 @@ func ExampleExpression_case16() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example80.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1904,6 +1984,7 @@ func ExampleExpression_case16() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example80.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1926,6 +2007,7 @@ func ExampleExpression_case17() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example81.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1939,6 +2021,7 @@ func ExampleExpression_case17() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example81.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1961,6 +2044,7 @@ func ExampleExpression_case18() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example82.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1974,6 +2058,7 @@ func ExampleExpression_case18() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example82.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -1996,6 +2081,7 @@ func ExampleExpression_case19() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example83.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2009,6 +2095,7 @@ func ExampleExpression_case19() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example83.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2031,6 +2118,7 @@ func ExampleExpression_case20() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example84.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2044,6 +2132,7 @@ func ExampleExpression_case20() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example84.go:1:20: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2065,6 +2154,7 @@ func ExampleExpressionList() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example87.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2085,6 +2175,7 @@ func ExampleExpressionList_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
 	// · · · · · · Token: example88.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2100,6 +2191,7 @@ func ExampleExpressionList_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'c',
 	// · · · · · · · Token: example88.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -2129,6 +2221,7 @@ func ExampleExpressionListOpt_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example90.go:1:20: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -2156,6 +2249,7 @@ func ExampleExpressionOpt_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'c',
 	// · · · · · · Token: example86.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
@@ -2171,9 +2265,53 @@ func ExampleFile() {
 	// Output:
 	// &gc.File{
 	// · Scope: &gc.Scope{
-	// · · Kind: 2,
+	// · · Kind: FileScope,
 	// · · Parent: &gc.Scope{
-	// · · · Kind: 1,
+	// · · · Kind: PackageScope,
+	// · · · Parent: &gc.Scope{
+	// · · · · Bindings: gc.Bindings{
+	// · · · · · "append": *gc.FuncDeclaration,
+	// · · · · · "bool": *gc.TypeDeclaration,
+	// · · · · · "byte": *gc.TypeDeclaration,
+	// · · · · · "cap": *gc.FuncDeclaration,
+	// · · · · · "close": *gc.FuncDeclaration,
+	// · · · · · "complex": *gc.FuncDeclaration,
+	// · · · · · "complex128": *gc.TypeDeclaration,
+	// · · · · · "complex64": *gc.TypeDeclaration,
+	// · · · · · "copy": *gc.FuncDeclaration,
+	// · · · · · "delete": *gc.FuncDeclaration,
+	// · · · · · "error": *gc.TypeDeclaration,
+	// · · · · · "false": *gc.ConstDeclaration,
+	// · · · · · "float32": *gc.TypeDeclaration,
+	// · · · · · "float64": *gc.TypeDeclaration,
+	// · · · · · "imag": *gc.FuncDeclaration,
+	// · · · · · "int": *gc.TypeDeclaration,
+	// · · · · · "int16": *gc.TypeDeclaration,
+	// · · · · · "int32": *gc.TypeDeclaration,
+	// · · · · · "int64": *gc.TypeDeclaration,
+	// · · · · · "int8": *gc.TypeDeclaration,
+	// · · · · · "iota": *gc.ConstDeclaration,
+	// · · · · · "len": *gc.FuncDeclaration,
+	// · · · · · "make": *gc.FuncDeclaration,
+	// · · · · · "new": *gc.FuncDeclaration,
+	// · · · · · "nil": *gc.VarDeclaration,
+	// · · · · · "panic": *gc.FuncDeclaration,
+	// · · · · · "print": *gc.FuncDeclaration,
+	// · · · · · "println": *gc.FuncDeclaration,
+	// · · · · · "real": *gc.FuncDeclaration,
+	// · · · · · "recover": *gc.FuncDeclaration,
+	// · · · · · "rune": *gc.TypeDeclaration,
+	// · · · · · "string": *gc.TypeDeclaration,
+	// · · · · · "true": *gc.ConstDeclaration,
+	// · · · · · "uint": *gc.TypeDeclaration,
+	// · · · · · "uint16": *gc.TypeDeclaration,
+	// · · · · · "uint32": *gc.TypeDeclaration,
+	// · · · · · "uint64": *gc.TypeDeclaration,
+	// · · · · · "uint8": *gc.TypeDeclaration,
+	// · · · · · "uintptr": *gc.TypeDeclaration,
+	// · · · · },
+	// · · · · Kind: UniverseScope,
+	// · · · },
 	// · · },
 	// · },
 	// · Path: "example1.go",
@@ -2199,6 +2337,7 @@ func ExampleForHeader() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · Value: 'b',
 	// · · · · · · · Token: example91.go:1:23: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
@@ -2290,141 +2429,104 @@ func ExampleFuncType() {
 	// }
 }
 
-func ExampleGenericArgumentList() {
-	fmt.Println(exampleAST(100, "package a ; b « c ,"))
+func ExampleFuncType_case1() {
+	fmt.Println(exampleAST(100, "package a ; var b func « b » ( )"))
 	// Output:
-	// &gc.GenericArgumentList{
-	// · Typ: &gc.Typ{
-	// · · Case: 7,
-	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example100.go:1:18: IDENTIFIER "c",
+	// &gc.FuncType{
+	// · Case: 1,
+	// · IdentifierList: &gc.IdentifierList{
+	// · · Token: example100.go:1:27: IDENTIFIER "b",
+	// · },
+	// · Signature: &gc.Signature{
+	// · · Parameters: &gc.Parameters{
+	// · · · Token: example100.go:1:32: '(',
+	// · · · Token2: example100.go:1:34: ')',
 	// · · },
 	// · },
-	// }
-}
-
-func ExampleGenericArgumentList_case1() {
-	fmt.Println(exampleAST(101, "package a ; b « c , d ,"))
-	// Output:
-	// &gc.GenericArgumentList{
-	// · GenericArgumentList: &gc.GenericArgumentList{
-	// · · Case: 1,
-	// · · Token: example101.go:1:20: ',',
-	// · · Typ: &gc.Typ{
-	// · · · Case: 7,
-	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example101.go:1:22: IDENTIFIER "d",
-	// · · · },
-	// · · },
-	// · },
-	// · Typ: &gc.Typ{
-	// · · Case: 7,
-	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example101.go:1:18: IDENTIFIER "c",
-	// · · },
-	// · },
+	// · Token: example100.go:1:19: FUNC,
+	// · Token2: example100.go:1:24: LTLT,
+	// · Token3: example100.go:1:29: GTGT,
 	// }
 }
 
 func ExampleGenericArgumentsOpt() {
-	fmt.Println(exampleAST(102, "package a ; b %") == (*GenericArgumentsOpt)(nil))
+	fmt.Println(exampleAST(101, "package a ; b %") == (*GenericArgumentsOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleGenericArgumentsOpt_case1() {
-	fmt.Println(exampleAST(103, "package a ; b « c » %"))
+	fmt.Println(exampleAST(102, "package a ; b « c » %"))
 	// Output:
 	// &gc.GenericArgumentsOpt{
-	// · GenericArgumentList: &gc.GenericArgumentList{
+	// · Token: example102.go:1:15: LTLT,
+	// · Token2: example102.go:1:20: GTGT,
+	// · TypeList: &gc.TypeList{
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example103.go:1:18: IDENTIFIER "c",
+	// · · · · Token: example102.go:1:18: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example103.go:1:15: LTLT,
-	// · Token2: example103.go:1:20: GTGT,
-	// }
-}
-
-func ExampleGenericParameterList() {
-	fmt.Println(exampleAST(104, "package a ; type b « c ,"))
-	// Output:
-	// &gc.GenericParameterList{
-	// · Token: example104.go:1:23: IDENTIFIER "c",
-	// }
-}
-
-func ExampleGenericParameterList_case1() {
-	fmt.Println(exampleAST(105, "package a ; type b « c , d ,"))
-	// Output:
-	// &gc.GenericParameterList{
-	// · GenericParameterList: &gc.GenericParameterList{
-	// · · Case: 1,
-	// · · Token: example105.go:1:25: ',',
-	// · · Token2: example105.go:1:27: IDENTIFIER "d",
-	// · },
-	// · Token: example105.go:1:23: IDENTIFIER "c",
 	// }
 }
 
 func ExampleGenericParametersOpt() {
-	fmt.Println(exampleAST(106, "package a ; type b (") == (*GenericParametersOpt)(nil))
+	fmt.Println(exampleAST(103, "package a ; type b (") == (*GenericParametersOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleGenericParametersOpt_case1() {
-	fmt.Println(exampleAST(107, "package a ; type b « c » ("))
+	fmt.Println(exampleAST(104, "package a ; type b « c » ("))
 	// Output:
 	// &gc.GenericParametersOpt{
-	// · GenericParameterList: &gc.GenericParameterList{
-	// · · Token: example107.go:1:23: IDENTIFIER "c",
+	// · IdentifierList: &gc.IdentifierList{
+	// · · Token: example104.go:1:23: IDENTIFIER "c",
 	// · },
-	// · Token: example107.go:1:20: LTLT,
-	// · Token2: example107.go:1:25: GTGT,
+	// · Token: example104.go:1:20: LTLT,
+	// · Token2: example104.go:1:25: GTGT,
 	// }
 }
 
 func ExampleIdentifierList() {
-	fmt.Println(exampleAST(110, "package a ; var b ("))
+	fmt.Println(exampleAST(107, "package a ; var b ("))
 	// Output:
 	// &gc.IdentifierList{
-	// · Token: example110.go:1:17: IDENTIFIER "b",
+	// · Token: example107.go:1:17: IDENTIFIER "b",
 	// }
 }
 
 func ExampleIdentifierList_case1() {
-	fmt.Println(exampleAST(111, "package a ; var b , c ("))
+	fmt.Println(exampleAST(108, "package a ; var b , c ("))
 	// Output:
 	// &gc.IdentifierList{
 	// · IdentifierList: &gc.IdentifierList{
 	// · · Case: 1,
-	// · · Token: example111.go:1:19: ',',
-	// · · Token2: example111.go:1:21: IDENTIFIER "c",
+	// · · Token: example108.go:1:19: ',',
+	// · · Token2: example108.go:1:21: IDENTIFIER "c",
 	// · },
-	// · Token: example111.go:1:17: IDENTIFIER "b",
+	// · Token: example108.go:1:17: IDENTIFIER "b",
 	// }
 }
 
 func ExampleIdentifierOpt() {
-	fmt.Println(exampleAST(108, "package a ; import 'b'") == (*IdentifierOpt)(nil))
+	fmt.Println(exampleAST(105, "package a ; import 'b'") == (*IdentifierOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleIdentifierOpt_case1() {
-	fmt.Println(exampleAST(109, "package a ; import b ;"))
+	fmt.Println(exampleAST(106, "package a ; import b ;"))
 	// Output:
 	// &gc.IdentifierOpt{
-	// · Token: example109.go:1:20: IDENTIFIER "b",
+	// · Token: example106.go:1:20: IDENTIFIER "b",
 	// }
 }
 
 func ExampleIfHeader() {
-	fmt.Println(exampleAST(112, "package a ; switch b {"))
+	fmt.Println(exampleAST(109, "package a ; if b {"))
 	// Output:
 	// &gc.IfHeader{
 	// · SimpleStatementOpt: &gc.SimpleStatementOpt{
@@ -2436,7 +2538,7 @@ func ExampleIfHeader() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · Case: 4,
-	// · · · · · · · Token: example112.go:1:20: IDENTIFIER "b",
+	// · · · · · · · Token: example109.go:1:16: IDENTIFIER "b",
 	// · · · · · · },
 	// · · · · · },
 	// · · · · },
@@ -2447,123 +2549,129 @@ func ExampleIfHeader() {
 }
 
 func ExampleIfHeader_case1() {
-	fmt.Println(exampleAST(113, "package a ; switch ; {"))
+	fmt.Println(exampleAST(110, "package a ; if ; {"))
 	// Output:
 	// &gc.IfHeader{
 	// · Case: 1,
-	// · Token: example113.go:1:20: ';',
+	// · Token: example110.go:1:16: ';',
 	// }
 }
 
 func ExampleIfStatement() {
-	fmt.Println(exampleAST(114, "package a ; if { } ;"))
+	fmt.Println(exampleAST(111, "package a ; if { } ;"))
 	// Output:
 	// &gc.IfStatement{
 	// · Body: &gc.Body{
-	// · · Token: example114.go:1:16: '{',
-	// · · Token2: example114.go:1:18: '}',
+	// · · Token: example111.go:1:16: '{',
+	// · · Token2: example111.go:1:18: '}',
 	// · },
-	// · Token: example114.go:1:13: IF,
+	// · Token: example111.go:1:13: IF,
 	// }
 }
 
 func ExampleImportDecl() {
-	fmt.Println(exampleAST(115, "package a ; import ( ) ;"))
+	fmt.Println(exampleAST(112, "package a ; import ( ) ;"))
 	// Output:
 	// &gc.ImportDecl{
-	// · Token: example115.go:1:13: IMPORT,
-	// · Token2: example115.go:1:20: '(',
-	// · Token3: example115.go:1:22: ')',
+	// · Token: example112.go:1:13: IMPORT,
+	// · Token2: example112.go:1:20: '(',
+	// · Token3: example112.go:1:22: ')',
 	// }
 }
 
 func ExampleImportDecl_case1() {
-	fmt.Println(exampleAST(116, "package a ; import ( 'b' ) ;"))
+	fmt.Println(exampleAST(113, "package a ; import ( 'b' ) ;"))
 	// Output:
 	// &gc.ImportDecl{
 	// · Case: 1,
 	// · ImportSpecList: &gc.ImportSpecList{
 	// · · ImportSpec: &gc.ImportSpec{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example116.go:1:22: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example113.go:1:22: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 1,
 	// · · },
 	// · },
-	// · Token: example116.go:1:13: IMPORT,
-	// · Token2: example116.go:1:20: '(',
-	// · Token3: example116.go:1:26: ')',
+	// · Token: example113.go:1:13: IMPORT,
+	// · Token2: example113.go:1:20: '(',
+	// · Token3: example113.go:1:26: ')',
 	// }
 }
 
 func ExampleImportDecl_case2() {
-	fmt.Println(exampleAST(117, "package a ; import 'b' ;"))
+	fmt.Println(exampleAST(114, "package a ; import 'b' ;"))
 	// Output:
 	// &gc.ImportDecl{
 	// · Case: 2,
 	// · ImportSpec: &gc.ImportSpec{
 	// · · BasicLiteral: &gc.BasicLiteral{
-	// · · · Token: example117.go:1:20: CHAR_LIT "'b'",
+	// · · · Value: 'b',
+	// · · · Token: example114.go:1:20: CHAR_LIT "'b'",
 	// · · },
 	// · · Case: 1,
 	// · },
-	// · Token: example117.go:1:13: IMPORT,
+	// · Token: example114.go:1:13: IMPORT,
 	// }
 }
 
 func ExampleImportList() {
-	fmt.Println(exampleAST(124, "package a ;") == (*ImportList)(nil))
+	fmt.Println(exampleAST(121, "package a ;") == (*ImportList)(nil))
 	// Output:
 	// true
 }
 
 func ExampleImportList_case1() {
-	fmt.Println(exampleAST(125, "package a ; import 'b' ;"))
+	fmt.Println(exampleAST(122, "package a ; import 'b' ;"))
 	// Output:
 	// &gc.ImportList{
 	// · ImportDecl: &gc.ImportDecl{
 	// · · Case: 2,
 	// · · ImportSpec: &gc.ImportSpec{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example125.go:1:20: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example122.go:1:20: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 1,
 	// · · },
-	// · · Token: example125.go:1:13: IMPORT,
+	// · · Token: example122.go:1:13: IMPORT,
 	// · },
-	// · Token: example125.go:1:24: ';',
+	// · Token: example122.go:1:24: ';',
 	// }
 }
 
 func ExampleImportSpec() {
-	fmt.Println(exampleAST(118, "package a ; import . 'b' )"))
+	fmt.Println(exampleAST(115, "package a ; import . 'b' )"))
 	// Output:
 	// &gc.ImportSpec{
 	// · BasicLiteral: &gc.BasicLiteral{
-	// · · Token: example118.go:1:22: CHAR_LIT "'b'",
+	// · · Value: 'b',
+	// · · Token: example115.go:1:22: CHAR_LIT "'b'",
 	// · },
-	// · Token: example118.go:1:20: '.',
+	// · Token: example115.go:1:20: '.',
 	// }
 }
 
 func ExampleImportSpec_case1() {
-	fmt.Println(exampleAST(119, "package a ; import 'b' )"))
+	fmt.Println(exampleAST(116, "package a ; import 'b' )"))
 	// Output:
 	// &gc.ImportSpec{
 	// · BasicLiteral: &gc.BasicLiteral{
-	// · · Token: example119.go:1:20: CHAR_LIT "'b'",
+	// · · Value: 'b',
+	// · · Token: example116.go:1:20: CHAR_LIT "'b'",
 	// · },
 	// · Case: 1,
 	// }
 }
 
 func ExampleImportSpecList() {
-	fmt.Println(exampleAST(122, "package a ; import ( 'b' )"))
+	fmt.Println(exampleAST(119, "package a ; import ( 'b' )"))
 	// Output:
 	// &gc.ImportSpecList{
 	// · ImportSpec: &gc.ImportSpec{
 	// · · BasicLiteral: &gc.BasicLiteral{
-	// · · · Token: example122.go:1:22: CHAR_LIT "'b'",
+	// · · · Value: 'b',
+	// · · · Token: example119.go:1:22: CHAR_LIT "'b'",
 	// · · },
 	// · · Case: 1,
 	// · },
@@ -2571,12 +2679,13 @@ func ExampleImportSpecList() {
 }
 
 func ExampleImportSpecList_case1() {
-	fmt.Println(exampleAST(123, "package a ; import ( 'b' ; 'c' )"))
+	fmt.Println(exampleAST(120, "package a ; import ( 'b' ; 'c' )"))
 	// Output:
 	// &gc.ImportSpecList{
 	// · ImportSpec: &gc.ImportSpec{
 	// · · BasicLiteral: &gc.BasicLiteral{
-	// · · · Token: example123.go:1:22: CHAR_LIT "'b'",
+	// · · · Value: 'b',
+	// · · · Token: example120.go:1:22: CHAR_LIT "'b'",
 	// · · },
 	// · · Case: 1,
 	// · },
@@ -2584,61 +2693,62 @@ func ExampleImportSpecList_case1() {
 	// · · Case: 1,
 	// · · ImportSpec: &gc.ImportSpec{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example123.go:1:28: CHAR_LIT "'c'",
+	// · · · · Value: 'c',
+	// · · · · Token: example120.go:1:28: CHAR_LIT "'c'",
 	// · · · },
 	// · · · Case: 1,
 	// · · },
-	// · · Token: example123.go:1:26: ';',
+	// · · Token: example120.go:1:26: ';',
 	// · },
 	// }
 }
 
 func ExampleInterfaceMethodDecl() {
-	fmt.Println(exampleAST(130, "package a ; interface { b ( ) ;"))
+	fmt.Println(exampleAST(127, "package a ; interface { b ( ) ;"))
 	// Output:
 	// &gc.InterfaceMethodDecl{
 	// · Signature: &gc.Signature{
 	// · · Parameters: &gc.Parameters{
-	// · · · Token: example130.go:1:27: '(',
-	// · · · Token2: example130.go:1:29: ')',
+	// · · · Token: example127.go:1:27: '(',
+	// · · · Token2: example127.go:1:29: ')',
 	// · · },
 	// · },
-	// · Token: example130.go:1:25: IDENTIFIER "b",
+	// · Token: example127.go:1:25: IDENTIFIER "b",
 	// }
 }
 
 func ExampleInterfaceMethodDecl_case1() {
-	fmt.Println(exampleAST(131, "package a ; interface { b ;"))
+	fmt.Println(exampleAST(128, "package a ; interface { b ;"))
 	// Output:
 	// &gc.InterfaceMethodDecl{
 	// · Case: 1,
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example131.go:1:25: IDENTIFIER "b",
+	// · · Token: example128.go:1:25: IDENTIFIER "b",
 	// · },
 	// }
 }
 
 func ExampleInterfaceMethodDeclList() {
-	fmt.Println(exampleAST(132, "package a ; interface { b ;"))
+	fmt.Println(exampleAST(129, "package a ; interface { b ;"))
 	// Output:
 	// &gc.InterfaceMethodDeclList{
 	// · InterfaceMethodDecl: &gc.InterfaceMethodDecl{
 	// · · Case: 1,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example132.go:1:25: IDENTIFIER "b",
+	// · · · Token: example129.go:1:25: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleInterfaceMethodDeclList_case1() {
-	fmt.Println(exampleAST(133, "package a ; interface { b ; c ;"))
+	fmt.Println(exampleAST(130, "package a ; interface { b ; c ;"))
 	// Output:
 	// &gc.InterfaceMethodDeclList{
 	// · InterfaceMethodDecl: &gc.InterfaceMethodDecl{
 	// · · Case: 1,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example133.go:1:25: IDENTIFIER "b",
+	// · · · Token: example130.go:1:25: IDENTIFIER "b",
 	// · · },
 	// · },
 	// · InterfaceMethodDeclList: &gc.InterfaceMethodDeclList{
@@ -2646,29 +2756,29 @@ func ExampleInterfaceMethodDeclList_case1() {
 	// · · InterfaceMethodDecl: &gc.InterfaceMethodDecl{
 	// · · · Case: 1,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example133.go:1:29: IDENTIFIER "c",
+	// · · · · Token: example130.go:1:29: IDENTIFIER "c",
 	// · · · },
 	// · · },
-	// · · Token: example133.go:1:27: ';',
+	// · · Token: example130.go:1:27: ';',
 	// · },
 	// }
 }
 
 func ExampleInterfaceType() {
-	fmt.Println(exampleAST(126, "package a ; interface { } ("))
+	fmt.Println(exampleAST(123, "package a ; interface { } ("))
 	// Output:
 	// &gc.InterfaceType{
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example126.go:1:23: '{',
+	// · · Token: example123.go:1:23: '{',
 	// · },
-	// · Token: example126.go:1:13: INTERFACE,
-	// · Token2: example126.go:1:25: '}',
+	// · Token: example123.go:1:13: INTERFACE,
+	// · Token2: example123.go:1:25: '}',
 	// }
 }
 
 func ExampleInterfaceType_case1() {
-	fmt.Println(exampleAST(128, "package a ; interface { b } ("))
+	fmt.Println(exampleAST(125, "package a ; interface { b } ("))
 	// Output:
 	// &gc.InterfaceType{
 	// · Case: 1,
@@ -2676,38 +2786,38 @@ func ExampleInterfaceType_case1() {
 	// · · InterfaceMethodDecl: &gc.InterfaceMethodDecl{
 	// · · · Case: 1,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example128.go:1:25: IDENTIFIER "b",
+	// · · · · Token: example125.go:1:25: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example128.go:1:23: '{',
+	// · · Token: example125.go:1:23: '{',
 	// · },
-	// · Token: example128.go:1:13: INTERFACE,
-	// · Token2: example128.go:1:27: '}',
+	// · Token: example125.go:1:13: INTERFACE,
+	// · Token2: example125.go:1:27: '}',
 	// }
 }
 
 func ExampleLBrace() {
-	fmt.Println(exampleAST(134, "package a ; if interface { !"))
+	fmt.Println(exampleAST(131, "package a ; if interface { !"))
 	// Output:
 	// &gc.LBrace{
-	// · Token: example134.go:1:26: '{',
+	// · Token: example131.go:1:26: '{',
 	// }
 }
 
 func ExampleLBrace_case1() {
-	fmt.Println(exampleAST(135, "package a ; interface { !"))
+	fmt.Println(exampleAST(132, "package a ; interface { !"))
 	// Output:
 	// &gc.LBrace{
 	// · Case: 1,
-	// · Token: example135.go:1:23: '{',
+	// · Token: example132.go:1:23: '{',
 	// }
 }
 
 func ExampleLBraceCompLitItem() {
-	fmt.Println(exampleAST(136, "package a ; [ ] b { 'c' ,"))
+	fmt.Println(exampleAST(133, "package a ; [ ] b { 'c' ,"))
 	// Output:
 	// &gc.LBraceCompLitItem{
 	// · Expression: &gc.Expression{
@@ -2716,7 +2826,8 @@ func ExampleLBraceCompLitItem() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example136.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example133.go:1:21: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -2727,7 +2838,7 @@ func ExampleLBraceCompLitItem() {
 }
 
 func ExampleLBraceCompLitItem_case1() {
-	fmt.Println(exampleAST(137, "package a ; [ ] b { 'c' : 'd' ,"))
+	fmt.Println(exampleAST(134, "package a ; [ ] b { 'c' : 'd' ,"))
 	// Output:
 	// &gc.LBraceCompLitItem{
 	// · Case: 1,
@@ -2737,7 +2848,8 @@ func ExampleLBraceCompLitItem_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example137.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example134.go:1:21: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -2750,19 +2862,20 @@ func ExampleLBraceCompLitItem_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example137.go:1:27: CHAR_LIT "'d'",
+	// · · · · · · Value: 'd',
+	// · · · · · · Token: example134.go:1:27: CHAR_LIT "'d'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example137.go:1:25: ':',
+	// · Token: example134.go:1:25: ':',
 	// }
 }
 
 func ExampleLBraceCompLitItem_case2() {
-	fmt.Println(exampleAST(138, "package a ; [ ] b { 'c' : { } ,"))
+	fmt.Println(exampleAST(135, "package a ; [ ] b { 'c' : { } ,"))
 	// Output:
 	// &gc.LBraceCompLitItem{
 	// · Case: 2,
@@ -2772,7 +2885,8 @@ func ExampleLBraceCompLitItem_case2() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example138.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example135.go:1:21: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -2782,31 +2896,31 @@ func ExampleLBraceCompLitItem_case2() {
 	// · LBraceCompLitValue: &gc.LBraceCompLitValue{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example138.go:1:27: '{',
+	// · · · Token: example135.go:1:27: '{',
 	// · · },
-	// · · Token: example138.go:1:29: '}',
+	// · · Token: example135.go:1:29: '}',
 	// · },
-	// · Token: example138.go:1:25: ':',
+	// · Token: example135.go:1:25: ':',
 	// }
 }
 
 func ExampleLBraceCompLitItem_case3() {
-	fmt.Println(exampleAST(139, "package a ; [ ] b { { } ,"))
+	fmt.Println(exampleAST(136, "package a ; [ ] b { { } ,"))
 	// Output:
 	// &gc.LBraceCompLitItem{
 	// · Case: 3,
 	// · LBraceCompLitValue: &gc.LBraceCompLitValue{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example139.go:1:21: '{',
+	// · · · Token: example136.go:1:21: '{',
 	// · · },
-	// · · Token: example139.go:1:23: '}',
+	// · · Token: example136.go:1:23: '}',
 	// · },
 	// }
 }
 
 func ExampleLBraceCompLitItemList() {
-	fmt.Println(exampleAST(140, "package a ; [ ] b { 'c' ,"))
+	fmt.Println(exampleAST(137, "package a ; [ ] b { 'c' ,"))
 	// Output:
 	// &gc.LBraceCompLitItemList{
 	// · LBraceCompLitItem: &gc.LBraceCompLitItem{
@@ -2816,7 +2930,8 @@ func ExampleLBraceCompLitItemList() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example140.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · · Value: 'c',
+	// · · · · · · · Token: example137.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -2828,7 +2943,7 @@ func ExampleLBraceCompLitItemList() {
 }
 
 func ExampleLBraceCompLitItemList_case1() {
-	fmt.Println(exampleAST(141, "package a ; [ ] b { 'c' , 'd' ,"))
+	fmt.Println(exampleAST(138, "package a ; [ ] b { 'c' , 'd' ,"))
 	// Output:
 	// &gc.LBraceCompLitItemList{
 	// · LBraceCompLitItem: &gc.LBraceCompLitItem{
@@ -2838,7 +2953,8 @@ func ExampleLBraceCompLitItemList_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example141.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · · Value: 'c',
+	// · · · · · · · Token: example138.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -2855,7 +2971,8 @@ func ExampleLBraceCompLitItemList_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example141.go:1:27: CHAR_LIT "'d'",
+	// · · · · · · · · Value: 'd',
+	// · · · · · · · · Token: example138.go:1:27: CHAR_LIT "'d'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -2863,31 +2980,31 @@ func ExampleLBraceCompLitItemList_case1() {
 	// · · · · },
 	// · · · },
 	// · · },
-	// · · Token: example141.go:1:25: ',',
+	// · · Token: example138.go:1:25: ',',
 	// · },
 	// }
 }
 
 func ExampleLBraceCompLitValue() {
-	fmt.Println(exampleAST(142, "package a ; [ ] b { } %"))
+	fmt.Println(exampleAST(139, "package a ; [ ] b { } %"))
 	// Output:
 	// &gc.LBraceCompLitValue{
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example142.go:1:19: '{',
+	// · · Token: example139.go:1:19: '{',
 	// · },
-	// · Token: example142.go:1:21: '}',
+	// · Token: example139.go:1:21: '}',
 	// }
 }
 
 func ExampleLBraceCompLitValue_case1() {
-	fmt.Println(exampleAST(143, "package a ; [ ] b { 'c' } %"))
+	fmt.Println(exampleAST(140, "package a ; [ ] b { 'c' } %"))
 	// Output:
 	// &gc.LBraceCompLitValue{
 	// · Case: 1,
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example143.go:1:19: '{',
+	// · · Token: example140.go:1:19: '{',
 	// · },
 	// · LBraceCompLitItemList: &gc.LBraceCompLitItemList{
 	// · · LBraceCompLitItem: &gc.LBraceCompLitItem{
@@ -2897,7 +3014,8 @@ func ExampleLBraceCompLitValue_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example143.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · · · Value: 'c',
+	// · · · · · · · · Token: example140.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -2906,34 +3024,34 @@ func ExampleLBraceCompLitValue_case1() {
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example143.go:1:25: '}',
+	// · Token: example140.go:1:25: '}',
 	// }
 }
 
 func ExampleMapType() {
-	fmt.Println(exampleAST(144, "package a ; map [ b ] c ("))
+	fmt.Println(exampleAST(141, "package a ; map [ b ] c ("))
 	// Output:
 	// &gc.MapType{
-	// · Token: example144.go:1:13: MAP,
-	// · Token2: example144.go:1:17: '[',
-	// · Token3: example144.go:1:21: ']',
+	// · Token: example141.go:1:13: MAP,
+	// · Token2: example141.go:1:17: '[',
+	// · Token3: example141.go:1:21: ']',
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example144.go:1:19: IDENTIFIER "b",
+	// · · · Token: example141.go:1:19: IDENTIFIER "b",
 	// · · },
 	// · },
 	// · Typ2: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example144.go:1:23: IDENTIFIER "c",
+	// · · · Token: example141.go:1:23: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleOperand() {
-	fmt.Println(exampleAST(145, "package a ; ( 'b' ) %"))
+	fmt.Println(exampleAST(142, "package a ; ( 'b' ) %"))
 	// Output:
 	// &gc.Operand{
 	// · Expression: &gc.Expression{
@@ -2942,33 +3060,34 @@ func ExampleOperand() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example145.go:1:15: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example142.go:1:15: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example145.go:1:13: '(',
-	// · Token2: example145.go:1:19: ')',
+	// · Token: example142.go:1:13: '(',
+	// · Token2: example142.go:1:19: ')',
 	// }
 }
 
 func ExampleOperand_case1() {
-	fmt.Println(exampleAST(146, "package a ; ( chan b ) %"))
+	fmt.Println(exampleAST(143, "package a ; ( chan b ) %"))
 	// Output:
 	// &gc.Operand{
 	// · Case: 1,
-	// · Token: example146.go:1:13: '(',
-	// · Token2: example146.go:1:22: ')',
+	// · Token: example143.go:1:13: '(',
+	// · Token2: example143.go:1:22: ')',
 	// · TypeLiteral: &gc.TypeLiteral{
 	// · · Case: 2,
 	// · · ChanType: &gc.ChanType{
-	// · · · Token: example146.go:1:15: CHAN,
+	// · · · Token: example143.go:1:15: CHAN,
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example146.go:1:20: IDENTIFIER "b",
+	// · · · · · Token: example143.go:1:20: IDENTIFIER "b",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -2977,118 +3096,119 @@ func ExampleOperand_case1() {
 }
 
 func ExampleOperand_case2() {
-	fmt.Println(exampleAST(147, "package a ; 'b' %"))
+	fmt.Println(exampleAST(144, "package a ; 'b' %"))
 	// Output:
 	// &gc.Operand{
 	// · BasicLiteral: &gc.BasicLiteral{
-	// · · Token: example147.go:1:13: CHAR_LIT "'b'",
+	// · · Value: 'b',
+	// · · Token: example144.go:1:13: CHAR_LIT "'b'",
 	// · },
 	// · Case: 2,
 	// }
 }
 
 func ExampleOperand_case3() {
-	fmt.Println(exampleAST(149, "package a ; func ( ) { } %"))
+	fmt.Println(exampleAST(146, "package a ; func ( ) { } %"))
 	// Output:
 	// &gc.Operand{
 	// · Case: 3,
 	// · FuncType: &gc.FuncType{
 	// · · Signature: &gc.Signature{
 	// · · · Parameters: &gc.Parameters{
-	// · · · · Token: example149.go:1:18: '(',
-	// · · · · Token2: example149.go:1:20: ')',
+	// · · · · Token: example146.go:1:18: '(',
+	// · · · · Token2: example146.go:1:20: ')',
 	// · · · },
 	// · · },
-	// · · Token: example149.go:1:13: FUNC,
+	// · · Token: example146.go:1:13: FUNC,
 	// · },
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example149.go:1:22: '{',
+	// · · Token: example146.go:1:22: '{',
 	// · },
-	// · Token: example149.go:1:24: '}',
+	// · Token: example146.go:1:24: '}',
 	// }
 }
 
 func ExampleOperand_case4() {
-	fmt.Println(exampleAST(150, "package a ; b %"))
+	fmt.Println(exampleAST(147, "package a ; b %"))
 	// Output:
 	// &gc.Operand{
 	// · Case: 4,
-	// · Token: example150.go:1:13: IDENTIFIER "b",
+	// · Token: example147.go:1:13: IDENTIFIER "b",
 	// }
 }
 
 func ExamplePackageClause() {
-	fmt.Println(exampleAST(154, "package a ;"))
+	fmt.Println(exampleAST(148, "package a ;"))
 	// Output:
 	// &gc.PackageClause{
-	// · Token: example154.go:1:1: PACKAGE,
-	// · Token2: example154.go:1:9: IDENTIFIER "a",
-	// · Token3: example154.go:1:11: ';',
+	// · Token: example148.go:1:1: PACKAGE,
+	// · Token2: example148.go:1:9: IDENTIFIER "a",
+	// · Token3: example148.go:1:11: ';',
 	// }
 }
 
 func ExampleParameterDecl() {
-	fmt.Println(exampleAST(155, "package a ; func ( ... b )"))
+	fmt.Println(exampleAST(149, "package a ; func ( ... b )"))
 	// Output:
 	// &gc.ParameterDecl{
-	// · Token: example155.go:1:20: DDD,
+	// · Token: example149.go:1:20: DDD,
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example155.go:1:24: IDENTIFIER "b",
+	// · · · Token: example149.go:1:24: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleParameterDecl_case1() {
-	fmt.Println(exampleAST(156, "package a ; func ( b ... c )"))
+	fmt.Println(exampleAST(150, "package a ; func ( b ... c )"))
 	// Output:
 	// &gc.ParameterDecl{
 	// · Case: 1,
-	// · Token: example156.go:1:20: IDENTIFIER "b",
-	// · Token2: example156.go:1:22: DDD,
+	// · Token: example150.go:1:20: IDENTIFIER "b",
+	// · Token2: example150.go:1:22: DDD,
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example156.go:1:26: IDENTIFIER "c",
+	// · · · Token: example150.go:1:26: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleParameterDecl_case2() {
-	fmt.Println(exampleAST(157, "package a ; func ( b c )"))
+	fmt.Println(exampleAST(151, "package a ; func ( b c )"))
 	// Output:
 	// &gc.ParameterDecl{
 	// · Case: 2,
-	// · Token: example157.go:1:20: IDENTIFIER "b",
+	// · Token: example151.go:1:20: IDENTIFIER "b",
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example157.go:1:22: IDENTIFIER "c",
+	// · · · Token: example151.go:1:22: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleParameterDecl_case3() {
-	fmt.Println(exampleAST(158, "package a ; func ( ) ( b ,"))
+	fmt.Println(exampleAST(152, "package a ; func ( ) ( b ,"))
 	// Output:
 	// &gc.ParameterDecl{
 	// · Case: 3,
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example158.go:1:24: IDENTIFIER "b",
+	// · · · Token: example152.go:1:24: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleParameterDeclList() {
-	fmt.Println(exampleAST(159, "package a ; func ( b )"))
+	fmt.Println(exampleAST(153, "package a ; func ( b )"))
 	// Output:
 	// &gc.ParameterDeclList{
 	// · ParameterDecl: &gc.ParameterDecl{
@@ -3096,7 +3216,7 @@ func ExampleParameterDeclList() {
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example159.go:1:20: IDENTIFIER "b",
+	// · · · · Token: example153.go:1:20: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
@@ -3104,7 +3224,7 @@ func ExampleParameterDeclList() {
 }
 
 func ExampleParameterDeclList_case1() {
-	fmt.Println(exampleAST(160, "package a ; func ( b , c )"))
+	fmt.Println(exampleAST(154, "package a ; func ( b , c )"))
 	// Output:
 	// &gc.ParameterDeclList{
 	// · ParameterDecl: &gc.ParameterDecl{
@@ -3112,7 +3232,7 @@ func ExampleParameterDeclList_case1() {
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example160.go:1:20: IDENTIFIER "b",
+	// · · · · Token: example154.go:1:20: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
@@ -3123,26 +3243,26 @@ func ExampleParameterDeclList_case1() {
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example160.go:1:24: IDENTIFIER "c",
+	// · · · · · Token: example154.go:1:24: IDENTIFIER "c",
 	// · · · · },
 	// · · · },
 	// · · },
-	// · · Token: example160.go:1:22: ',',
+	// · · Token: example154.go:1:22: ',',
 	// · },
 	// }
 }
 
 func ExampleParameters() {
-	fmt.Println(exampleAST(161, "package a ; func ( ) ("))
+	fmt.Println(exampleAST(155, "package a ; func ( ) ("))
 	// Output:
 	// &gc.Parameters{
-	// · Token: example161.go:1:18: '(',
-	// · Token2: example161.go:1:20: ')',
+	// · Token: example155.go:1:18: '(',
+	// · Token2: example155.go:1:20: ')',
 	// }
 }
 
 func ExampleParameters_case1() {
-	fmt.Println(exampleAST(162, "package a ; func ( b ) ("))
+	fmt.Println(exampleAST(156, "package a ; func ( b ) ("))
 	// Output:
 	// &gc.Parameters{
 	// · Case: 1,
@@ -3152,23 +3272,24 @@ func ExampleParameters_case1() {
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example162.go:1:20: IDENTIFIER "b",
+	// · · · · · Token: example156.go:1:20: IDENTIFIER "b",
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example162.go:1:18: '(',
-	// · Token2: example162.go:1:22: ')',
+	// · Token: example156.go:1:18: '(',
+	// · Token2: example156.go:1:22: ')',
 	// }
 }
 
 func ExamplePrimaryExpression() {
-	fmt.Println(exampleAST(163, "package a ; 'b' %"))
+	fmt.Println(exampleAST(157, "package a ; 'b' %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Operand: &gc.Operand{
 	// · · BasicLiteral: &gc.BasicLiteral{
-	// · · · Token: example163.go:1:13: CHAR_LIT "'b'",
+	// · · · Value: 'b',
+	// · · · Token: example157.go:1:13: CHAR_LIT "'b'",
 	// · · },
 	// · · Case: 2,
 	// · },
@@ -3176,19 +3297,19 @@ func ExamplePrimaryExpression() {
 }
 
 func ExamplePrimaryExpression_case01() {
-	fmt.Println(exampleAST(164, "package a ; [ ] b { } %"))
+	fmt.Println(exampleAST(158, "package a ; [ ] b { } %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 1,
 	// · CompLitType: &gc.CompLitType{
 	// · · Case: 2,
 	// · · SliceType: &gc.SliceType{
-	// · · · Token: example164.go:1:13: '[',
-	// · · · Token2: example164.go:1:15: ']',
+	// · · · Token: example158.go:1:13: '[',
+	// · · · Token2: example158.go:1:15: ']',
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example164.go:1:17: IDENTIFIER "b",
+	// · · · · · Token: example158.go:1:17: IDENTIFIER "b",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -3196,78 +3317,81 @@ func ExamplePrimaryExpression_case01() {
 	// · LBraceCompLitValue: &gc.LBraceCompLitValue{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example164.go:1:19: '{',
+	// · · · Token: example158.go:1:19: '{',
 	// · · },
-	// · · Token: example164.go:1:21: '}',
+	// · · Token: example158.go:1:21: '}',
 	// · },
 	// }
 }
 
 func ExamplePrimaryExpression_case02() {
-	fmt.Println(exampleAST(165, "package a ; 'b' . ( type ) %"))
+	fmt.Println(exampleAST(159, "package a ; switch ; b := 'c' . ( type ) ("))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 2,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example165.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'c',
+	// · · · · Token: example159.go:1:27: CHAR_LIT "'c'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
 	// · },
-	// · Token: example165.go:1:17: '.',
-	// · Token2: example165.go:1:19: '(',
-	// · Token3: example165.go:1:21: TYPE,
-	// · Token4: example165.go:1:26: ')',
+	// · Token: example159.go:1:31: '.',
+	// · Token2: example159.go:1:33: '(',
+	// · Token3: example159.go:1:35: TYPE,
+	// · Token4: example159.go:1:40: ')',
 	// }
 }
 
 func ExamplePrimaryExpression_case03() {
-	fmt.Println(exampleAST(166, "package a ; 'b' . ( c ) %"))
+	fmt.Println(exampleAST(160, "package a ; 'b' . ( c ) %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 3,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example166.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example160.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
 	// · },
-	// · Token: example166.go:1:17: '.',
-	// · Token2: example166.go:1:19: '(',
-	// · Token3: example166.go:1:23: ')',
+	// · Token: example160.go:1:17: '.',
+	// · Token2: example160.go:1:19: '(',
+	// · Token3: example160.go:1:23: ')',
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example166.go:1:21: IDENTIFIER "c",
+	// · · · Token: example160.go:1:21: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExamplePrimaryExpression_case04() {
-	fmt.Println(exampleAST(167, "package a ; 'b' . c %"))
+	fmt.Println(exampleAST(161, "package a ; 'b' . c %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 4,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example167.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example161.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
 	// · },
-	// · Token: example167.go:1:17: '.',
-	// · Token2: example167.go:1:19: IDENTIFIER "c",
+	// · Token: example161.go:1:17: '.',
+	// · Token2: example161.go:1:19: IDENTIFIER "c",
 	// }
 }
 
 func ExamplePrimaryExpression_case05() {
-	fmt.Println(exampleAST(168, "package a ; 'b' [ 'c' ] %"))
+	fmt.Println(exampleAST(162, "package a ; 'b' [ 'c' ] %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 5,
@@ -3277,7 +3401,8 @@ func ExamplePrimaryExpression_case05() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example168.go:1:19: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example162.go:1:19: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -3287,68 +3412,72 @@ func ExamplePrimaryExpression_case05() {
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example168.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example162.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
 	// · },
-	// · Token: example168.go:1:17: '[',
-	// · Token2: example168.go:1:23: ']',
+	// · Token: example162.go:1:17: '[',
+	// · Token2: example162.go:1:23: ']',
 	// }
 }
 
 func ExamplePrimaryExpression_case06() {
-	fmt.Println(exampleAST(169, "package a ; 'b' [ : : ] %"))
+	fmt.Println(exampleAST(163, "package a ; 'b' [ : : ] %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 6,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example169.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example163.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
 	// · },
-	// · Token: example169.go:1:17: '[',
-	// · Token2: example169.go:1:19: ':',
-	// · Token3: example169.go:1:21: ':',
-	// · Token4: example169.go:1:23: ']',
+	// · Token: example163.go:1:17: '[',
+	// · Token2: example163.go:1:19: ':',
+	// · Token3: example163.go:1:21: ':',
+	// · Token4: example163.go:1:23: ']',
 	// }
 }
 
 func ExamplePrimaryExpression_case07() {
-	fmt.Println(exampleAST(170, "package a ; 'b' [ : ] %"))
+	fmt.Println(exampleAST(164, "package a ; 'b' [ : ] %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 7,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example170.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example164.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
 	// · },
-	// · Token: example170.go:1:17: '[',
-	// · Token2: example170.go:1:19: ':',
-	// · Token3: example170.go:1:21: ']',
+	// · Token: example164.go:1:17: '[',
+	// · Token2: example164.go:1:19: ':',
+	// · Token3: example164.go:1:21: ']',
 	// }
 }
 
 func ExamplePrimaryExpression_case08() {
-	fmt.Println(exampleAST(171, "package a ; 'b' ( ) %"))
+	fmt.Println(exampleAST(165, "package a ; 'b' ( ) %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Call: &gc.Call{
-	// · · Token: example171.go:1:17: '(',
-	// · · Token2: example171.go:1:19: ')',
+	// · · Token: example165.go:1:17: '(',
+	// · · Token2: example165.go:1:19: ')',
 	// · },
 	// · Case: 8,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example171.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example165.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
@@ -3357,18 +3486,19 @@ func ExamplePrimaryExpression_case08() {
 }
 
 func ExamplePrimaryExpression_case09() {
-	fmt.Println(exampleAST(172, "package a ; 'b' { } %"))
+	fmt.Println(exampleAST(166, "package a ; 'b' { } %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 9,
 	// · CompLitValue: &gc.CompLitValue{
-	// · · Token: example172.go:1:17: '{',
-	// · · Token2: example172.go:1:19: '}',
+	// · · Token: example166.go:1:17: '{',
+	// · · Token2: example166.go:1:19: '}',
 	// · },
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example172.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example166.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
@@ -3377,7 +3507,7 @@ func ExamplePrimaryExpression_case09() {
 }
 
 func ExamplePrimaryExpression_case10() {
-	fmt.Println(exampleAST(173, "package a ; chan b ( 'c' ) %"))
+	fmt.Println(exampleAST(167, "package a ; chan b ( 'c' ) %"))
 	// Output:
 	// &gc.PrimaryExpression{
 	// · Case: 10,
@@ -3387,23 +3517,24 @@ func ExamplePrimaryExpression_case10() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example173.go:1:22: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example167.go:1:22: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example173.go:1:20: '(',
-	// · Token2: example173.go:1:26: ')',
+	// · Token: example167.go:1:20: '(',
+	// · Token2: example167.go:1:26: ')',
 	// · TypeLiteral: &gc.TypeLiteral{
 	// · · Case: 2,
 	// · · ChanType: &gc.ChanType{
-	// · · · Token: example173.go:1:13: CHAN,
+	// · · · Token: example167.go:1:13: CHAN,
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example173.go:1:18: IDENTIFIER "b",
+	// · · · · · Token: example167.go:1:18: IDENTIFIER "b",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -3412,38 +3543,38 @@ func ExamplePrimaryExpression_case10() {
 }
 
 func ExamplePrologue() {
-	fmt.Println(exampleAST(174, "package a ;"))
+	fmt.Println(exampleAST(168, "package a ;"))
 	// Output:
 	// &gc.Prologue{
 	// · PackageClause: &gc.PackageClause{
-	// · · Token: example174.go:1:1: PACKAGE,
-	// · · Token2: example174.go:1:9: IDENTIFIER "a",
-	// · · Token3: example174.go:1:11: ';',
+	// · · Token: example168.go:1:1: PACKAGE,
+	// · · Token2: example168.go:1:9: IDENTIFIER "a",
+	// · · Token3: example168.go:1:11: ';',
 	// · },
 	// }
 }
 
 func ExampleQualifiedIdent() {
-	fmt.Println(exampleAST(151, "package a ; chan b ("))
+	fmt.Println(exampleAST(169, "package a ; chan b ("))
 	// Output:
 	// &gc.QualifiedIdent{
-	// · Token: example151.go:1:18: IDENTIFIER "b",
+	// · Token: example169.go:1:18: IDENTIFIER "b",
 	// }
 }
 
 func ExampleQualifiedIdent_case1() {
-	fmt.Println(exampleAST(152, "package a ; chan b . c ("))
+	fmt.Println(exampleAST(170, "package a ; chan b . c ("))
 	// Output:
 	// &gc.QualifiedIdent{
 	// · Case: 1,
-	// · Token: example152.go:1:18: IDENTIFIER "b",
-	// · Token2: example152.go:1:20: '.',
-	// · Token3: example152.go:1:22: IDENTIFIER "c",
+	// · Token: example170.go:1:18: IDENTIFIER "b",
+	// · Token2: example170.go:1:20: '.',
+	// · Token3: example170.go:1:22: IDENTIFIER "c",
 	// }
 }
 
 func ExampleRange() {
-	fmt.Println(exampleAST(175, "package a ; for 'b' = range 'c' {"))
+	fmt.Println(exampleAST(171, "package a ; for 'b' = range 'c' {"))
 	// Output:
 	// &gc.Range{
 	// · Expression: &gc.Expression{
@@ -3452,7 +3583,8 @@ func ExampleRange() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example175.go:1:29: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example171.go:1:29: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -3466,7 +3598,8 @@ func ExampleRange() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example175.go:1:17: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example171.go:1:17: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -3474,13 +3607,13 @@ func ExampleRange() {
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example175.go:1:21: '=',
-	// · Token2: example175.go:1:23: RANGE,
+	// · Token: example171.go:1:21: '=',
+	// · Token2: example171.go:1:23: RANGE,
 	// }
 }
 
 func ExampleRange_case1() {
-	fmt.Println(exampleAST(176, "package a ; for 'b' := range 'c' {"))
+	fmt.Println(exampleAST(172, "package a ; for 'b' := range 'c' {"))
 	// Output:
 	// &gc.Range{
 	// · Case: 1,
@@ -3490,7 +3623,8 @@ func ExampleRange_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example176.go:1:30: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example172.go:1:30: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -3504,7 +3638,8 @@ func ExampleRange_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example176.go:1:17: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example172.go:1:17: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -3512,13 +3647,13 @@ func ExampleRange_case1() {
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example176.go:1:21: COLAS,
-	// · Token2: example176.go:1:24: RANGE,
+	// · Token: example172.go:1:21: COLAS,
+	// · Token2: example172.go:1:24: RANGE,
 	// }
 }
 
 func ExampleRange_case2() {
-	fmt.Println(exampleAST(177, "package a ; for range 'b' {"))
+	fmt.Println(exampleAST(173, "package a ; for range 'b' {"))
 	// Output:
 	// &gc.Range{
 	// · Case: 2,
@@ -3528,66 +3663,67 @@ func ExampleRange_case2() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example177.go:1:23: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example173.go:1:23: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example177.go:1:17: RANGE,
+	// · Token: example173.go:1:17: RANGE,
 	// }
 }
 
 func ExampleReceiverOpt() {
-	fmt.Println(exampleAST(178, "package a ; func b") == (*ReceiverOpt)(nil))
+	fmt.Println(exampleAST(174, "package a ; func b") == (*ReceiverOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleReceiverOpt_case1() {
-	fmt.Println(exampleAST(179, "package a ; func ( ) b"))
+	fmt.Println(exampleAST(175, "package a ; func ( ) b"))
 	// Output:
 	// &gc.ReceiverOpt{
 	// · Parameters: &gc.Parameters{
-	// · · Token: example179.go:1:18: '(',
-	// · · Token2: example179.go:1:20: ')',
+	// · · Token: example175.go:1:18: '(',
+	// · · Token2: example175.go:1:20: ')',
 	// · },
 	// }
 }
 
 func ExampleResultOpt() {
-	fmt.Println(exampleAST(180, "package a ; if func ( ) )") == (*ResultOpt)(nil))
+	fmt.Println(exampleAST(176, "package a ; go func ( ) )") == (*ResultOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleResultOpt_case1() {
-	fmt.Println(exampleAST(181, "package a ; func ( ) ( ) ("))
+	fmt.Println(exampleAST(177, "package a ; func ( ) ( ) ("))
 	// Output:
 	// &gc.ResultOpt{
 	// · Case: 1,
 	// · Parameters: &gc.Parameters{
-	// · · Token: example181.go:1:22: '(',
-	// · · Token2: example181.go:1:24: ')',
+	// · · Token: example177.go:1:22: '(',
+	// · · Token2: example177.go:1:24: ')',
 	// · },
 	// }
 }
 
 func ExampleResultOpt_case2() {
-	fmt.Println(exampleAST(182, "package a ; func ( ) []b ("))
+	fmt.Println(exampleAST(178, "package a ; func ( ) []b ("))
 	// Output:
 	// &gc.ResultOpt{
 	// · Case: 2,
 	// · Typ: &gc.Typ{
 	// · · Case: 8,
 	// · · SliceType: &gc.SliceType{
-	// · · · Token: example182.go:1:22: '[',
-	// · · · Token2: example182.go:1:23: ']',
+	// · · · Token: example178.go:1:22: '[',
+	// · · · Token2: example178.go:1:23: ']',
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example182.go:1:24: IDENTIFIER "b",
+	// · · · · · Token: example178.go:1:24: IDENTIFIER "b",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -3596,44 +3732,44 @@ func ExampleResultOpt_case2() {
 }
 
 func ExampleSelectStatement() {
-	fmt.Println(exampleAST(183, "package a ; select { } ;"))
+	fmt.Println(exampleAST(180, "package a ; select { } ;"))
 	// Output:
 	// &gc.SelectStatement{
 	// · SwitchBody: &gc.SwitchBody{
-	// · · Token: example183.go:1:20: '{',
-	// · · Token2: example183.go:1:22: '}',
+	// · · Token: example180.go:1:20: '{',
+	// · · Token2: example180.go:1:22: '}',
 	// · },
-	// · Token: example183.go:1:13: SELECT,
+	// · Token: example180.go:1:13: SELECT,
 	// }
 }
 
 func ExampleSemicolonOpt() {
-	fmt.Println(exampleAST(184, "package a ; import ( 'b' )") == (*SemicolonOpt)(nil))
+	fmt.Println(exampleAST(181, "package a ; import ( 'b' )") == (*SemicolonOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleSemicolonOpt_case1() {
-	fmt.Println(exampleAST(185, "package a ; import ( 'b' ; )"))
+	fmt.Println(exampleAST(182, "package a ; import ( 'b' ; )"))
 	// Output:
 	// &gc.SemicolonOpt{
-	// · Token: example185.go:1:26: ';',
+	// · Token: example182.go:1:26: ';',
 	// }
 }
 
 func ExampleSignature() {
-	fmt.Println(exampleAST(186, "package a ; var b func ( )"))
+	fmt.Println(exampleAST(183, "package a ; var b func ( )"))
 	// Output:
 	// &gc.Signature{
 	// · Parameters: &gc.Parameters{
-	// · · Token: example186.go:1:24: '(',
-	// · · Token2: example186.go:1:26: ')',
+	// · · Token: example183.go:1:24: '(',
+	// · · Token2: example183.go:1:26: ')',
 	// · },
 	// }
 }
 
 func ExampleSimpleStatement() {
-	fmt.Println(exampleAST(187, "package a ; 'b' = 'c' ;"))
+	fmt.Println(exampleAST(184, "package a ; 'b' = 'c' ;"))
 	// Output:
 	// &gc.SimpleStatement{
 	// · Assignment: &gc.Assignment{
@@ -3644,7 +3780,8 @@ func ExampleSimpleStatement() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example187.go:1:13: CHAR_LIT "'b'",
+	// · · · · · · · · Value: 'b',
+	// · · · · · · · · Token: example184.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -3659,7 +3796,8 @@ func ExampleSimpleStatement() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example187.go:1:19: CHAR_LIT "'c'",
+	// · · · · · · · · Value: 'c',
+	// · · · · · · · · Token: example184.go:1:19: CHAR_LIT "'c'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -3667,13 +3805,13 @@ func ExampleSimpleStatement() {
 	// · · · · },
 	// · · · },
 	// · · },
-	// · · Token: example187.go:1:17: '=',
+	// · · Token: example184.go:1:17: '=',
 	// · },
 	// }
 }
 
 func ExampleSimpleStatement_case1() {
-	fmt.Println(exampleAST(188, "package a ; 'b' ;"))
+	fmt.Println(exampleAST(185, "package a ; 'b' ;"))
 	// Output:
 	// &gc.SimpleStatement{
 	// · Case: 1,
@@ -3683,7 +3821,8 @@ func ExampleSimpleStatement_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example188.go:1:13: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example185.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
@@ -3694,7 +3833,7 @@ func ExampleSimpleStatement_case1() {
 }
 
 func ExampleSimpleStatement_case2() {
-	fmt.Println(exampleAST(189, "package a ; 'b' -- ;"))
+	fmt.Println(exampleAST(186, "package a ; 'b' -- ;"))
 	// Output:
 	// &gc.SimpleStatement{
 	// · Case: 2,
@@ -3704,19 +3843,20 @@ func ExampleSimpleStatement_case2() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example189.go:1:13: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example186.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example189.go:1:17: DEC,
+	// · Token: example186.go:1:17: DEC,
 	// }
 }
 
 func ExampleSimpleStatement_case3() {
-	fmt.Println(exampleAST(190, "package a ; 'b' ++ ;"))
+	fmt.Println(exampleAST(187, "package a ; 'b' ++ ;"))
 	// Output:
 	// &gc.SimpleStatement{
 	// · Case: 3,
@@ -3726,19 +3866,20 @@ func ExampleSimpleStatement_case3() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example190.go:1:13: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example187.go:1:13: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example190.go:1:17: INC,
+	// · Token: example187.go:1:17: INC,
 	// }
 }
 
 func ExampleSimpleStatement_case4() {
-	fmt.Println(exampleAST(191, "package a ; 'b' := 'c' ;"))
+	fmt.Println(exampleAST(188, "package a ; 'b' := 'c' ;"))
 	// Output:
 	// &gc.SimpleStatement{
 	// · Case: 4,
@@ -3749,7 +3890,8 @@ func ExampleSimpleStatement_case4() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example191.go:1:13: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example188.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -3764,7 +3906,8 @@ func ExampleSimpleStatement_case4() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example191.go:1:20: CHAR_LIT "'c'",
+	// · · · · · · · Value: 'c',
+	// · · · · · · · Token: example188.go:1:20: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -3772,18 +3915,18 @@ func ExampleSimpleStatement_case4() {
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example191.go:1:17: COLAS,
+	// · Token: example188.go:1:17: COLAS,
 	// }
 }
 
 func ExampleSimpleStatementOpt() {
-	fmt.Println(exampleAST(192, "package a ; for ;") == (*SimpleStatementOpt)(nil))
+	fmt.Println(exampleAST(189, "package a ; for ;") == (*SimpleStatementOpt)(nil))
 	// Output:
 	// true
 }
 
 func ExampleSimpleStatementOpt_case1() {
-	fmt.Println(exampleAST(193, "package a ; if 'b' ;"))
+	fmt.Println(exampleAST(190, "package a ; if 'b' ;"))
 	// Output:
 	// &gc.SimpleStatementOpt{
 	// · SimpleStatement: &gc.SimpleStatement{
@@ -3794,7 +3937,8 @@ func ExampleSimpleStatementOpt_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example193.go:1:16: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example190.go:1:16: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -3806,40 +3950,40 @@ func ExampleSimpleStatementOpt_case1() {
 }
 
 func ExampleSliceType() {
-	fmt.Println(exampleAST(194, "package a ; [ ] b ("))
+	fmt.Println(exampleAST(191, "package a ; [ ] b ("))
 	// Output:
 	// &gc.SliceType{
-	// · Token: example194.go:1:13: '[',
-	// · Token2: example194.go:1:15: ']',
+	// · Token: example191.go:1:13: '[',
+	// · Token2: example191.go:1:15: ']',
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example194.go:1:17: IDENTIFIER "b",
+	// · · · Token: example191.go:1:17: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleStatement() {
-	fmt.Println(exampleAST(195, "package a ; switch { default : ;") == (*Statement)(nil))
+	fmt.Println(exampleAST(192, "package a ; switch { default : ;") == (*Statement)(nil))
 	// Output:
 	// true
 }
 
 func ExampleStatement_case1() {
-	fmt.Println(exampleAST(196, "package a ; if { { } ;"))
+	fmt.Println(exampleAST(193, "package a ; b : { } ;"))
 	// Output:
 	// &gc.Statement{
 	// · Block: &gc.Block{
-	// · · Token: example196.go:1:18: '{',
-	// · · Token2: example196.go:1:20: '}',
+	// · · Token: example193.go:1:17: '{',
+	// · · Token2: example193.go:1:19: '}',
 	// · },
 	// · Case: 1,
 	// }
 }
 
 func ExampleStatement_case2() {
-	fmt.Println(exampleAST(197, "package a ; b : const c ;"))
+	fmt.Println(exampleAST(194, "package a ; if { const b ;"))
 	// Output:
 	// &gc.Statement{
 	// · Case: 2,
@@ -3847,53 +3991,53 @@ func ExampleStatement_case2() {
 	// · · Case: 2,
 	// · · ConstSpec: &gc.ConstSpec{
 	// · · · IdentifierList: &gc.IdentifierList{
-	// · · · · Token: example197.go:1:23: IDENTIFIER "c",
+	// · · · · Token: example194.go:1:24: IDENTIFIER "b",
 	// · · · },
 	// · · },
-	// · · Token: example197.go:1:17: CONST,
+	// · · Token: example194.go:1:18: CONST,
 	// · },
 	// }
 }
 
 func ExampleStatement_case3() {
-	fmt.Println(exampleAST(198, "package a ; b : type ( ) ;"))
+	fmt.Println(exampleAST(195, "package a ; b : type ( ) ;"))
 	// Output:
 	// &gc.Statement{
 	// · Case: 3,
 	// · TypeDecl: &gc.TypeDecl{
-	// · · Token: example198.go:1:17: TYPE,
-	// · · Token2: example198.go:1:22: '(',
-	// · · Token3: example198.go:1:24: ')',
+	// · · Token: example195.go:1:17: TYPE,
+	// · · Token2: example195.go:1:22: '(',
+	// · · Token3: example195.go:1:24: ')',
 	// · },
 	// }
 }
 
 func ExampleStatement_case4() {
-	fmt.Println(exampleAST(199, "package a ; b : var ( ) ;"))
+	fmt.Println(exampleAST(196, "package a ; b : var ( ) ;"))
 	// Output:
 	// &gc.Statement{
 	// · Case: 4,
 	// · VarDecl: &gc.VarDecl{
-	// · · Token: example199.go:1:17: VAR,
-	// · · Token2: example199.go:1:21: '(',
-	// · · Token3: example199.go:1:23: ')',
+	// · · Token: example196.go:1:17: VAR,
+	// · · Token2: example196.go:1:21: '(',
+	// · · Token3: example196.go:1:23: ')',
 	// · },
 	// }
 }
 
 func ExampleStatement_case5() {
-	fmt.Println(exampleAST(200, "package a ; b : break ;"))
+	fmt.Println(exampleAST(197, "package a ; b : break ;"))
 	// Output:
 	// &gc.Statement{
 	// · Case: 5,
 	// · StatementNonDecl: &gc.StatementNonDecl{
-	// · · Token: example200.go:1:17: BREAK,
+	// · · Token: example197.go:1:17: BREAK,
 	// · },
 	// }
 }
 
 func ExampleStatementList() {
-	fmt.Println(exampleAST(202, "package a ; if { b ;"))
+	fmt.Println(exampleAST(199, "package a ; if { b ;"))
 	// Output:
 	// &gc.StatementList{
 	// · Statement: &gc.Statement{
@@ -3908,7 +4052,7 @@ func ExampleStatementList() {
 	// · · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · · Operand: &gc.Operand{
 	// · · · · · · · · Case: 4,
-	// · · · · · · · · Token: example202.go:1:18: IDENTIFIER "b",
+	// · · · · · · · · Token: example199.go:1:18: IDENTIFIER "b",
 	// · · · · · · · },
 	// · · · · · · },
 	// · · · · · },
@@ -3920,35 +4064,35 @@ func ExampleStatementList() {
 }
 
 func ExampleStatementList_case1() {
-	fmt.Println(exampleAST(203, "package a ; if { ; ;"))
+	fmt.Println(exampleAST(200, "package a ; if { ; ;"))
 	// Output:
 	// &gc.StatementList{
 	// · StatementList: &gc.StatementList{
 	// · · Case: 1,
-	// · · Token: example203.go:1:18: ';',
+	// · · Token: example200.go:1:18: ';',
 	// · },
 	// }
 }
 
 func ExampleStatementNonDecl() {
-	fmt.Println(exampleAST(204, "package a ; break ;"))
+	fmt.Println(exampleAST(201, "package a ; break ;"))
 	// Output:
 	// &gc.StatementNonDecl{
-	// · Token: example204.go:1:13: BREAK,
+	// · Token: example201.go:1:13: BREAK,
 	// }
 }
 
 func ExampleStatementNonDecl_case01() {
-	fmt.Println(exampleAST(205, "package a ; continue ;"))
+	fmt.Println(exampleAST(202, "package a ; continue ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 1,
-	// · Token: example205.go:1:13: CONTINUE,
+	// · Token: example202.go:1:13: CONTINUE,
 	// }
 }
 
 func ExampleStatementNonDecl_case02() {
-	fmt.Println(exampleAST(206, "package a ; defer 'b' ;"))
+	fmt.Println(exampleAST(203, "package a ; defer 'b' ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 2,
@@ -3958,46 +4102,47 @@ func ExampleStatementNonDecl_case02() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example206.go:1:19: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example203.go:1:19: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example206.go:1:13: DEFER,
+	// · Token: example203.go:1:13: DEFER,
 	// }
 }
 
 func ExampleStatementNonDecl_case03() {
-	fmt.Println(exampleAST(207, "package a ; fallthrough ;"))
+	fmt.Println(exampleAST(204, "package a ; fallthrough ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 3,
-	// · Token: example207.go:1:13: FALLTHROUGH,
+	// · Token: example204.go:1:13: FALLTHROUGH,
 	// }
 }
 
 func ExampleStatementNonDecl_case04() {
-	fmt.Println(exampleAST(208, "package a ; for { } ;"))
+	fmt.Println(exampleAST(205, "package a ; for { } ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 4,
 	// · ForStatement: &gc.ForStatement{
 	// · · Body: &gc.Body{
-	// · · · Token: example208.go:1:17: '{',
-	// · · · Token2: example208.go:1:19: '}',
+	// · · · Token: example205.go:1:17: '{',
+	// · · · Token2: example205.go:1:19: '}',
 	// · · },
 	// · · ForHeader: &gc.ForHeader{
 	// · · · Case: 2,
 	// · · },
-	// · · Token: example208.go:1:13: FOR,
+	// · · Token: example205.go:1:13: FOR,
 	// · },
 	// }
 }
 
 func ExampleStatementNonDecl_case05() {
-	fmt.Println(exampleAST(209, "package a ; go 'b' ;"))
+	fmt.Println(exampleAST(206, "package a ; go 'b' ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 5,
@@ -4007,78 +4152,79 @@ func ExampleStatementNonDecl_case05() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example209.go:1:16: CHAR_LIT "'b'",
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example206.go:1:16: CHAR_LIT "'b'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example209.go:1:13: GO,
+	// · Token: example206.go:1:13: GO,
 	// }
 }
 
 func ExampleStatementNonDecl_case06() {
-	fmt.Println(exampleAST(210, "package a ; goto b ;"))
+	fmt.Println(exampleAST(207, "package a ; goto b ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 6,
-	// · Token: example210.go:1:13: GOTO,
-	// · Token2: example210.go:1:18: IDENTIFIER "b",
+	// · Token: example207.go:1:13: GOTO,
+	// · Token2: example207.go:1:18: IDENTIFIER "b",
 	// }
 }
 
 func ExampleStatementNonDecl_case07() {
-	fmt.Println(exampleAST(211, "package a ; b : ;"))
+	fmt.Println(exampleAST(208, "package a ; b : ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 7,
-	// · Token: example211.go:1:13: IDENTIFIER "b",
-	// · Token2: example211.go:1:15: ':',
+	// · Token: example208.go:1:13: IDENTIFIER "b",
+	// · Token2: example208.go:1:15: ':',
 	// }
 }
 
 func ExampleStatementNonDecl_case08() {
-	fmt.Println(exampleAST(212, "package a ; if { } ;"))
+	fmt.Println(exampleAST(209, "package a ; if { } ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 8,
 	// · IfStatement: &gc.IfStatement{
 	// · · Body: &gc.Body{
-	// · · · Token: example212.go:1:16: '{',
-	// · · · Token2: example212.go:1:18: '}',
+	// · · · Token: example209.go:1:16: '{',
+	// · · · Token2: example209.go:1:18: '}',
 	// · · },
-	// · · Token: example212.go:1:13: IF,
+	// · · Token: example209.go:1:13: IF,
 	// · },
 	// }
 }
 
 func ExampleStatementNonDecl_case09() {
-	fmt.Println(exampleAST(213, "package a ; return ;"))
+	fmt.Println(exampleAST(210, "package a ; return ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 9,
-	// · Token: example213.go:1:13: RETURN,
+	// · Token: example210.go:1:13: RETURN,
 	// }
 }
 
 func ExampleStatementNonDecl_case10() {
-	fmt.Println(exampleAST(214, "package a ; select { } ;"))
+	fmt.Println(exampleAST(211, "package a ; select { } ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 10,
 	// · SelectStatement: &gc.SelectStatement{
 	// · · SwitchBody: &gc.SwitchBody{
-	// · · · Token: example214.go:1:20: '{',
-	// · · · Token2: example214.go:1:22: '}',
+	// · · · Token: example211.go:1:20: '{',
+	// · · · Token2: example211.go:1:22: '}',
 	// · · },
-	// · · Token: example214.go:1:13: SELECT,
+	// · · Token: example211.go:1:13: SELECT,
 	// · },
 	// }
 }
 
 func ExampleStatementNonDecl_case11() {
-	fmt.Println(exampleAST(215, "package a ; 'b' ;"))
+	fmt.Println(exampleAST(212, "package a ; 'b' ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 11,
@@ -4090,7 +4236,8 @@ func ExampleStatementNonDecl_case11() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example215.go:1:13: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example212.go:1:13: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -4102,135 +4249,121 @@ func ExampleStatementNonDecl_case11() {
 }
 
 func ExampleStatementNonDecl_case12() {
-	fmt.Println(exampleAST(216, "package a ; switch { } ;"))
+	fmt.Println(exampleAST(213, "package a ; switch { } ;"))
 	// Output:
 	// &gc.StatementNonDecl{
 	// · Case: 12,
 	// · SwitchStatement: &gc.SwitchStatement{
 	// · · SwitchBody: &gc.SwitchBody{
-	// · · · Token: example216.go:1:20: '{',
-	// · · · Token2: example216.go:1:22: '}',
+	// · · · Token: example213.go:1:20: '{',
+	// · · · Token2: example213.go:1:22: '}',
 	// · · },
-	// · · Token: example216.go:1:13: SWITCH,
+	// · · Token: example213.go:1:13: SWITCH,
 	// · },
-	// }
-}
-
-func ExampleStringLitOpt() {
-	fmt.Println(exampleAST(217, "package a ; struct { b ;") == (*StringLitOpt)(nil))
-	// Output:
-	// true
-}
-
-func ExampleStringLitOpt_case1() {
-	fmt.Println(exampleAST(218, "package a ; struct { b \"c\" ;"))
-	// Output:
-	// &gc.StringLitOpt{
-	// · Token: example218.go:1:24: STRING_LIT "\"c\"",
 	// }
 }
 
 func ExampleStructFieldDecl() {
-	fmt.Println(exampleAST(219, "package a ; struct { * b ;"))
+	fmt.Println(exampleAST(214, "package a ; struct { * b ;"))
 	// Output:
 	// &gc.StructFieldDecl{
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example219.go:1:24: IDENTIFIER "b",
+	// · · Token: example214.go:1:24: IDENTIFIER "b",
 	// · },
-	// · Token: example219.go:1:22: '*',
+	// · Token: example214.go:1:22: '*',
 	// }
 }
 
 func ExampleStructFieldDecl_case1() {
-	fmt.Println(exampleAST(220, "package a ; struct { b c ;"))
+	fmt.Println(exampleAST(215, "package a ; struct { b c ;"))
 	// Output:
 	// &gc.StructFieldDecl{
 	// · Case: 1,
 	// · IdentifierList: &gc.IdentifierList{
-	// · · Token: example220.go:1:22: IDENTIFIER "b",
+	// · · Token: example215.go:1:22: IDENTIFIER "b",
 	// · },
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example220.go:1:24: IDENTIFIER "c",
+	// · · · Token: example215.go:1:24: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleStructFieldDecl_case2() {
-	fmt.Println(exampleAST(221, "package a ; struct { b ;"))
+	fmt.Println(exampleAST(216, "package a ; struct { b ;"))
 	// Output:
 	// &gc.StructFieldDecl{
 	// · Case: 2,
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example221.go:1:22: IDENTIFIER "b",
+	// · · Token: example216.go:1:22: IDENTIFIER "b",
 	// · },
 	// }
 }
 
 func ExampleStructFieldDecl_case3() {
-	fmt.Println(exampleAST(222, "package a ; struct { ( b ) ;"))
+	fmt.Println(exampleAST(217, "package a ; struct { ( b ) ;"))
 	// Output:
 	// &gc.StructFieldDecl{
 	// · Case: 3,
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example222.go:1:24: IDENTIFIER "b",
+	// · · Token: example217.go:1:24: IDENTIFIER "b",
 	// · },
-	// · Token: example222.go:1:22: '(',
-	// · Token2: example222.go:1:26: ')',
+	// · Token: example217.go:1:22: '(',
+	// · Token2: example217.go:1:26: ')',
 	// }
 }
 
 func ExampleStructFieldDecl_case4() {
-	fmt.Println(exampleAST(223, "package a ; struct { ( * b ) ;"))
+	fmt.Println(exampleAST(218, "package a ; struct { ( * b ) ;"))
 	// Output:
 	// &gc.StructFieldDecl{
 	// · Case: 4,
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example223.go:1:26: IDENTIFIER "b",
+	// · · Token: example218.go:1:26: IDENTIFIER "b",
 	// · },
-	// · Token: example223.go:1:22: '(',
-	// · Token2: example223.go:1:24: '*',
-	// · Token3: example223.go:1:28: ')',
+	// · Token: example218.go:1:22: '(',
+	// · Token2: example218.go:1:24: '*',
+	// · Token3: example218.go:1:28: ')',
 	// }
 }
 
 func ExampleStructFieldDecl_case5() {
-	fmt.Println(exampleAST(224, "package a ; struct { * ( b ) ;"))
+	fmt.Println(exampleAST(219, "package a ; struct { * ( b ) ;"))
 	// Output:
 	// &gc.StructFieldDecl{
 	// · Case: 5,
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example224.go:1:26: IDENTIFIER "b",
+	// · · Token: example219.go:1:26: IDENTIFIER "b",
 	// · },
-	// · Token: example224.go:1:22: '*',
-	// · Token2: example224.go:1:24: '(',
-	// · Token3: example224.go:1:28: ')',
+	// · Token: example219.go:1:22: '*',
+	// · Token2: example219.go:1:24: '(',
+	// · Token3: example219.go:1:28: ')',
 	// }
 }
 
 func ExampleStructFieldDeclList() {
-	fmt.Println(exampleAST(225, "package a ; struct { b ;"))
+	fmt.Println(exampleAST(220, "package a ; struct { b ;"))
 	// Output:
 	// &gc.StructFieldDeclList{
 	// · StructFieldDecl: &gc.StructFieldDecl{
 	// · · Case: 2,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example225.go:1:22: IDENTIFIER "b",
+	// · · · Token: example220.go:1:22: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleStructFieldDeclList_case1() {
-	fmt.Println(exampleAST(226, "package a ; struct { b ; c ;"))
+	fmt.Println(exampleAST(221, "package a ; struct { b ; c ;"))
 	// Output:
 	// &gc.StructFieldDeclList{
 	// · StructFieldDecl: &gc.StructFieldDecl{
 	// · · Case: 2,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example226.go:1:22: IDENTIFIER "b",
+	// · · · Token: example221.go:1:22: IDENTIFIER "b",
 	// · · },
 	// · },
 	// · StructFieldDeclList: &gc.StructFieldDeclList{
@@ -4238,60 +4371,60 @@ func ExampleStructFieldDeclList_case1() {
 	// · · StructFieldDecl: &gc.StructFieldDecl{
 	// · · · Case: 2,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example226.go:1:26: IDENTIFIER "c",
+	// · · · · Token: example221.go:1:26: IDENTIFIER "c",
 	// · · · },
 	// · · },
-	// · · Token: example226.go:1:24: ';',
+	// · · Token: example221.go:1:24: ';',
 	// · },
 	// }
 }
 
 func ExampleStructType() {
-	fmt.Println(exampleAST(227, "package a ; struct { } ("))
+	fmt.Println(exampleAST(222, "package a ; struct { } ("))
 	// Output:
 	// &gc.StructType{
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example227.go:1:20: '{',
+	// · · Token: example222.go:1:20: '{',
 	// · },
-	// · Token: example227.go:1:13: STRUCT,
-	// · Token2: example227.go:1:22: '}',
+	// · Token: example222.go:1:13: STRUCT,
+	// · Token2: example222.go:1:22: '}',
 	// }
 }
 
 func ExampleStructType_case1() {
-	fmt.Println(exampleAST(229, "package a ; struct { b } ("))
+	fmt.Println(exampleAST(224, "package a ; struct { b } ("))
 	// Output:
 	// &gc.StructType{
 	// · Case: 1,
 	// · LBrace: &gc.LBrace{
 	// · · Case: 1,
-	// · · Token: example229.go:1:20: '{',
+	// · · Token: example224.go:1:20: '{',
 	// · },
 	// · StructFieldDeclList: &gc.StructFieldDeclList{
 	// · · StructFieldDecl: &gc.StructFieldDecl{
 	// · · · Case: 2,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example229.go:1:22: IDENTIFIER "b",
+	// · · · · Token: example224.go:1:22: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example229.go:1:13: STRUCT,
-	// · Token2: example229.go:1:24: '}',
+	// · Token: example224.go:1:13: STRUCT,
+	// · Token2: example224.go:1:24: '}',
 	// }
 }
 
 func ExampleSwitchBody() {
-	fmt.Println(exampleAST(230, "package a ; switch { } ;"))
+	fmt.Println(exampleAST(225, "package a ; switch { } ;"))
 	// Output:
 	// &gc.SwitchBody{
-	// · Token: example230.go:1:20: '{',
-	// · Token2: example230.go:1:22: '}',
+	// · Token: example225.go:1:20: '{',
+	// · Token2: example225.go:1:22: '}',
 	// }
 }
 
 func ExampleSwitchBody_case1() {
-	fmt.Println(exampleAST(232, "package a ; switch { default : } ;"))
+	fmt.Println(exampleAST(227, "package a ; switch { default : } ;"))
 	// Output:
 	// &gc.SwitchBody{
 	// · Case: 1,
@@ -4299,18 +4432,18 @@ func ExampleSwitchBody_case1() {
 	// · · SwitchCaseBlock: &gc.SwitchCaseBlock{
 	// · · · SwitchCase: &gc.SwitchCase{
 	// · · · · Case: 3,
-	// · · · · Token: example232.go:1:22: DEFAULT,
-	// · · · · Token2: example232.go:1:30: ':',
+	// · · · · Token: example227.go:1:22: DEFAULT,
+	// · · · · Token2: example227.go:1:30: ':',
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example232.go:1:20: '{',
-	// · Token2: example232.go:1:32: '}',
+	// · Token: example227.go:1:20: '{',
+	// · Token2: example227.go:1:32: '}',
 	// }
 }
 
 func ExampleSwitchCase() {
-	fmt.Println(exampleAST(233, "package a ; switch { case 'b' : !"))
+	fmt.Println(exampleAST(228, "package a ; switch { case 'b' : !"))
 	// Output:
 	// &gc.SwitchCase{
 	// · ArgumentList: &gc.ArgumentList{
@@ -4321,7 +4454,8 @@ func ExampleSwitchCase() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example233.go:1:27: CHAR_LIT "'b'",
+	// · · · · · · · · Value: 'b',
+	// · · · · · · · · Token: example228.go:1:27: CHAR_LIT "'b'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -4330,13 +4464,13 @@ func ExampleSwitchCase() {
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example233.go:1:22: CASE,
-	// · Token2: example233.go:1:31: ':',
+	// · Token: example228.go:1:22: CASE,
+	// · Token2: example228.go:1:31: ':',
 	// }
 }
 
 func ExampleSwitchCase_case1() {
-	fmt.Println(exampleAST(234, "package a ; switch { case 'b' = 'c' : !"))
+	fmt.Println(exampleAST(229, "package a ; switch { case 'b' = 'c' : !"))
 	// Output:
 	// &gc.SwitchCase{
 	// · ArgumentList: &gc.ArgumentList{
@@ -4347,7 +4481,8 @@ func ExampleSwitchCase_case1() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example234.go:1:27: CHAR_LIT "'b'",
+	// · · · · · · · · Value: 'b',
+	// · · · · · · · · Token: example229.go:1:27: CHAR_LIT "'b'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -4363,21 +4498,22 @@ func ExampleSwitchCase_case1() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example234.go:1:33: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example229.go:1:33: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example234.go:1:22: CASE,
-	// · Token2: example234.go:1:31: '=',
-	// · Token3: example234.go:1:37: ':',
+	// · Token: example229.go:1:22: CASE,
+	// · Token2: example229.go:1:31: '=',
+	// · Token3: example229.go:1:37: ':',
 	// }
 }
 
 func ExampleSwitchCase_case2() {
-	fmt.Println(exampleAST(235, "package a ; switch { case 'b' := 'c' : !"))
+	fmt.Println(exampleAST(230, "package a ; switch { case 'b' := 'c' : !"))
 	// Output:
 	// &gc.SwitchCase{
 	// · ArgumentList: &gc.ArgumentList{
@@ -4388,7 +4524,8 @@ func ExampleSwitchCase_case2() {
 	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · · Operand: &gc.Operand{
 	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · · Token: example235.go:1:27: CHAR_LIT "'b'",
+	// · · · · · · · · Value: 'b',
+	// · · · · · · · · Token: example230.go:1:27: CHAR_LIT "'b'",
 	// · · · · · · · },
 	// · · · · · · · Case: 2,
 	// · · · · · · },
@@ -4404,64 +4541,65 @@ func ExampleSwitchCase_case2() {
 	// · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · Operand: &gc.Operand{
 	// · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · Token: example235.go:1:34: CHAR_LIT "'c'",
+	// · · · · · · Value: 'c',
+	// · · · · · · Token: example230.go:1:34: CHAR_LIT "'c'",
 	// · · · · · },
 	// · · · · · Case: 2,
 	// · · · · },
 	// · · · },
 	// · · },
 	// · },
-	// · Token: example235.go:1:22: CASE,
-	// · Token2: example235.go:1:31: COLAS,
-	// · Token3: example235.go:1:38: ':',
+	// · Token: example230.go:1:22: CASE,
+	// · Token2: example230.go:1:31: COLAS,
+	// · Token3: example230.go:1:38: ':',
 	// }
 }
 
 func ExampleSwitchCase_case3() {
-	fmt.Println(exampleAST(236, "package a ; switch { default : !"))
+	fmt.Println(exampleAST(231, "package a ; switch { default : !"))
 	// Output:
 	// &gc.SwitchCase{
 	// · Case: 3,
-	// · Token: example236.go:1:22: DEFAULT,
-	// · Token2: example236.go:1:30: ':',
+	// · Token: example231.go:1:22: DEFAULT,
+	// · Token2: example231.go:1:30: ':',
 	// }
 }
 
 func ExampleSwitchCaseBlock() {
-	fmt.Println(exampleAST(239, "package a ; switch { default : }"))
+	fmt.Println(exampleAST(234, "package a ; switch { default : }"))
 	// Output:
 	// &gc.SwitchCaseBlock{
 	// · SwitchCase: &gc.SwitchCase{
 	// · · Case: 3,
-	// · · Token: example239.go:1:22: DEFAULT,
-	// · · Token2: example239.go:1:30: ':',
+	// · · Token: example234.go:1:22: DEFAULT,
+	// · · Token2: example234.go:1:30: ':',
 	// · },
 	// }
 }
 
 func ExampleSwitchCaseList() {
-	fmt.Println(exampleAST(240, "package a ; switch { default : }"))
+	fmt.Println(exampleAST(235, "package a ; switch { default : }"))
 	// Output:
 	// &gc.SwitchCaseList{
 	// · SwitchCaseBlock: &gc.SwitchCaseBlock{
 	// · · SwitchCase: &gc.SwitchCase{
 	// · · · Case: 3,
-	// · · · Token: example240.go:1:22: DEFAULT,
-	// · · · Token2: example240.go:1:30: ':',
+	// · · · Token: example235.go:1:22: DEFAULT,
+	// · · · Token2: example235.go:1:30: ':',
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleSwitchCaseList_case1() {
-	fmt.Println(exampleAST(241, "package a ; switch { default : default : }"))
+	fmt.Println(exampleAST(236, "package a ; switch { default : default : }"))
 	// Output:
 	// &gc.SwitchCaseList{
 	// · SwitchCaseBlock: &gc.SwitchCaseBlock{
 	// · · SwitchCase: &gc.SwitchCase{
 	// · · · Case: 3,
-	// · · · Token: example241.go:1:22: DEFAULT,
-	// · · · Token2: example241.go:1:30: ':',
+	// · · · Token: example236.go:1:22: DEFAULT,
+	// · · · Token2: example236.go:1:30: ':',
 	// · · },
 	// · },
 	// · SwitchCaseList: &gc.SwitchCaseList{
@@ -4469,11 +4607,90 @@ func ExampleSwitchCaseList_case1() {
 	// · · SwitchCaseBlock: &gc.SwitchCaseBlock{
 	// · · · SwitchCase: &gc.SwitchCase{
 	// · · · · Case: 3,
-	// · · · · Token: example241.go:1:32: DEFAULT,
-	// · · · · Token2: example241.go:1:40: ':',
+	// · · · · Token: example236.go:1:32: DEFAULT,
+	// · · · · Token2: example236.go:1:40: ':',
 	// · · · },
 	// · · },
 	// · },
+	// }
+}
+
+func ExampleSwitchHeader() {
+	fmt.Println(exampleAST(237, "package a ; switch b {"))
+	// Output:
+	// &gc.SwitchHeader{
+	// · SimpleStatementOpt: &gc.SimpleStatementOpt{
+	// · · SimpleStatement: &gc.SimpleStatement{
+	// · · · Case: 1,
+	// · · · Expression: &gc.Expression{
+	// · · · · UnaryExpression: &gc.UnaryExpression{
+	// · · · · · Case: 7,
+	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · · · · Operand: &gc.Operand{
+	// · · · · · · · Case: 4,
+	// · · · · · · · Token: example237.go:1:20: IDENTIFIER "b",
+	// · · · · · · },
+	// · · · · · },
+	// · · · · },
+	// · · · },
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleSwitchHeader_case1() {
+	fmt.Println(exampleAST(238, "package a ; switch ; {"))
+	// Output:
+	// &gc.SwitchHeader{
+	// · Case: 1,
+	// · Token: example238.go:1:20: ';',
+	// }
+}
+
+func ExampleSwitchHeader_case2() {
+	fmt.Println(exampleAST(239, "package a ; switch ; 'b' {"))
+	// Output:
+	// &gc.SwitchHeader{
+	// · Case: 2,
+	// · Expression: &gc.Expression{
+	// · · UnaryExpression: &gc.UnaryExpression{
+	// · · · Case: 7,
+	// · · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · · Operand: &gc.Operand{
+	// · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · Value: 'b',
+	// · · · · · · Token: example239.go:1:22: CHAR_LIT "'b'",
+	// · · · · · },
+	// · · · · · Case: 2,
+	// · · · · },
+	// · · · },
+	// · · },
+	// · },
+	// · Token: example239.go:1:20: ';',
+	// }
+}
+
+func ExampleSwitchHeader_case3() {
+	fmt.Println(exampleAST(240, "package a ; switch ; b := 'c' . ( type ) {"))
+	// Output:
+	// &gc.SwitchHeader{
+	// · Case: 3,
+	// · PrimaryExpression: &gc.PrimaryExpression{
+	// · · Operand: &gc.Operand{
+	// · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · Value: 'c',
+	// · · · · Token: example240.go:1:27: CHAR_LIT "'c'",
+	// · · · },
+	// · · · Case: 2,
+	// · · },
+	// · },
+	// · Token: example240.go:1:20: ';',
+	// · Token2: example240.go:1:22: IDENTIFIER "b",
+	// · Token3: example240.go:1:24: COLAS,
+	// · Token4: example240.go:1:31: '.',
+	// · Token5: example240.go:1:33: '(',
+	// · Token6: example240.go:1:35: TYPE,
+	// · Token7: example240.go:1:40: ')',
 	// }
 }
 
@@ -4489,129 +4706,143 @@ func ExampleSwitchStatement() {
 	// }
 }
 
+func ExampleTagOpt() {
+	fmt.Println(exampleAST(243, "package a ; struct { b ;") == (*TagOpt)(nil))
+	// Output:
+	// true
+}
+
+func ExampleTagOpt_case1() {
+	fmt.Println(exampleAST(244, "package a ; struct { b \"c\" ;"))
+	// Output:
+	// &gc.TagOpt{
+	// · Token: example244.go:1:24: STRING_LIT "\"c\"",
+	// }
+}
+
 func ExampleTopLevelDecl() {
-	fmt.Println(exampleAST(243, "package a ; const b ;"))
+	fmt.Println(exampleAST(245, "package a ; const b ;"))
 	// Output:
 	// &gc.TopLevelDecl{
 	// · ConstDecl: &gc.ConstDecl{
 	// · · Case: 2,
 	// · · ConstSpec: &gc.ConstSpec{
 	// · · · IdentifierList: &gc.IdentifierList{
-	// · · · · Token: example243.go:1:19: IDENTIFIER "b",
+	// · · · · Token: example245.go:1:19: IDENTIFIER "b",
 	// · · · },
 	// · · },
-	// · · Token: example243.go:1:13: CONST,
+	// · · Token: example245.go:1:13: CONST,
 	// · },
 	// }
 }
 
 func ExampleTopLevelDecl_case1() {
-	fmt.Println(exampleAST(244, "package a ; func b ( ) ;"))
+	fmt.Println(exampleAST(246, "package a ; func b ( ) ;"))
 	// Output:
 	// &gc.TopLevelDecl{
 	// · Case: 1,
 	// · FuncDecl: &gc.FuncDecl{
 	// · · Signature: &gc.Signature{
 	// · · · Parameters: &gc.Parameters{
-	// · · · · Token: example244.go:1:20: '(',
-	// · · · · Token2: example244.go:1:22: ')',
+	// · · · · Token: example246.go:1:20: '(',
+	// · · · · Token2: example246.go:1:22: ')',
 	// · · · },
 	// · · },
-	// · · Token: example244.go:1:13: FUNC,
-	// · · Token2: example244.go:1:18: IDENTIFIER "b",
+	// · · Token: example246.go:1:13: FUNC,
+	// · · Token2: example246.go:1:18: IDENTIFIER "b",
 	// · },
 	// }
 }
 
 func ExampleTopLevelDecl_case2() {
-	fmt.Println(exampleAST(245, "package a ; type ( ) ;"))
+	fmt.Println(exampleAST(247, "package a ; type ( ) ;"))
 	// Output:
 	// &gc.TopLevelDecl{
 	// · Case: 2,
 	// · TypeDecl: &gc.TypeDecl{
-	// · · Token: example245.go:1:13: TYPE,
-	// · · Token2: example245.go:1:18: '(',
-	// · · Token3: example245.go:1:20: ')',
+	// · · Token: example247.go:1:13: TYPE,
+	// · · Token2: example247.go:1:18: '(',
+	// · · Token3: example247.go:1:20: ')',
 	// · },
 	// }
 }
 
 func ExampleTopLevelDecl_case3() {
-	fmt.Println(exampleAST(246, "package a ; var ( ) ;"))
+	fmt.Println(exampleAST(248, "package a ; var ( ) ;"))
 	// Output:
 	// &gc.TopLevelDecl{
 	// · Case: 3,
 	// · VarDecl: &gc.VarDecl{
-	// · · Token: example246.go:1:13: VAR,
-	// · · Token2: example246.go:1:17: '(',
-	// · · Token3: example246.go:1:19: ')',
+	// · · Token: example248.go:1:13: VAR,
+	// · · Token2: example248.go:1:17: '(',
+	// · · Token3: example248.go:1:19: ')',
 	// · },
 	// }
 }
 
 func ExampleTopLevelDecl_case4() {
-	fmt.Println(exampleAST(247, "package a ; break ;"))
+	fmt.Println(exampleAST(249, "package a ; break ;"))
 	// Output:
 	// &gc.TopLevelDecl{
 	// · Case: 4,
 	// · StatementNonDecl: &gc.StatementNonDecl{
-	// · · Token: example247.go:1:13: BREAK,
+	// · · Token: example249.go:1:13: BREAK,
 	// · },
 	// }
 }
 
 func ExampleTopLevelDeclList() {
-	fmt.Println(exampleAST(249, "package a ;") == (*TopLevelDeclList)(nil))
+	fmt.Println(exampleAST(251, "package a ;") == (*TopLevelDeclList)(nil))
 	// Output:
 	// true
 }
 
 func ExampleTopLevelDeclList_case1() {
-	fmt.Println(exampleAST(250, "package a ; break ;"))
+	fmt.Println(exampleAST(252, "package a ; break ;"))
 	// Output:
 	// &gc.TopLevelDeclList{
-	// · Token: example250.go:1:19: ';',
+	// · Token: example252.go:1:19: ';',
 	// · TopLevelDecl: &gc.TopLevelDecl{
 	// · · Case: 4,
 	// · · StatementNonDecl: &gc.StatementNonDecl{
-	// · · · Token: example250.go:1:13: BREAK,
+	// · · · Token: example252.go:1:13: BREAK,
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleTyp() {
-	fmt.Println(exampleAST(251, "package a ; chan ( b ) ("))
+	fmt.Println(exampleAST(253, "package a ; chan ( b ) ("))
 	// Output:
 	// &gc.Typ{
-	// · Token: example251.go:1:18: '(',
-	// · Token2: example251.go:1:22: ')',
+	// · Token: example253.go:1:18: '(',
+	// · Token2: example253.go:1:22: ')',
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example251.go:1:20: IDENTIFIER "b",
+	// · · · Token: example253.go:1:20: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleTyp_case01() {
-	fmt.Println(exampleAST(252, "package a ; chan * b ("))
+	fmt.Println(exampleAST(254, "package a ; chan * b ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 1,
-	// · Token: example252.go:1:18: '*',
+	// · Token: example254.go:1:18: '*',
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example252.go:1:20: IDENTIFIER "b",
+	// · · · Token: example254.go:1:20: IDENTIFIER "b",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleTyp_case02() {
-	fmt.Println(exampleAST(253, "package a ; chan [ 'b' ] c ("))
+	fmt.Println(exampleAST(255, "package a ; chan [ 'b' ] c ("))
 	// Output:
 	// &gc.Typ{
 	// · ArrayType: &gc.ArrayType{
@@ -4622,19 +4853,20 @@ func ExampleTyp_case02() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example253.go:1:20: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example255.go:1:20: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
 	// · · · · },
 	// · · · },
 	// · · },
-	// · · Token: example253.go:1:18: '[',
-	// · · Token2: example253.go:1:24: ']',
+	// · · Token: example255.go:1:18: '[',
+	// · · Token2: example255.go:1:24: ']',
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example253.go:1:26: IDENTIFIER "c",
+	// · · · · Token: example255.go:1:26: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -4643,16 +4875,16 @@ func ExampleTyp_case02() {
 }
 
 func ExampleTyp_case03() {
-	fmt.Println(exampleAST(254, "package a ; chan chan b ("))
+	fmt.Println(exampleAST(256, "package a ; chan chan b ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 3,
 	// · ChanType: &gc.ChanType{
-	// · · Token: example254.go:1:18: CHAN,
+	// · · Token: example256.go:1:18: CHAN,
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example254.go:1:23: IDENTIFIER "b",
+	// · · · · Token: example256.go:1:23: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
@@ -4660,57 +4892,57 @@ func ExampleTyp_case03() {
 }
 
 func ExampleTyp_case04() {
-	fmt.Println(exampleAST(255, "package a ; var b func ( )"))
+	fmt.Println(exampleAST(257, "package a ; var b func ( )"))
 	// Output:
 	// &gc.Typ{
 	// · Case: 4,
 	// · FuncType: &gc.FuncType{
 	// · · Signature: &gc.Signature{
 	// · · · Parameters: &gc.Parameters{
-	// · · · · Token: example255.go:1:24: '(',
-	// · · · · Token2: example255.go:1:26: ')',
+	// · · · · Token: example257.go:1:24: '(',
+	// · · · · Token2: example257.go:1:26: ')',
 	// · · · },
 	// · · },
-	// · · Token: example255.go:1:19: FUNC,
+	// · · Token: example257.go:1:19: FUNC,
 	// · },
 	// }
 }
 
 func ExampleTyp_case05() {
-	fmt.Println(exampleAST(256, "package a ; chan interface { } ("))
+	fmt.Println(exampleAST(258, "package a ; chan interface { } ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 5,
 	// · InterfaceType: &gc.InterfaceType{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example256.go:1:28: '{',
+	// · · · Token: example258.go:1:28: '{',
 	// · · },
-	// · · Token: example256.go:1:18: INTERFACE,
-	// · · Token2: example256.go:1:30: '}',
+	// · · Token: example258.go:1:18: INTERFACE,
+	// · · Token2: example258.go:1:30: '}',
 	// · },
 	// }
 }
 
 func ExampleTyp_case06() {
-	fmt.Println(exampleAST(257, "package a ; chan map [ b ] c ("))
+	fmt.Println(exampleAST(259, "package a ; chan map [ b ] c ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 6,
 	// · MapType: &gc.MapType{
-	// · · Token: example257.go:1:18: MAP,
-	// · · Token2: example257.go:1:22: '[',
-	// · · Token3: example257.go:1:26: ']',
+	// · · Token: example259.go:1:18: MAP,
+	// · · Token2: example259.go:1:22: '[',
+	// · · Token3: example259.go:1:26: ']',
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example257.go:1:24: IDENTIFIER "b",
+	// · · · · Token: example259.go:1:24: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · · Typ2: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example257.go:1:28: IDENTIFIER "c",
+	// · · · · Token: example259.go:1:28: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -4718,28 +4950,28 @@ func ExampleTyp_case06() {
 }
 
 func ExampleTyp_case07() {
-	fmt.Println(exampleAST(258, "package a ; chan b ("))
+	fmt.Println(exampleAST(260, "package a ; chan b ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 7,
 	// · QualifiedIdent: &gc.QualifiedIdent{
-	// · · Token: example258.go:1:18: IDENTIFIER "b",
+	// · · Token: example260.go:1:18: IDENTIFIER "b",
 	// · },
 	// }
 }
 
 func ExampleTyp_case08() {
-	fmt.Println(exampleAST(259, "package a ; chan [ ] b ("))
+	fmt.Println(exampleAST(261, "package a ; chan [ ] b ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 8,
 	// · SliceType: &gc.SliceType{
-	// · · Token: example259.go:1:18: '[',
-	// · · Token2: example259.go:1:20: ']',
+	// · · Token: example261.go:1:18: '[',
+	// · · Token2: example261.go:1:20: ']',
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example259.go:1:22: IDENTIFIER "b",
+	// · · · · Token: example261.go:1:22: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
@@ -4747,46 +4979,46 @@ func ExampleTyp_case08() {
 }
 
 func ExampleTyp_case09() {
-	fmt.Println(exampleAST(260, "package a ; chan struct { } ("))
+	fmt.Println(exampleAST(262, "package a ; chan struct { } ("))
 	// Output:
 	// &gc.Typ{
 	// · Case: 9,
 	// · StructType: &gc.StructType{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example260.go:1:25: '{',
+	// · · · Token: example262.go:1:25: '{',
 	// · · },
-	// · · Token: example260.go:1:18: STRUCT,
-	// · · Token2: example260.go:1:27: '}',
+	// · · Token: example262.go:1:18: STRUCT,
+	// · · Token2: example262.go:1:27: '}',
 	// · },
 	// }
 }
 
 func ExampleTypeDecl() {
-	fmt.Println(exampleAST(261, "package a ; type ( ) ;"))
+	fmt.Println(exampleAST(263, "package a ; type ( ) ;"))
 	// Output:
 	// &gc.TypeDecl{
-	// · Token: example261.go:1:13: TYPE,
-	// · Token2: example261.go:1:18: '(',
-	// · Token3: example261.go:1:20: ')',
+	// · Token: example263.go:1:13: TYPE,
+	// · Token2: example263.go:1:18: '(',
+	// · Token3: example263.go:1:20: ')',
 	// }
 }
 
 func ExampleTypeDecl_case1() {
-	fmt.Println(exampleAST(262, "package a ; type ( b c ) ;"))
+	fmt.Println(exampleAST(264, "package a ; type ( b c ) ;"))
 	// Output:
 	// &gc.TypeDecl{
 	// · Case: 1,
-	// · Token: example262.go:1:13: TYPE,
-	// · Token2: example262.go:1:18: '(',
-	// · Token3: example262.go:1:24: ')',
+	// · Token: example264.go:1:13: TYPE,
+	// · Token2: example264.go:1:18: '(',
+	// · Token3: example264.go:1:24: ')',
 	// · TypeSpecList: &gc.TypeSpecList{
 	// · · TypeSpec: &gc.TypeSpec{
-	// · · · Token: example262.go:1:20: IDENTIFIER "b",
+	// · · · Token: example264.go:1:20: IDENTIFIER "b",
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example262.go:1:22: IDENTIFIER "c",
+	// · · · · · Token: example264.go:1:22: IDENTIFIER "c",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -4795,17 +5027,53 @@ func ExampleTypeDecl_case1() {
 }
 
 func ExampleTypeDecl_case2() {
-	fmt.Println(exampleAST(263, "package a ; type b c ;"))
+	fmt.Println(exampleAST(265, "package a ; type b c ;"))
 	// Output:
 	// &gc.TypeDecl{
 	// · Case: 2,
-	// · Token: example263.go:1:13: TYPE,
+	// · Token: example265.go:1:13: TYPE,
 	// · TypeSpec: &gc.TypeSpec{
-	// · · Token: example263.go:1:18: IDENTIFIER "b",
+	// · · Token: example265.go:1:18: IDENTIFIER "b",
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example263.go:1:20: IDENTIFIER "c",
+	// · · · · Token: example265.go:1:20: IDENTIFIER "c",
+	// · · · },
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleTypeList() {
+	fmt.Println(exampleAST(266, "package a ; b « c ,"))
+	// Output:
+	// &gc.TypeList{
+	// · Typ: &gc.Typ{
+	// · · Case: 7,
+	// · · QualifiedIdent: &gc.QualifiedIdent{
+	// · · · Token: example266.go:1:18: IDENTIFIER "c",
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleTypeList_case1() {
+	fmt.Println(exampleAST(267, "package a ; b « c , d ,"))
+	// Output:
+	// &gc.TypeList{
+	// · Typ: &gc.Typ{
+	// · · Case: 7,
+	// · · QualifiedIdent: &gc.QualifiedIdent{
+	// · · · Token: example267.go:1:18: IDENTIFIER "c",
+	// · · },
+	// · },
+	// · TypeList: &gc.TypeList{
+	// · · Case: 1,
+	// · · Token: example267.go:1:20: ',',
+	// · · Typ: &gc.Typ{
+	// · · · Case: 7,
+	// · · · QualifiedIdent: &gc.QualifiedIdent{
+	// · · · · Token: example267.go:1:22: IDENTIFIER "d",
 	// · · · },
 	// · · },
 	// · },
@@ -4813,18 +5081,18 @@ func ExampleTypeDecl_case2() {
 }
 
 func ExampleTypeLiteral() {
-	fmt.Println(exampleAST(264, "package a ; * chan b )"))
+	fmt.Println(exampleAST(268, "package a ; * chan b )"))
 	// Output:
 	// &gc.TypeLiteral{
-	// · Token: example264.go:1:13: '*',
+	// · Token: example268.go:1:13: '*',
 	// · TypeLiteral: &gc.TypeLiteral{
 	// · · Case: 2,
 	// · · ChanType: &gc.ChanType{
-	// · · · Token: example264.go:1:15: CHAN,
+	// · · · Token: example268.go:1:15: CHAN,
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example264.go:1:20: IDENTIFIER "b",
+	// · · · · · Token: example268.go:1:20: IDENTIFIER "b",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -4833,7 +5101,7 @@ func ExampleTypeLiteral() {
 }
 
 func ExampleTypeLiteral_case1() {
-	fmt.Println(exampleAST(265, "package a ; [ 'b' ] c ("))
+	fmt.Println(exampleAST(269, "package a ; [ 'b' ] c ("))
 	// Output:
 	// &gc.TypeLiteral{
 	// · ArrayType: &gc.ArrayType{
@@ -4844,19 +5112,20 @@ func ExampleTypeLiteral_case1() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example265.go:1:15: CHAR_LIT "'b'",
+	// · · · · · · · Value: 'b',
+	// · · · · · · · Token: example269.go:1:15: CHAR_LIT "'b'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
 	// · · · · },
 	// · · · },
 	// · · },
-	// · · Token: example265.go:1:13: '[',
-	// · · Token2: example265.go:1:19: ']',
+	// · · Token: example269.go:1:13: '[',
+	// · · Token2: example269.go:1:19: ']',
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example265.go:1:21: IDENTIFIER "c",
+	// · · · · Token: example269.go:1:21: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -4865,16 +5134,16 @@ func ExampleTypeLiteral_case1() {
 }
 
 func ExampleTypeLiteral_case2() {
-	fmt.Println(exampleAST(266, "package a ; chan b ("))
+	fmt.Println(exampleAST(270, "package a ; chan b ("))
 	// Output:
 	// &gc.TypeLiteral{
 	// · Case: 2,
 	// · ChanType: &gc.ChanType{
-	// · · Token: example266.go:1:13: CHAN,
+	// · · Token: example270.go:1:13: CHAN,
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example266.go:1:18: IDENTIFIER "b",
+	// · · · · Token: example270.go:1:18: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
@@ -4882,57 +5151,57 @@ func ExampleTypeLiteral_case2() {
 }
 
 func ExampleTypeLiteral_case3() {
-	fmt.Println(exampleAST(267, "package a ; b(func())"))
+	fmt.Println(exampleAST(271, "package a ; b(func())"))
 	// Output:
 	// &gc.TypeLiteral{
 	// · Case: 3,
 	// · FuncType: &gc.FuncType{
 	// · · Signature: &gc.Signature{
 	// · · · Parameters: &gc.Parameters{
-	// · · · · Token: example267.go:1:19: '(',
-	// · · · · Token2: example267.go:1:20: ')',
+	// · · · · Token: example271.go:1:19: '(',
+	// · · · · Token2: example271.go:1:20: ')',
 	// · · · },
 	// · · },
-	// · · Token: example267.go:1:15: FUNC,
+	// · · Token: example271.go:1:15: FUNC,
 	// · },
 	// }
 }
 
 func ExampleTypeLiteral_case4() {
-	fmt.Println(exampleAST(268, "package a ; interface { } ("))
+	fmt.Println(exampleAST(272, "package a ; interface { } ("))
 	// Output:
 	// &gc.TypeLiteral{
 	// · Case: 4,
 	// · InterfaceType: &gc.InterfaceType{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example268.go:1:23: '{',
+	// · · · Token: example272.go:1:23: '{',
 	// · · },
-	// · · Token: example268.go:1:13: INTERFACE,
-	// · · Token2: example268.go:1:25: '}',
+	// · · Token: example272.go:1:13: INTERFACE,
+	// · · Token2: example272.go:1:25: '}',
 	// · },
 	// }
 }
 
 func ExampleTypeLiteral_case5() {
-	fmt.Println(exampleAST(269, "package a ; map [ b ] c ("))
+	fmt.Println(exampleAST(273, "package a ; map [ b ] c ("))
 	// Output:
 	// &gc.TypeLiteral{
 	// · Case: 5,
 	// · MapType: &gc.MapType{
-	// · · Token: example269.go:1:13: MAP,
-	// · · Token2: example269.go:1:17: '[',
-	// · · Token3: example269.go:1:21: ']',
+	// · · Token: example273.go:1:13: MAP,
+	// · · Token2: example273.go:1:17: '[',
+	// · · Token3: example273.go:1:21: ']',
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example269.go:1:19: IDENTIFIER "b",
+	// · · · · Token: example273.go:1:19: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · · Typ2: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example269.go:1:23: IDENTIFIER "c",
+	// · · · · Token: example273.go:1:23: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -4940,17 +5209,17 @@ func ExampleTypeLiteral_case5() {
 }
 
 func ExampleTypeLiteral_case6() {
-	fmt.Println(exampleAST(270, "package a ; [ ] b ("))
+	fmt.Println(exampleAST(274, "package a ; [ ] b ("))
 	// Output:
 	// &gc.TypeLiteral{
 	// · Case: 6,
 	// · SliceType: &gc.SliceType{
-	// · · Token: example270.go:1:13: '[',
-	// · · Token2: example270.go:1:15: ']',
+	// · · Token: example274.go:1:13: '[',
+	// · · Token2: example274.go:1:15: ']',
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example270.go:1:17: IDENTIFIER "b",
+	// · · · · Token: example274.go:1:17: IDENTIFIER "b",
 	// · · · },
 	// · · },
 	// · },
@@ -4958,45 +5227,45 @@ func ExampleTypeLiteral_case6() {
 }
 
 func ExampleTypeLiteral_case7() {
-	fmt.Println(exampleAST(271, "package a ; struct { } ("))
+	fmt.Println(exampleAST(275, "package a ; struct { } ("))
 	// Output:
 	// &gc.TypeLiteral{
 	// · Case: 7,
 	// · StructType: &gc.StructType{
 	// · · LBrace: &gc.LBrace{
 	// · · · Case: 1,
-	// · · · Token: example271.go:1:20: '{',
+	// · · · Token: example275.go:1:20: '{',
 	// · · },
-	// · · Token: example271.go:1:13: STRUCT,
-	// · · Token2: example271.go:1:22: '}',
+	// · · Token: example275.go:1:13: STRUCT,
+	// · · Token2: example275.go:1:22: '}',
 	// · },
 	// }
 }
 
 func ExampleTypeSpec() {
-	fmt.Println(exampleAST(272, "package a ; type b c )"))
+	fmt.Println(exampleAST(276, "package a ; type b c )"))
 	// Output:
 	// &gc.TypeSpec{
-	// · Token: example272.go:1:18: IDENTIFIER "b",
+	// · Token: example276.go:1:18: IDENTIFIER "b",
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example272.go:1:20: IDENTIFIER "c",
+	// · · · Token: example276.go:1:20: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleTypeSpecList() {
-	fmt.Println(exampleAST(273, "package a ; type ( b c )"))
+	fmt.Println(exampleAST(277, "package a ; type ( b c )"))
 	// Output:
 	// &gc.TypeSpecList{
 	// · TypeSpec: &gc.TypeSpec{
-	// · · Token: example273.go:1:20: IDENTIFIER "b",
+	// · · Token: example277.go:1:20: IDENTIFIER "b",
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example273.go:1:22: IDENTIFIER "c",
+	// · · · · Token: example277.go:1:22: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -5004,27 +5273,27 @@ func ExampleTypeSpecList() {
 }
 
 func ExampleTypeSpecList_case1() {
-	fmt.Println(exampleAST(274, "package a ; type ( b c ; d e )"))
+	fmt.Println(exampleAST(278, "package a ; type ( b c ; d e )"))
 	// Output:
 	// &gc.TypeSpecList{
 	// · TypeSpec: &gc.TypeSpec{
-	// · · Token: example274.go:1:20: IDENTIFIER "b",
+	// · · Token: example278.go:1:20: IDENTIFIER "b",
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example274.go:1:22: IDENTIFIER "c",
+	// · · · · Token: example278.go:1:22: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
 	// · TypeSpecList: &gc.TypeSpecList{
 	// · · Case: 1,
-	// · · Token: example274.go:1:24: ';',
+	// · · Token: example278.go:1:24: ';',
 	// · · TypeSpec: &gc.TypeSpec{
-	// · · · Token: example274.go:1:26: IDENTIFIER "d",
+	// · · · Token: example278.go:1:26: IDENTIFIER "d",
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example274.go:1:28: IDENTIFIER "e",
+	// · · · · · Token: example278.go:1:28: IDENTIFIER "e",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -5033,95 +5302,16 @@ func ExampleTypeSpecList_case1() {
 }
 
 func ExampleUnaryExpression() {
-	fmt.Println(exampleAST(275, "package a ; ! 'b' %"))
+	fmt.Println(exampleAST(279, "package a ; ! 'b' %"))
 	// Output:
 	// &gc.UnaryExpression{
-	// · Token: example275.go:1:13: '!',
+	// · Token: example279.go:1:13: '!',
 	// · UnaryExpression: &gc.UnaryExpression{
 	// · · Case: 7,
 	// · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · Operand: &gc.Operand{
 	// · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · Token: example275.go:1:15: CHAR_LIT "'b'",
-	// · · · · },
-	// · · · · Case: 2,
-	// · · · },
-	// · · },
-	// · },
-	// }
-}
-
-func ExampleUnaryExpression_case1() {
-	fmt.Println(exampleAST(276, "package a ; & 'b' %"))
-	// Output:
-	// &gc.UnaryExpression{
-	// · Case: 1,
-	// · Token: example276.go:1:13: '&',
-	// · UnaryExpression: &gc.UnaryExpression{
-	// · · Case: 7,
-	// · · PrimaryExpression: &gc.PrimaryExpression{
-	// · · · Operand: &gc.Operand{
-	// · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · Token: example276.go:1:15: CHAR_LIT "'b'",
-	// · · · · },
-	// · · · · Case: 2,
-	// · · · },
-	// · · },
-	// · },
-	// }
-}
-
-func ExampleUnaryExpression_case2() {
-	fmt.Println(exampleAST(277, "package a ; * 'b' %"))
-	// Output:
-	// &gc.UnaryExpression{
-	// · Case: 2,
-	// · Token: example277.go:1:13: '*',
-	// · UnaryExpression: &gc.UnaryExpression{
-	// · · Case: 7,
-	// · · PrimaryExpression: &gc.PrimaryExpression{
-	// · · · Operand: &gc.Operand{
-	// · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · Token: example277.go:1:15: CHAR_LIT "'b'",
-	// · · · · },
-	// · · · · Case: 2,
-	// · · · },
-	// · · },
-	// · },
-	// }
-}
-
-func ExampleUnaryExpression_case3() {
-	fmt.Println(exampleAST(278, "package a ; + 'b' %"))
-	// Output:
-	// &gc.UnaryExpression{
-	// · Case: 3,
-	// · Token: example278.go:1:13: '+',
-	// · UnaryExpression: &gc.UnaryExpression{
-	// · · Case: 7,
-	// · · PrimaryExpression: &gc.PrimaryExpression{
-	// · · · Operand: &gc.Operand{
-	// · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · Token: example278.go:1:15: CHAR_LIT "'b'",
-	// · · · · },
-	// · · · · Case: 2,
-	// · · · },
-	// · · },
-	// · },
-	// }
-}
-
-func ExampleUnaryExpression_case4() {
-	fmt.Println(exampleAST(279, "package a ; - 'b' %"))
-	// Output:
-	// &gc.UnaryExpression{
-	// · Case: 4,
-	// · Token: example279.go:1:13: '-',
-	// · UnaryExpression: &gc.UnaryExpression{
-	// · · Case: 7,
-	// · · PrimaryExpression: &gc.PrimaryExpression{
-	// · · · Operand: &gc.Operand{
-	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
 	// · · · · · Token: example279.go:1:15: CHAR_LIT "'b'",
 	// · · · · },
 	// · · · · Case: 2,
@@ -5131,17 +5321,18 @@ func ExampleUnaryExpression_case4() {
 	// }
 }
 
-func ExampleUnaryExpression_case5() {
-	fmt.Println(exampleAST(280, "package a ; ^ 'b' %"))
+func ExampleUnaryExpression_case1() {
+	fmt.Println(exampleAST(280, "package a ; & 'b' %"))
 	// Output:
 	// &gc.UnaryExpression{
-	// · Case: 5,
-	// · Token: example280.go:1:13: '^',
+	// · Case: 1,
+	// · Token: example280.go:1:13: '&',
 	// · UnaryExpression: &gc.UnaryExpression{
 	// · · Case: 7,
 	// · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · Operand: &gc.Operand{
 	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
 	// · · · · · Token: example280.go:1:15: CHAR_LIT "'b'",
 	// · · · · },
 	// · · · · Case: 2,
@@ -5151,18 +5342,103 @@ func ExampleUnaryExpression_case5() {
 	// }
 }
 
-func ExampleUnaryExpression_case6() {
-	fmt.Println(exampleAST(281, "package a ; <- 'b' %"))
+func ExampleUnaryExpression_case2() {
+	fmt.Println(exampleAST(281, "package a ; * 'b' %"))
 	// Output:
 	// &gc.UnaryExpression{
-	// · Case: 6,
-	// · Token: example281.go:1:13: COMM,
+	// · Case: 2,
+	// · Token: example281.go:1:13: '*',
 	// · UnaryExpression: &gc.UnaryExpression{
 	// · · Case: 7,
 	// · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · Operand: &gc.Operand{
 	// · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · Token: example281.go:1:16: CHAR_LIT "'b'",
+	// · · · · · Value: 'b',
+	// · · · · · Token: example281.go:1:15: CHAR_LIT "'b'",
+	// · · · · },
+	// · · · · Case: 2,
+	// · · · },
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleUnaryExpression_case3() {
+	fmt.Println(exampleAST(282, "package a ; + 'b' %"))
+	// Output:
+	// &gc.UnaryExpression{
+	// · Case: 3,
+	// · Token: example282.go:1:13: '+',
+	// · UnaryExpression: &gc.UnaryExpression{
+	// · · Case: 7,
+	// · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · Operand: &gc.Operand{
+	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
+	// · · · · · Token: example282.go:1:15: CHAR_LIT "'b'",
+	// · · · · },
+	// · · · · Case: 2,
+	// · · · },
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleUnaryExpression_case4() {
+	fmt.Println(exampleAST(283, "package a ; - 'b' %"))
+	// Output:
+	// &gc.UnaryExpression{
+	// · Case: 4,
+	// · Token: example283.go:1:13: '-',
+	// · UnaryExpression: &gc.UnaryExpression{
+	// · · Case: 7,
+	// · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · Operand: &gc.Operand{
+	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
+	// · · · · · Token: example283.go:1:15: CHAR_LIT "'b'",
+	// · · · · },
+	// · · · · Case: 2,
+	// · · · },
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleUnaryExpression_case5() {
+	fmt.Println(exampleAST(284, "package a ; ^ 'b' %"))
+	// Output:
+	// &gc.UnaryExpression{
+	// · Case: 5,
+	// · Token: example284.go:1:13: '^',
+	// · UnaryExpression: &gc.UnaryExpression{
+	// · · Case: 7,
+	// · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · Operand: &gc.Operand{
+	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
+	// · · · · · Token: example284.go:1:15: CHAR_LIT "'b'",
+	// · · · · },
+	// · · · · Case: 2,
+	// · · · },
+	// · · },
+	// · },
+	// }
+}
+
+func ExampleUnaryExpression_case6() {
+	fmt.Println(exampleAST(285, "package a ; <- 'b' %"))
+	// Output:
+	// &gc.UnaryExpression{
+	// · Case: 6,
+	// · Token: example285.go:1:13: COMM,
+	// · UnaryExpression: &gc.UnaryExpression{
+	// · · Case: 7,
+	// · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · Operand: &gc.Operand{
+	// · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · Value: 'b',
+	// · · · · · Token: example285.go:1:16: CHAR_LIT "'b'",
 	// · · · · },
 	// · · · · Case: 2,
 	// · · · },
@@ -5172,14 +5448,15 @@ func ExampleUnaryExpression_case6() {
 }
 
 func ExampleUnaryExpression_case7() {
-	fmt.Println(exampleAST(282, "package a ; 'b' %"))
+	fmt.Println(exampleAST(286, "package a ; 'b' %"))
 	// Output:
 	// &gc.UnaryExpression{
 	// · Case: 7,
 	// · PrimaryExpression: &gc.PrimaryExpression{
 	// · · Operand: &gc.Operand{
 	// · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · Token: example282.go:1:13: CHAR_LIT "'b'",
+	// · · · · Value: 'b',
+	// · · · · Token: example286.go:1:13: CHAR_LIT "'b'",
 	// · · · },
 	// · · · Case: 2,
 	// · · },
@@ -5188,33 +5465,33 @@ func ExampleUnaryExpression_case7() {
 }
 
 func ExampleVarDecl() {
-	fmt.Println(exampleAST(283, "package a ; var ( ) ;"))
+	fmt.Println(exampleAST(287, "package a ; var ( ) ;"))
 	// Output:
 	// &gc.VarDecl{
-	// · Token: example283.go:1:13: VAR,
-	// · Token2: example283.go:1:17: '(',
-	// · Token3: example283.go:1:19: ')',
+	// · Token: example287.go:1:13: VAR,
+	// · Token2: example287.go:1:17: '(',
+	// · Token3: example287.go:1:19: ')',
 	// }
 }
 
 func ExampleVarDecl_case1() {
-	fmt.Println(exampleAST(284, "package a ; var ( b c ) ;"))
+	fmt.Println(exampleAST(288, "package a ; var ( b c ) ;"))
 	// Output:
 	// &gc.VarDecl{
 	// · Case: 1,
-	// · Token: example284.go:1:13: VAR,
-	// · Token2: example284.go:1:17: '(',
-	// · Token3: example284.go:1:23: ')',
+	// · Token: example288.go:1:13: VAR,
+	// · Token2: example288.go:1:17: '(',
+	// · Token3: example288.go:1:23: ')',
 	// · VarSpecList: &gc.VarSpecList{
 	// · · VarSpec: &gc.VarSpec{
 	// · · · Case: 1,
 	// · · · IdentifierList: &gc.IdentifierList{
-	// · · · · Token: example284.go:1:19: IDENTIFIER "b",
+	// · · · · Token: example288.go:1:19: IDENTIFIER "b",
 	// · · · },
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example284.go:1:21: IDENTIFIER "c",
+	// · · · · · Token: example288.go:1:21: IDENTIFIER "c",
 	// · · · · },
 	// · · · },
 	// · · },
@@ -5223,20 +5500,20 @@ func ExampleVarDecl_case1() {
 }
 
 func ExampleVarDecl_case2() {
-	fmt.Println(exampleAST(285, "package a ; var b c ;"))
+	fmt.Println(exampleAST(289, "package a ; var b c ;"))
 	// Output:
 	// &gc.VarDecl{
 	// · Case: 2,
-	// · Token: example285.go:1:13: VAR,
+	// · Token: example289.go:1:13: VAR,
 	// · VarSpec: &gc.VarSpec{
 	// · · Case: 1,
 	// · · IdentifierList: &gc.IdentifierList{
-	// · · · Token: example285.go:1:17: IDENTIFIER "b",
+	// · · · Token: example289.go:1:17: IDENTIFIER "b",
 	// · · },
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example285.go:1:19: IDENTIFIER "c",
+	// · · · · Token: example289.go:1:19: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -5244,7 +5521,7 @@ func ExampleVarDecl_case2() {
 }
 
 func ExampleVarSpec() {
-	fmt.Println(exampleAST(286, "package a ; var b = 'c' )"))
+	fmt.Println(exampleAST(290, "package a ; var b = 'c' )"))
 	// Output:
 	// &gc.VarSpec{
 	// · ExpressionList: &gc.ExpressionList{
@@ -5254,7 +5531,8 @@ func ExampleVarSpec() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example286.go:1:21: CHAR_LIT "'c'",
+	// · · · · · · · Value: 'c',
+	// · · · · · · · Token: example290.go:1:21: CHAR_LIT "'c'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -5263,31 +5541,31 @@ func ExampleVarSpec() {
 	// · · },
 	// · },
 	// · IdentifierList: &gc.IdentifierList{
-	// · · Token: example286.go:1:17: IDENTIFIER "b",
+	// · · Token: example290.go:1:17: IDENTIFIER "b",
 	// · },
-	// · Token: example286.go:1:19: '=',
+	// · Token: example290.go:1:19: '=',
 	// }
 }
 
 func ExampleVarSpec_case1() {
-	fmt.Println(exampleAST(287, "package a ; var b c )"))
+	fmt.Println(exampleAST(291, "package a ; var b c )"))
 	// Output:
 	// &gc.VarSpec{
 	// · Case: 1,
 	// · IdentifierList: &gc.IdentifierList{
-	// · · Token: example287.go:1:17: IDENTIFIER "b",
+	// · · Token: example291.go:1:17: IDENTIFIER "b",
 	// · },
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example287.go:1:19: IDENTIFIER "c",
+	// · · · Token: example291.go:1:19: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleVarSpec_case2() {
-	fmt.Println(exampleAST(288, "package a ; var b c = 'd' )"))
+	fmt.Println(exampleAST(292, "package a ; var b c = 'd' )"))
 	// Output:
 	// &gc.VarSpec{
 	// · Case: 2,
@@ -5298,7 +5576,8 @@ func ExampleVarSpec_case2() {
 	// · · · · PrimaryExpression: &gc.PrimaryExpression{
 	// · · · · · Operand: &gc.Operand{
 	// · · · · · · BasicLiteral: &gc.BasicLiteral{
-	// · · · · · · · Token: example288.go:1:23: CHAR_LIT "'d'",
+	// · · · · · · · Value: 'd',
+	// · · · · · · · Token: example292.go:1:23: CHAR_LIT "'d'",
 	// · · · · · · },
 	// · · · · · · Case: 2,
 	// · · · · · },
@@ -5307,31 +5586,31 @@ func ExampleVarSpec_case2() {
 	// · · },
 	// · },
 	// · IdentifierList: &gc.IdentifierList{
-	// · · Token: example288.go:1:17: IDENTIFIER "b",
+	// · · Token: example292.go:1:17: IDENTIFIER "b",
 	// · },
-	// · Token: example288.go:1:21: '=',
+	// · Token: example292.go:1:21: '=',
 	// · Typ: &gc.Typ{
 	// · · Case: 7,
 	// · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · Token: example288.go:1:19: IDENTIFIER "c",
+	// · · · Token: example292.go:1:19: IDENTIFIER "c",
 	// · · },
 	// · },
 	// }
 }
 
 func ExampleVarSpecList() {
-	fmt.Println(exampleAST(289, "package a ; var ( b c )"))
+	fmt.Println(exampleAST(293, "package a ; var ( b c )"))
 	// Output:
 	// &gc.VarSpecList{
 	// · VarSpec: &gc.VarSpec{
 	// · · Case: 1,
 	// · · IdentifierList: &gc.IdentifierList{
-	// · · · Token: example289.go:1:19: IDENTIFIER "b",
+	// · · · Token: example293.go:1:19: IDENTIFIER "b",
 	// · · },
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example289.go:1:21: IDENTIFIER "c",
+	// · · · · Token: example293.go:1:21: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
@@ -5339,33 +5618,33 @@ func ExampleVarSpecList() {
 }
 
 func ExampleVarSpecList_case1() {
-	fmt.Println(exampleAST(290, "package a ; var ( b c ; d e )"))
+	fmt.Println(exampleAST(294, "package a ; var ( b c ; d e )"))
 	// Output:
 	// &gc.VarSpecList{
 	// · VarSpec: &gc.VarSpec{
 	// · · Case: 1,
 	// · · IdentifierList: &gc.IdentifierList{
-	// · · · Token: example290.go:1:19: IDENTIFIER "b",
+	// · · · Token: example294.go:1:19: IDENTIFIER "b",
 	// · · },
 	// · · Typ: &gc.Typ{
 	// · · · Case: 7,
 	// · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · Token: example290.go:1:21: IDENTIFIER "c",
+	// · · · · Token: example294.go:1:21: IDENTIFIER "c",
 	// · · · },
 	// · · },
 	// · },
 	// · VarSpecList: &gc.VarSpecList{
 	// · · Case: 1,
-	// · · Token: example290.go:1:23: ';',
+	// · · Token: example294.go:1:23: ';',
 	// · · VarSpec: &gc.VarSpec{
 	// · · · Case: 1,
 	// · · · IdentifierList: &gc.IdentifierList{
-	// · · · · Token: example290.go:1:25: IDENTIFIER "d",
+	// · · · · Token: example294.go:1:25: IDENTIFIER "d",
 	// · · · },
 	// · · · Typ: &gc.Typ{
 	// · · · · Case: 7,
 	// · · · · QualifiedIdent: &gc.QualifiedIdent{
-	// · · · · · Token: example290.go:1:27: IDENTIFIER "e",
+	// · · · · · Token: example294.go:1:27: IDENTIFIER "e",
 	// · · · · },
 	// · · · },
 	// · · },

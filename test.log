@@ -1,12 +1,16 @@
-[FAIL errorcheck: missing error] "invalid" testdata/badtype.go:7:10
+[PASS errorcheck] "invalid recursive type t": invalid recursive type t testdata/badtype.go:7:6
+[PASS errorcheck] "import statement not a string": import statement not a string testdata/extra.go:5:8
+[PASS errorcheck] "func init must have no arguments and no return values": func init must have no arguments and no return values testdata/extra.go:7:11
+[PASS errorcheck] "func init must have no arguments and no return values": func init must have no arguments and no return values testdata/extra.go:10:13
+[PASS errorcheck] "duplicate method m": duplicate method m, previous declaration at testdata/extra.go:14:2 testdata/extra.go:16:2
 [FAIL errorcheck: missing error] "byte" testdata/gc/alias.go:23:7
 [FAIL errorcheck: missing error] "uint8" testdata/gc/alias.go:24:7
 [FAIL errorcheck: missing error] "rune" testdata/gc/alias.go:30:19
 [FAIL errorcheck: missing error] "byte" testdata/gc/alias.go:32:20
 [FAIL errorcheck: missing error] "assignment.*Mutex" testdata/gc/assign.go:41:25
 [FAIL errorcheck: missing error] "(unknown|assignment).*Mutex" testdata/gc/assign.go:45:27
-[FAIL errorcheck: missing error] "x repeated on left side of :=" testdata/gc/assign.go:59:17
-[FAIL errorcheck: missing error] "a repeated on left side of :=" testdata/gc/assign.go:65:16
+[PASS errorcheck] "x repeated on left side of :=": x repeated on left side of := testdata/gc/assign.go:59:7
+[PASS errorcheck] "a repeated on left side of :=": a repeated on left side of := testdata/gc/assign.go:65:6
 [FAIL errorcheck: missing error] "cannot use" testdata/gc/assign1.go:108:9
 [FAIL errorcheck: missing error] "cannot use" testdata/gc/assign1.go:110:9
 [FAIL errorcheck: missing error] "cannot use" testdata/gc/assign1.go:115:9
@@ -70,7 +74,7 @@
 [FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/assign1.go:214:12
 [FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/assign1.go:215:12
 [FAIL errorcheck: missing error] "invalid package name _" testdata/gc/blank1.go:10:11
-[FAIL errorcheck: missing error] "cannot define new methods on non-local type" testdata/gc/blank1.go:16:20
+[PASS errorcheck] "cannot define new methods on non-local type": cannot define new methods on non-local type int testdata/gc/blank1.go:16:9
 [FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/blank1.go:25:6
 [FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/blank1.go:26:11
 [FAIL errorcheck: missing error] "cannot refer to blank field|invalid use of" testdata/gc/blank1.go:28:10
@@ -92,12 +96,12 @@
 [FAIL errorcheck: missing error] "receive" testdata/gc/chan/perm.go:56:20
 [FAIL errorcheck: missing error] "receive" testdata/gc/chan/perm.go:59:16
 [FAIL errorcheck: missing error] "receive" testdata/gc/chan/perm.go:64:13
-[FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:16:16
+[PASS errorcheck] "Unicode|unicode": invalid Unicode code point in escape sequence: 0xd800 testdata/gc/char_lit1.go:16:6
 [FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:17:20
-[FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:18:15
-[FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:19:20
-[FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:20:15
-[FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:23:20
+[PASS errorcheck] "Unicode|unicode": invalid Unicode code point in escape sequence: 0xdc01 testdata/gc/char_lit1.go:18:6
+[PASS errorcheck] "Unicode|unicode": invalid Unicode code point in escape sequence: 0xdddd testdata/gc/char_lit1.go:19:6
+[PASS errorcheck] "Unicode|unicode": invalid Unicode code point in escape sequence: 0xdfff testdata/gc/char_lit1.go:20:6
+[FAIL errorcheck: error does not match] "Unicode|unicode": invalid character constant testdata/gc/char_lit1.go:23:6
 [FAIL errorcheck: error does not match] "Unicode|unicode": invalid syntax: "\"abc\\U00110000def\"" testdata/gc/char_lit1.go:25:6
 [FAIL errorcheck: missing error] "Unicode|unicode" testdata/gc/char_lit1.go:26:20
 [TODO "errorcheck -0 -d=ssa/check_bce/debug=3"] testdata/gc/checkbce.go
@@ -133,15 +137,15 @@
 [FAIL errorcheck: missing error] "slice of unaddressable value" testdata/gc/complit1.go:23:25
 [FAIL errorcheck: missing error] "missing type in composite literal|omit types within composite literal" testdata/gc/complit1.go:40:38
 [FAIL errorcheck: missing error] "missing type in composite literal|omit types within composite literal" testdata/gc/complit1.go:41:38
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:33:31
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:35:31
+[PASS errorcheck] "overflow": constant 10100 overflows int8 testdata/gc/const1.go:33:12
+[PASS errorcheck] "overflow": constant 1000 overflows int8 testdata/gc/const1.go:35:12
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:36:31
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:37:31
+[PASS errorcheck] "overflow": constant 1000 overflows int8 testdata/gc/const1.go:37:17
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:38:31
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:39:31
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:40:31
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:43:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:44:36
+[PASS errorcheck] "overflow": constant -1 overflows uint8 testdata/gc/const1.go:44:20
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:46:36
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:47:36
 [FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:51:36
@@ -262,14 +266,14 @@
 [FAIL errorcheck: missing error] "[.][.][.]" testdata/gc/ddd1.go:58:26
 [FAIL errorcheck: missing error] "[.][.][.]" testdata/gc/ddd1.go:59:23
 [FAIL errorcheck: missing error] "[.][.][.]" testdata/gc/ddd1.go:60:37
-[FAIL errorcheck: missing error] "redeclared|no new" testdata/gc/declbad.go:20:13
+[PASS errorcheck] "redeclared|no new": no new variables on left side of := testdata/gc/declbad.go:20:3
 [FAIL errorcheck: missing error] "redeclared|cannot assign|incompatible" testdata/gc/declbad.go:26:19
 [FAIL errorcheck: missing error] "redeclared|cannot assign|incompatible" testdata/gc/declbad.go:32:19
-[FAIL errorcheck: missing error] "redeclared|no new" testdata/gc/declbad.go:38:16
-[FAIL errorcheck: missing error] "redeclared|no new|incompatible" testdata/gc/declbad.go:44:21
-[FAIL errorcheck: missing error] "redeclared|no new|incompatible" testdata/gc/declbad.go:52:10
-[FAIL errorcheck: missing error] "redeclared|no new" testdata/gc/declbad.go:58:16
-[FAIL errorcheck: missing error] "redeclared|no new" testdata/gc/declbad.go:64:19
+[PASS errorcheck] "redeclared|no new": no new variables on left side of := testdata/gc/declbad.go:38:3
+[PASS errorcheck] "redeclared|no new|incompatible": no new variables on left side of := testdata/gc/declbad.go:44:3
+[PASS errorcheck] "redeclared|no new|incompatible": no new variables on left side of := testdata/gc/declbad.go:52:3
+[PASS errorcheck] "redeclared|no new": no new variables on left side of := testdata/gc/declbad.go:58:3
+[PASS errorcheck] "redeclared|no new": no new variables on left side of := testdata/gc/declbad.go:64:3
 [TODO "errorcheck -0 -m -l"] testdata/gc/escape2.go
 [TODO "errorcheck -0 -N -m -l"] testdata/gc/escape2n.go
 [TODO "errorcheck -0 -m"] testdata/gc/escape4.go
@@ -288,16 +292,16 @@
 [TODO "errorcheck -0 -m -l"] testdata/gc/escape_struct_param1.go
 [TODO "errorcheck -0 -m -l"] testdata/gc/escape_struct_param2.go
 [TODO "errorcheck -0 -m -l"] testdata/gc/escape_struct_return.go
-[FAIL errorcheck: missing error] "oct|char" testdata/gc/fixedbugs/bug014.go:10:25
-[FAIL errorcheck: missing error] "oct|char" testdata/gc/fixedbugs/bug014.go:11:26
-[FAIL errorcheck: missing error] "hex|char" testdata/gc/fixedbugs/bug014.go:12:26
-[FAIL errorcheck: missing error] "hex|char" testdata/gc/fixedbugs/bug014.go:13:25
+[PASS errorcheck] "oct|char": invalid character constant testdata/gc/fixedbugs/bug014.go:10:18
+[PASS errorcheck] "oct|char": invalid character constant testdata/gc/fixedbugs/bug014.go:11:18
+[PASS errorcheck] "hex|char": invalid character constant testdata/gc/fixedbugs/bug014.go:12:18
+[PASS errorcheck] "hex|char": invalid character constant testdata/gc/fixedbugs/bug014.go:13:18
 [FAIL errorcheck: missing error] "overflow" testdata/gc/fixedbugs/bug015.go:11:26
 [FAIL errorcheck: missing error] "overflows|negative" testdata/gc/fixedbugs/bug016.go:11:14
 [FAIL errorcheck: missing error] "illegal|is not|invalid" testdata/gc/fixedbugs/bug022.go:12:18
-[FAIL errorcheck: missing error] "declar|:=" testdata/gc/fixedbugs/bug030.go:11:10
-[FAIL errorcheck: missing error] "redecl|no new" testdata/gc/fixedbugs/bug035.go:10:18
-[FAIL errorcheck: missing error] "redecl|no new" testdata/gc/fixedbugs/bug035.go:11:18
+[PASS errorcheck] "declar|:=": no new variables on left side of := testdata/gc/fixedbugs/bug030.go:11:2
+[PASS errorcheck] "redecl|no new": no new variables on left side of := testdata/gc/fixedbugs/bug035.go:10:2
+[PASS errorcheck] "redecl|no new": no new variables on left side of := testdata/gc/fixedbugs/bug035.go:11:2
 [FAIL errorcheck: missing error] "undef" testdata/gc/fixedbugs/bug037.go:10:18
 [PASS errorcheck] "redecl|redefinition": x redeclared, previous declaration at testdata/gc/fixedbugs/bug039.go:9:9 testdata/gc/fixedbugs/bug039.go:10:6
 [PASS errorcheck] "duplicate argument|redefinition": duplicate argument x testdata/gc/fixedbugs/bug040.go:10:2
@@ -311,7 +315,8 @@
 [FAIL errorcheck: missing error] "illegal|inval|shift" testdata/gc/fixedbugs/bug073.go:12:15
 [FAIL errorcheck: missing error] "illegal|inval|shift" testdata/gc/fixedbugs/bug073.go:13:15
 [FAIL errorcheck: missing error] "composite" testdata/gc/fixedbugs/bug074.go:10:31
-[FAIL errorcheck: missing error] "loop|type" testdata/gc/fixedbugs/bug081.go:9:15
+[PASS errorcheck] "loop|type": x is not a type testdata/gc/fixedbugs/bug081.go:9:9
+[FAIL errorcheck: missing error] "bug0" testdata/gc/fixedbugs/bug083.dir/bug1.go:13:17
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug085.go:12:15
 [FAIL errorcheck: missing error] "return" testdata/gc/fixedbugs/bug086.go:14:3
 [FAIL errorcheck: missing error] "truncate" testdata/gc/fixedbugs/bug090.go:36:14
@@ -333,14 +338,15 @@
 [FAIL errorcheck: missing error] "illegal|incompatible|nil" testdata/gc/fixedbugs/bug127.go:10:21
 [FAIL errorcheck: missing error] "illegal|incompatible|nil" testdata/gc/fixedbugs/bug127.go:11:21
 [FAIL errorcheck: missing error] "convert|cannot|incompatible" testdata/gc/fixedbugs/bug131.go:11:19
-[FAIL errorcheck: missing error] "duplicate" testdata/gc/fixedbugs/bug132.go:10:12
+[PASS errorcheck] "duplicate": duplicate field x, previous declaration at testdata/gc/fixedbugs/bug132.go:10:2 testdata/gc/fixedbugs/bug132.go:10:5
+[FAIL errorcheck: missing error] "field|undef" testdata/gc/fixedbugs/bug133.dir/bug2.go:15:16
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/bug13343.go:10:13
 [FAIL errorcheck: missing error] "L" testdata/gc/fixedbugs/bug136.go:13:13
 [FAIL errorcheck: missing error] "L1" testdata/gc/fixedbugs/bug136.go:19:15
 [FAIL errorcheck: missing error] "invalid|illegal|cannot" testdata/gc/fixedbugs/bug146.go:13:18
 [PASS errorcheck] "identifier": invalid identifier character U+229B '⊛' testdata/gc/fixedbugs/bug163.go:10:3
 [FAIL errorcheck: missing error] "map key type" testdata/gc/fixedbugs/bug165.go:14:17
-[FAIL errorcheck: missing error] "char" testdata/gc/fixedbugs/bug169.go:8:15
+[PASS errorcheck] "char": invalid character constant testdata/gc/fixedbugs/bug169.go:8:9
 [FAIL errorcheck: missing error] "illegal|nil|invalid" testdata/gc/fixedbugs/bug170.go:8:26
 [FAIL errorcheck: missing error] "illegal|nil|incompatible" testdata/gc/fixedbugs/bug170.go:9:24
 [FAIL errorcheck: missing error] "nil" testdata/gc/fixedbugs/bug170.go:11:15
@@ -361,7 +367,7 @@
 [FAIL errorcheck: missing error] "iota" testdata/gc/fixedbugs/bug186.go:15:11
 [FAIL errorcheck: missing error] "package" testdata/gc/fixedbugs/bug188.go:14:11
 [FAIL errorcheck: missing error] "too few" testdata/gc/fixedbugs/bug189.go:16:14
-[PASS errorcheck] "redecl|redefinition": fmt redeclared, previous declaration at testdata/gc/fixedbugs/bug192.go:9:8 testdata/gc/fixedbugs/bug192.go:11:5
+[PASS errorcheck] "redecl|redefinition": fmt redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/bug192.go:9:8 testdata/gc/fixedbugs/bug192.go:11:5
 [FAIL errorcheck: missing error] "shift" testdata/gc/fixedbugs/bug193.go:13:24
 [FAIL errorcheck: missing error] "shift" testdata/gc/fixedbugs/bug193.go:14:24
 [FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:9:26
@@ -380,7 +386,7 @@
 [FAIL errorcheck: missing error] "non-integer slice index|must be integer" testdata/gc/fixedbugs/bug205.go:14:20
 [FAIL errorcheck: missing error] "non-integer string index|must be integer" testdata/gc/fixedbugs/bug205.go:15:20
 [FAIL errorcheck: missing error] "cannot use.*as type string" testdata/gc/fixedbugs/bug205.go:16:20
-[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug208.go:17:12
+[PASS errorcheck] "undefined": undefined: f testdata/gc/fixedbugs/bug208.go:17:9
 [FAIL errorcheck: missing error] "bool" testdata/gc/fixedbugs/bug209.go:11:21
 [FAIL errorcheck: missing error] "duplicate" testdata/gc/fixedbugs/bug211.go:11:27
 [FAIL errorcheck: missing error] "cannot|illegal|incompatible|wrong" testdata/gc/fixedbugs/bug212.go:10:34
@@ -388,25 +394,25 @@
 [FAIL errorcheck: missing error] "cannot|illegal|incompatible|wrong" testdata/gc/fixedbugs/bug212.go:12:34
 [FAIL errorcheck: missing error] "fallthrough" testdata/gc/fixedbugs/bug213.go:12:17
 [FAIL errorcheck: missing error] "recursive" testdata/gc/fixedbugs/bug215.go:12:23
-[FAIL errorcheck: missing error] "no receiver" testdata/gc/fixedbugs/bug217.go:12:13
-[FAIL errorcheck: missing error] "multiple receiver" testdata/gc/fixedbugs/bug217.go:14:21
+[PASS errorcheck] "no receiver": method has no receiver testdata/gc/fixedbugs/bug217.go:12:6
+[PASS errorcheck] "multiple receiver": method has multiple receivers testdata/gc/fixedbugs/bug217.go:14:12
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/bug223.go:21:30
-[FAIL errorcheck: missing error] "recursive" testdata/gc/fixedbugs/bug224.go:9:11
+[PASS errorcheck] "recursive": invalid recursive type T testdata/gc/fixedbugs/bug224.go:9:6
 [FAIL errorcheck: error does not match] "[.][.][.]" "final argument": unexpected ), expected type or one of ['(', '*', '[', <-, chan, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug228.go:11:30
-[FAIL errorcheck: missing error] "[.][.][.]" testdata/gc/fixedbugs/bug228.go:13:22
+[PASS errorcheck] "[.][.][.]": can only use ... as final argument in list testdata/gc/fixedbugs/bug228.go:13:8
 [PASS errorcheck] "[.][.][.]": can only use ... as final argument in list testdata/gc/fixedbugs/bug228.go:15:15
-[PASS errorcheck] "[.][.][.]|syntax|type": unexpected ..., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug228.go:17:7
+[PASS errorcheck] "[.][.][.]|syntax|type": unexpected ..., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct, »] testdata/gc/fixedbugs/bug228.go:17:7
 [PASS errorcheck] "[.][.][.]|syntax|type": unexpected ..., expected optional generic parameters or type or one of ['(', '*', '[', <-, chan, func, identifier, interface, map, struct, «] testdata/gc/fixedbugs/bug228.go:19:8
 [FAIL errorcheck: missing error] "unexported" testdata/gc/fixedbugs/bug229.go:17:22
 [FAIL errorcheck: missing error] "unexported" "undefined: testing.anyLowercaseName" testdata/gc/fixedbugs/bug229.go:19:44
 [FAIL errorcheck: missing error] "not a method|has no methods" "does not implement I" testdata/gc/fixedbugs/bug231.go:20:8
-[FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:11:25
+[PASS errorcheck] "convert|wrong|invalid": invalid constant type *int testdata/gc/fixedbugs/bug238.go:11:9
 [FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:12:25
-[FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:13:25
-[FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:14:25
-[FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:15:25
-[FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:16:25
-[FAIL errorcheck: missing error] "constant|wrong|invalid" testdata/gc/fixedbugs/bug238.go:17:25
+[PASS errorcheck] "convert|wrong|invalid": invalid constant type map[int]int testdata/gc/fixedbugs/bug238.go:13:9
+[PASS errorcheck] "convert|wrong|invalid": invalid constant type chan int testdata/gc/fixedbugs/bug238.go:14:9
+[PASS errorcheck] "convert|wrong|invalid": invalid constant type func() testdata/gc/fixedbugs/bug238.go:15:9
+[PASS errorcheck] "convert|wrong|invalid": invalid constant type struct{} testdata/gc/fixedbugs/bug238.go:16:9
+[PASS errorcheck] "constant|wrong|invalid": invalid constant type interface{} testdata/gc/fixedbugs/bug238.go:17:9
 [FAIL errorcheck: missing error] "not used" testdata/gc/fixedbugs/bug240.go:9:19
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug240.go:13:28
 [FAIL errorcheck: missing error] "String" testdata/gc/fixedbugs/bug241.go:10:20
@@ -420,7 +426,7 @@
 [FAIL errorcheck: missing error] "invalid array bound|not constant" testdata/gc/fixedbugs/bug255.go:14:20
 [FAIL errorcheck: missing error] "array bound is too large|overflows" testdata/gc/fixedbugs/bug255.go:15:20
 [FAIL errorcheck: missing error] "non-constant array bound|not constant" testdata/gc/fixedbugs/bug255.go:20:33
-[FAIL errorcheck: missing error] "invalid recursive type" testdata/gc/fixedbugs/bug256.go:14:10
+[PASS errorcheck] "invalid recursive type": invalid recursive type V testdata/gc/fixedbugs/bug256.go:14:6
 [FAIL errorcheck: missing error] "statement" testdata/gc/fixedbugs/bug274.go:23:8
 [FAIL errorcheck: missing error] "statement" testdata/gc/fixedbugs/bug274.go:25:8
 [FAIL errorcheck: missing error] "cannot|invalid" testdata/gc/fixedbugs/bug278.go:18:13
@@ -466,11 +472,11 @@
 [FAIL errorcheck: missing error] "\.\.\." testdata/gc/fixedbugs/bug287.go:11:38
 [FAIL errorcheck: missing error] "mismatch|does not match" testdata/gc/fixedbugs/bug289.go:12:14
 [FAIL errorcheck: missing error] "mismatch|does not match" testdata/gc/fixedbugs/bug289.go:19:13
-[FAIL errorcheck: missing error] "undefined" "is not a constant|as type ByteSize" testdata/gc/fixedbugs/bug297.go:14:26
+[PASS errorcheck] "undefined" "is not a constant|as type ByteSize": undefined: X testdata/gc/fixedbugs/bug297.go:14:23
 [FAIL errorcheck: missing error] "statement outside function|expected" testdata/gc/fixedbugs/bug298.go:10:39
-[FAIL errorcheck: missing error] "non-declaration|expected|parenthesize" testdata/gc/fixedbugs/bug299.go:16:16
-[FAIL errorcheck: missing error] "non-declaration|expected|parenthesize" testdata/gc/fixedbugs/bug299.go:17:13
-[FAIL errorcheck: missing error] "non-declaration|expected|parenthesize" testdata/gc/fixedbugs/bug299.go:18:13
+[PASS errorcheck] "non-declaration|expected|parenthesize": cannot parenthesize embedded type testdata/gc/fixedbugs/bug299.go:16:2
+[PASS errorcheck] "non-declaration|expected|parenthesize": cannot parenthesize embedded type testdata/gc/fixedbugs/bug299.go:17:2
+[PASS errorcheck] "non-declaration|expected|parenthesize": cannot parenthesize embedded type testdata/gc/fixedbugs/bug299.go:18:3
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:23:22
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:24:22
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:25:22
@@ -478,6 +484,7 @@
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:27:22
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:28:22
 [FAIL errorcheck: missing error] "cannot|incompatible" testdata/gc/fixedbugs/bug305.go:24:1
+[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug313.dir/a.go:10:21
 [FAIL errorcheck: missing error] "type" testdata/gc/fixedbugs/bug318.go:12:18
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug323.go:18:12
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug323.go:19:12
@@ -486,16 +493,16 @@
 [FAIL errorcheck: missing error] "not enough arguments to return" testdata/gc/fixedbugs/bug326.go:22:9
 [FAIL errorcheck: missing error] "invalid operation.*string|expected numeric" testdata/gc/fixedbugs/bug330.go:11:16
 [FAIL errorcheck: missing error] "invalid operation.*string|expected numeric" testdata/gc/fixedbugs/bug330.go:12:10
-[FAIL errorcheck: missing error] "bug332" testdata/gc/fixedbugs/bug332.go:17:20
+[PASS errorcheck] "bug332": undefined T testdata/gc/fixedbugs/bug332.go:17:10
 [FAIL errorcheck: missing error] "len|value computed is not used" testdata/gc/fixedbugs/bug337.go:17:13
 [FAIL errorcheck: missing error] "type" testdata/gc/fixedbugs/bug340.go:14:11
 [FAIL errorcheck: missing error] "type interface \{\}|reference to undefined field or method" testdata/gc/fixedbugs/bug340.go:15:11
 [PASS errorcheck] "duplicate argument|redefinition": duplicate argument x testdata/gc/fixedbugs/bug342.go:12:14
 [FAIL errorcheck: missing error] "jumps into block" testdata/gc/fixedbugs/bug344.go:17:14
 [FAIL errorcheck: error does not match] "unexpected literal 2.01|expected ';' or '}' or newline|not enough arguments to return": unexpected literal testdata/gc/fixedbugs/bug349.go:12:14
-[FAIL errorcheck: missing error] "T[.]m redeclared|redefinition" testdata/gc/fixedbugs/bug350.go:12:17
-[FAIL errorcheck: missing error] "[(][*]T[)][.]p redeclared|redefinition" testdata/gc/fixedbugs/bug350.go:15:18
-[FAIL errorcheck: missing error] "non-name [(]x[)]|non-name on left side" testdata/gc/fixedbugs/bug351.go:12:12
+[PASS errorcheck] "T[.]m redeclared|redefinition": T.m redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/bug350.go:11:10 testdata/gc/fixedbugs/bug350.go:12:10
+[PASS errorcheck] "[(][*]T[)][.]p redeclared|redefinition": (*T).p redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/bug350.go:14:11 testdata/gc/fixedbugs/bug350.go:15:11
+[PASS errorcheck] "non-name [(]x[)]|non-name on left side": non-name on left side of := testdata/gc/fixedbugs/bug351.go:12:2
 [FAIL errorcheck: missing error] "undefined.*io.ReadWriterCloser" testdata/gc/fixedbugs/bug353.go:16:37
 [FAIL errorcheck: missing error] "false evaluated but not used|value computed is not used" testdata/gc/fixedbugs/bug357.go:18:9
 [FAIL errorcheck: error does not match] "syntax error|not an expression|invalid use of type": unexpected ;, expected left brace or one of ['(', ')', ',', ':', '=', '{', ..., :=, {] testdata/gc/fixedbugs/bug358.go:20:55
@@ -515,21 +522,21 @@
 [FAIL errorcheck: missing error] "time.Wednesday|incompatible type" testdata/gc/fixedbugs/bug381.go:30:20
 [FAIL errorcheck: missing error] "2e.09|expected bool" testdata/gc/fixedbugs/bug383.go:11:18
 [FAIL errorcheck: missing error] "3.14 . 1i|expected bool" testdata/gc/fixedbugs/bug383.go:12:18
-[FAIL errorcheck: missing error] "undefined.*indexWriter" testdata/gc/fixedbugs/bug384.go:12:33
+[PASS errorcheck] "undefined.*indexWriter": undefined indexWriter testdata/gc/fixedbugs/bug384.go:12:10
 [FAIL errorcheck: missing error] "type .* too large" testdata/gc/fixedbugs/bug385_32.go:12:28
 [FAIL errorcheck: missing error] "stack frame too large" testdata/gc/fixedbugs/bug385_64.go:15:15
 [FAIL errorcheck: missing error] "cannot use 0 .type int.|has no methods" testdata/gc/fixedbugs/bug386.go:10:29
 [FAIL errorcheck: missing error] "cannot use -1 .type int.|has no methods" testdata/gc/fixedbugs/bug386.go:12:31
 [PASS errorcheck] "cannot declare name runtime.UintType|mixed named and unnamed|undefined identifier": mixed named and unnamed parameters testdata/gc/fixedbugs/bug388.go:12:10
-[FAIL errorcheck: missing error] "cannot declare name runtime.UintType|non-name on left side|undefined identifier" testdata/gc/fixedbugs/bug388.go:17:30
-[FAIL errorcheck: missing error] "non-name main.i|non-name on left side" testdata/gc/fixedbugs/bug388.go:22:14
-[PASS errorcheck] "unexpected [.]|expected type": unexpected ., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug388.go:27:10
-[PASS errorcheck] "unexpected [.]|expected type": unexpected ., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct] testdata/gc/fixedbugs/bug388.go:32:9
+[PASS errorcheck] "cannot declare name runtime.UintType|non-name on left side|undefined identifier": non-name on left side of := testdata/gc/fixedbugs/bug388.go:17:2
+[PASS errorcheck] "non-name main.i|non-name on left side": non-name on left side of := testdata/gc/fixedbugs/bug388.go:22:2
+[PASS errorcheck] "unexpected [.]|expected type": unexpected ., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct, »] testdata/gc/fixedbugs/bug388.go:27:10
+[PASS errorcheck] "unexpected [.]|expected type": unexpected ., expected one of ['(', ')', '*', ',', ';', '=', '[', '}', <-, case, chan, default, func, identifier, interface, map, struct, »] testdata/gc/fixedbugs/bug388.go:32:9
 [FAIL errorcheck: missing error] "cannot use fn .type func.float32.. as type func.int. in assignment|different parameter types" testdata/gc/fixedbugs/bug389.go:12:27
 [FAIL errorcheck: missing error] "operator - not defined on unsafe.Pointer|expected integer, floating, or complex type" testdata/gc/fixedbugs/bug390.go:15:44
 [FAIL errorcheck: missing error] "non-declaration statement outside function body|expected declaration" testdata/gc/fixedbugs/bug394.go:10:12
 [FAIL errorcheck: missing error] "cannot use 1.*as type string in map key|incompatible type" testdata/gc/fixedbugs/bug397.go:12:7
-[FAIL errorcheck: missing error] "duplicate field x" testdata/gc/fixedbugs/bug412.go:11:9
+[PASS errorcheck] "duplicate field x": duplicate field x, previous declaration at testdata/gc/fixedbugs/bug412.go:10:2 testdata/gc/fixedbugs/bug412.go:11:2
 [FAIL errorcheck: missing error] "ambiguous selector t.x" testdata/gc/fixedbugs/bug412.go:15:14
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/bug413.go:11:45
 [FAIL errorcheck: missing error] "type T has both field and method named X|redeclares struct field name" testdata/gc/fixedbugs/bug416.go:13:20
@@ -540,13 +547,34 @@
 [PASS errorcheck] "unexpected|missing|undefined": unexpected EOF, expected expression/type literal or one of ['!', '&', '(', ')', '*', '+', '-', '[', '^', <-, chan, func, identifier, interface, literal, map, struct] testdata/gc/fixedbugs/bug435.go:15:48
 [FAIL errorcheck: missing error] "undefined|expected package" testdata/gc/fixedbugs/bug451.go:9:12
 [FAIL errorcheck: missing error] "loop|depends upon itself" testdata/gc/fixedbugs/bug459.go:12:32
+[FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:12:16
+[FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:13:16
+[FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:14:16
+[FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:15:16
+[FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:16:16
 [FAIL errorcheck: missing error] "unknown T? ?field" testdata/gc/fixedbugs/bug462.go:17:15
 [FAIL errorcheck: missing error] "refers to itself|definition loop" testdata/gc/fixedbugs/bug463.go:12:13
 [FAIL errorcheck: missing error] "refers to itself|definition loop" testdata/gc/fixedbugs/bug463.go:16:11
-[FAIL errorcheck: missing error] "expected type|not a type" testdata/gc/fixedbugs/bug464.go:12:20
+[PASS errorcheck] "expected type|not a type": foo is not a type testdata/gc/fixedbugs/bug464.go:12:12
 [FAIL errorcheck: missing error] "mismatch" testdata/gc/fixedbugs/bug487.go:17:14
 [FAIL errorcheck: missing error] "mismatch" testdata/gc/fixedbugs/bug487.go:18:13
 [FAIL errorcheck: missing error] "too many|mismatch" testdata/gc/fixedbugs/bug487.go:23:13
+[PASS errorcheck] "undefined": undefined: Printf testdata/gc/fixedbugs/bug488.dir/a.go:7:10
+[FAIL errorcheck: missing error] "x\.Do undefined \(type \*Imported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:24:9
+[FAIL errorcheck: missing error] "x\.do undefined \(type \*Imported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:25:9
+[FAIL errorcheck: missing error] "x\.Dont undefined \(type \*Imported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:27:14
+[FAIL errorcheck: missing error] "\(\*x\)\.Dont undefined \(type Imported has no field or method Dont\)" testdata/gc/fixedbugs/issue10700.dir/test.go:28:14
+[FAIL errorcheck: missing error] "y\.do undefined \(type \*HasAMethod has no field or method do, but does have Do\)" testdata/gc/fixedbugs/issue10700.dir/test.go:31:9
+[FAIL errorcheck: missing error] "\(\*y\)\.do undefined \(type HasAMethod has no field or method do, but does have Do\)" testdata/gc/fixedbugs/issue10700.dir/test.go:33:14
+[FAIL errorcheck: missing error] "y\.Dont undefined \(type \*HasAMethod has no field or method Dont\)" testdata/gc/fixedbugs/issue10700.dir/test.go:34:14
+[FAIL errorcheck: missing error] "\(\*y\)\.Dont undefined \(type HasAMethod has no field or method Dont\)" testdata/gc/fixedbugs/issue10700.dir/test.go:35:14
+[FAIL errorcheck: missing error] "z\.Do undefined \(type \*other\.Exported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:37:9
+[FAIL errorcheck: missing error] "z\.do undefined \(type \*other\.Exported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:38:9
+[FAIL errorcheck: missing error] "\(\*z\)\.do undefined \(type other.Exported has no field or method do, but does have Do\)" testdata/gc/fixedbugs/issue10700.dir/test.go:40:16
+[FAIL errorcheck: missing error] "z\.Dont undefined \(type \*other\.Exported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:41:16
+[FAIL errorcheck: missing error] "\(\*z\)\.Dont undefined \(type other\.Exported has no field or method Dont\)" testdata/gc/fixedbugs/issue10700.dir/test.go:42:16
+[FAIL errorcheck: missing error] "z\.secret undefined \(type \*other\.Exported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:43:16
+[FAIL errorcheck: missing error] "\(\*z\)\.secret undefined \(cannot refer to unexported field or method secret\)" testdata/gc/fixedbugs/issue10700.dir/test.go:44:16
 [FAIL errorcheck: missing error] "interface contains embedded non-interface int" testdata/gc/fixedbugs/issue10975.go:13:6
 [FAIL errorcheck: missing error] "1e\+646456992 overflows float64" testdata/gc/fixedbugs/issue11326.go:21:23
 [FAIL errorcheck: missing error] "1e\+64645699 overflows float64" testdata/gc/fixedbugs/issue11326.go:22:23
@@ -591,7 +619,7 @@
 [FAIL errorcheck: missing error] "cannot use .* as type int in array or slice literal" testdata/gc/fixedbugs/issue13365.go:22:18
 [FAIL errorcheck: missing error] "cannot use .* as type int in array or slice literal" testdata/gc/fixedbugs/issue13365.go:23:18
 [FAIL errorcheck: missing error] "cannot use .* as type int in array or slice literal" testdata/gc/fixedbugs/issue13365.go:24:18
-[FAIL errorcheck: missing error] "x repeated on left side of :=" testdata/gc/fixedbugs/issue13415.go:14:38
+[PASS errorcheck] "x repeated on left side of :=": x repeated on left side of := testdata/gc/fixedbugs/issue13415.go:14:13
 [FAIL errorcheck: missing error] "1e\+646456992 overflows integer" testdata/gc/fixedbugs/issue13471.go:12:30
 [FAIL errorcheck: missing error] "1e\+64645699 overflows integer" testdata/gc/fixedbugs/issue13471.go:13:30
 [FAIL errorcheck: missing error] "1e\+6464569 overflows integer" testdata/gc/fixedbugs/issue13471.go:14:30
@@ -703,7 +731,7 @@
 [FAIL errorcheck: missing error] "multiple nil cases in type switch" testdata/gc/fixedbugs/issue15898.go:11:17
 [FAIL errorcheck: missing error] "multiple nil cases in type switch" testdata/gc/fixedbugs/issue15898.go:16:12
 [FAIL errorcheck: missing error] "missing function body|cannot declare init" testdata/gc/fixedbugs/issue3705.go:9:13
-[FAIL errorcheck: missing error] "not a type|expected type" testdata/gc/fixedbugs/issue3783.go:11:17
+[PASS errorcheck] "not a type|expected type": i is not a type testdata/gc/fixedbugs/issue3783.go:11:8
 [FAIL errorcheck: missing error] "missing key|must have keys" testdata/gc/fixedbugs/issue3925.go:15:12
 [FAIL errorcheck: missing error] "cannot use|incompatible type" testdata/gc/fixedbugs/issue3925.go:21:6
 [FAIL errorcheck: missing error] "negative" testdata/gc/fixedbugs/issue4085a.go:12:21
@@ -790,6 +818,7 @@
 [FAIL errorcheck: missing error] "must be function call|must not be parenthesized" testdata/gc/fixedbugs/issue4468.go:26:11
 [FAIL errorcheck: missing error] "must be function call|must not be parenthesized" testdata/gc/fixedbugs/issue4468.go:27:14
 [FAIL errorcheck: missing error] "outside type switch" testdata/gc/fixedbugs/issue4470.go:13:22
+[PASS errorcheck] "fmt redeclared|imported": fmt redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/issue4510.dir/f2.go:7:6 testdata/gc/fixedbugs/issue4510.dir/f1.go:7:8
 [PASS errorcheck] "cannot declare init - must be func": cannot declare init - must be function testdata/gc/fixedbugs/issue4517a.go:9:5
 [PASS errorcheck] "cannot declare init - must be func": cannot declare init - must be function testdata/gc/fixedbugs/issue4517b.go:9:7
 [PASS errorcheck] "cannot declare init - must be func": cannot declare init - must be function testdata/gc/fixedbugs/issue4517c.go:9:6
@@ -856,19 +885,24 @@
 [FAIL errorcheck: missing error] "indirection" testdata/gc/fixedbugs/issue4909a.go:31:38
 [FAIL errorcheck: missing error] "method value" testdata/gc/fixedbugs/issue4909a.go:34:38
 [FAIL errorcheck: missing error] "method value" testdata/gc/fixedbugs/issue4909a.go:35:38
-[FAIL errorcheck: missing error] "non-local|redefinition" testdata/gc/fixedbugs/issue5089.go:13:41
+[PASS errorcheck] "non-local|redefinition": cannot define new methods on non-local type bufio.Reader testdata/gc/fixedbugs/issue5089.go:13:10
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/issue5172.go:12:8
 [FAIL errorcheck: missing error] "as type int in|incompatible type" testdata/gc/fixedbugs/issue5358.go:16:9
 [FAIL errorcheck: missing error] "undefined.*Blah" testdata/gc/fixedbugs/issue5581.go:29:14
 [FAIL errorcheck: missing error] "array bound is too large|array bound overflows" testdata/gc/fixedbugs/issue5609.go:13:23
 [FAIL errorcheck: missing error] "invalid map key type" testdata/gc/fixedbugs/issue5698.go:18:22
+[FAIL errorcheck: missing error] "imported and not used: \x22a\x22 as surprise|imported and not used: surprise" testdata/gc/fixedbugs/issue5957.dir/c.go:4:8
+[FAIL errorcheck: missing error] "imported and not used: \x22b\x22 as surprise2|imported and not used: surprise2" testdata/gc/fixedbugs/issue5957.dir/c.go:5:8
+[FAIL errorcheck: missing error] "imported and not used: \x22b\x22$|imported and not used: surprise2" testdata/gc/fixedbugs/issue5957.dir/c.go:6:10
+[FAIL errorcheck: missing error] "imported and not used: \x22math\x22 as foo|imported and not used: math" testdata/gc/fixedbugs/issue5957.dir/c.go:7:13
+[FAIL errorcheck: missing error] "imported and not used: \x22strings\x22|imported and not used: strings" testdata/gc/fixedbugs/issue5957.dir/c.go:9:12
 [FAIL errorcheck: missing error] "use of untyped nil" testdata/gc/fixedbugs/issue6004.go:10:10
 [FAIL errorcheck: missing error] "use of untyped nil" testdata/gc/fixedbugs/issue6004.go:11:16
 [FAIL errorcheck: missing error] "use of untyped nil" testdata/gc/fixedbugs/issue6004.go:12:16
 [FAIL errorcheck: missing error] "untyped nil" testdata/gc/fixedbugs/issue6004.go:13:27
 [FAIL errorcheck: missing error] "cannot use nil as type uintptr in return argument" testdata/gc/fixedbugs/issue6402.go:12:13
 [FAIL errorcheck: missing error] "undefined: syscall.X" testdata/gc/fixedbugs/issue6403.go:13:25
-[FAIL errorcheck: missing error] "undefined: voidpkg" testdata/gc/fixedbugs/issue6403.go:14:25
+[PASS errorcheck] "undefined: voidpkg": undefined: voidpkg testdata/gc/fixedbugs/issue6403.go:14:15
 [FAIL errorcheck: missing error] "undefined: OpenFile" testdata/gc/fixedbugs/issue6405.go:12:20
 [FAIL errorcheck: missing error] "undefined.*s" testdata/gc/fixedbugs/issue6406.go:10:12
 [FAIL errorcheck: missing error] "undefined.*s" testdata/gc/fixedbugs/issue6406.go:11:8
@@ -1024,19 +1058,19 @@
 [FAIL errorcheck: missing error] "invalid operation.*not defined" testdata/gc/fixedbugs/issue9370.go:101:13
 [FAIL errorcheck: missing error] "invalid operation.*not defined" testdata/gc/fixedbugs/issue9370.go:102:13
 [FAIL errorcheck: missing error] "invalid operation.*not defined" testdata/gc/fixedbugs/issue9370.go:103:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:105:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:106:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:107:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:108:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:109:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:110:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:112:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:113:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:114:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:115:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:116:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:117:13
-[FAIL errorcheck: missing error] "cannot use _ as value" testdata/gc/fixedbugs/issue9370.go:119:13
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:105:6
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:106:6
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:107:6
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:108:6
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:109:6
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:110:6
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:112:11
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:113:11
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:114:11
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:115:11
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:116:11
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:117:11
+[PASS errorcheck] "cannot use _ as value": cannot use _ as value testdata/gc/fixedbugs/issue9370.go:119:6
 [FAIL errorcheck: missing error] "invalid operation.*mismatched types" testdata/gc/fixedbugs/issue9370.go:121:12
 [FAIL errorcheck: missing error] "invalid operation.*mismatched types" testdata/gc/fixedbugs/issue9370.go:122:12
 [FAIL errorcheck: missing error] "invalid operation.*mismatched types" testdata/gc/fixedbugs/issue9370.go:123:12
@@ -1109,13 +1143,19 @@
 [FAIL errorcheck: missing error] "goto L jumps into block starting at LINE+3|goto jumps into block" testdata/gc/goto.go:513:9
 [FAIL errorcheck: missing error] "goto L jumps into block starting at LINE+1|goto jumps into block" testdata/gc/goto.go:524:10
 [FAIL errorcheck: missing error] "goto L jumps into block starting at LINE-4|goto jumps into block" testdata/gc/goto.go:536:10
-[FAIL errorcheck: missing error] "redeclared|redefinition|incompatible" "imported and not used" testdata/gc/import1.go:13:19
-[FAIL errorcheck: missing error] "redeclared|redefinition|incompatible" "imported and not used: \x22math\x22 as fmt" testdata/gc/import1.go:17:13
-[FAIL errorcheck: error does not match] "imported and not used: \x22math\x22$": math redeclared, previous declaration at testdata/gc/import1.go:17:2 testdata/gc/import1.go:18:4
-[PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:24:8
-[PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:25:8
-[PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:26:8
-[PASS errorcheck] "import statement": import statement requires a string testdata/gc/import5.go:27:8
+[PASS errorcheck] "redeclared|redefinition|incompatible" "imported and not used": bufio redeclared, previous declaration at testdata/gc/import1.go:12:8 testdata/gc/import1.go:13:8
+[PASS errorcheck] "redeclared|redefinition|incompatible" "imported and not used: \x22math\x22 as fmt": fmt redeclared, previous declaration at testdata/gc/import1.go:16:2 testdata/gc/import1.go:17:2
+[FAIL errorcheck: missing error] "imported and not used: \x22math\x22$" testdata/gc/import1.go:18:11
+[FAIL errorcheck: missing error] "imported and not used.*fmt" testdata/gc/import4.dir/import4.go:12:14
+[FAIL errorcheck: missing error] "imported and not used.*math" testdata/gc/import4.dir/import4.go:15:17
+[FAIL errorcheck: missing error] "imported and not used.*bufio" testdata/gc/import4.dir/import4.go:18:18
+[FAIL errorcheck: missing error] "imported and not used.*empty" testdata/gc/import4.dir/import4.go:21:18
+[FAIL errorcheck: missing error] "imported and not used.*empty" testdata/gc/import4.dir/import4.go:22:20
+[FAIL errorcheck: missing error] "imported and not used.*empty" testdata/gc/import4.dir/import4.go:23:20
+[PASS errorcheck] "import statement": import statement not a string testdata/gc/import5.go:24:8
+[PASS errorcheck] "import statement": import statement not a string testdata/gc/import5.go:25:8
+[PASS errorcheck] "import statement": import statement not a string testdata/gc/import5.go:26:8
+[PASS errorcheck] "import statement": import statement not a string testdata/gc/import5.go:27:8
 [PASS errorcheck] "import path": import path is empty testdata/gc/import5.go:34:8
 [PASS errorcheck] "import path": import path is empty testdata/gc/import5.go:35:8
 [PASS errorcheck] "import path": invalid import path testdata/gc/import5.go:36:8
@@ -1184,6 +1224,9 @@
 [FAIL errorcheck: missing error] "incompatible|missing _ method" testdata/gc/interface/explicit.go:101:19
 [FAIL errorcheck: missing error] "pointer to interface" testdata/gc/interface/pointer.go:35:35
 [FAIL errorcheck: missing error] "pointer to interface|incompatible type" testdata/gc/interface/pointer.go:37:28
+[FAIL errorcheck: missing error] "private" testdata/gc/interface/private.dir/prog.go:28:17
+[FAIL errorcheck: missing error] "private" testdata/gc/interface/private.dir/prog.go:30:27
+[FAIL errorcheck: missing error] "private" testdata/gc/interface/private.dir/prog.go:32:12
 [FAIL errorcheck: missing error] "does not implement|requires a pointer" testdata/gc/interface/receiver1.go:40:8
 [FAIL errorcheck: missing error] "does not implement|requires a pointer" testdata/gc/interface/receiver1.go:47:8
 [FAIL errorcheck: missing error] "label .*L1.* defined and not used" testdata/gc/label.go:16:5
@@ -1219,8 +1262,8 @@
 [FAIL errorcheck: missing error] "invalid map key" testdata/gc/map1.go:45:16
 [FAIL errorcheck: missing error] "invalid map key" testdata/gc/map1.go:46:16
 [FAIL errorcheck: missing error] "invalid map key" testdata/gc/map1.go:47:16
-[FAIL errorcheck: missing error] "redeclared|redefinition" testdata/gc/method1.go:15:32
-[FAIL errorcheck: missing error] "redeclared|redefinition" testdata/gc/method1.go:18:20
+[PASS errorcheck] "redeclared|redefinition": (*T).M redeclared in this block\n\tprevious declaration at testdata/gc/method1.go:14:13 testdata/gc/method1.go:15:13
+[PASS errorcheck] "redeclared|redefinition": (*T).H redeclared in this block\n\tprevious declaration at testdata/gc/method1.go:17:12 testdata/gc/method1.go:18:13
 [PASS errorcheck] "redeclared|redefinition": f redeclared, previous declaration at testdata/gc/method1.go:20:6 testdata/gc/method1.go:21:6
 [PASS errorcheck] "redeclared|redefinition": g redeclared, previous declaration at testdata/gc/method1.go:23:6 testdata/gc/method1.go:24:6
 [FAIL errorcheck: missing error] "receiver.* pointer|invalid pointer or interface receiver" testdata/gc/method2.go:18:37
@@ -1662,7 +1705,7 @@
 [PASS errorcheck] "unexpected comma" "unexpected ,": unexpected , testdata/gc/syntax/import.go:10:6
 [FAIL errorcheck: error does not match] "name list not allowed in interface type": unexpected ,, expected function/method signature or one of ['(', '.', ';', '}'] testdata/gc/syntax/interface.go:10:3
 [FAIL errorcheck: error does not match] "missing .*{.* after if clause|undefined": unexpected ;, expected { testdata/gc/syntax/semi1.go:10:11
-[FAIL errorcheck: error does not match] "missing .*{.* after switch clause|undefined": unexpected ;, expected { testdata/gc/syntax/semi2.go:10:14
+[FAIL errorcheck: error does not match] "missing .*{.* after switch clause|undefined": unexpected ;, expected optional generic arguments or one of [!=, &&, &^, '%', '&', '(', '*', '+', '-', '.', '/', '<', '>', '[', '^', '{', '|', :=, <-, <<, <=, ==, >=, >>, {, ||, «] testdata/gc/syntax/semi2.go:10:14
 [FAIL errorcheck: error does not match] "missing .*{.* after for clause|undefined": unexpected ;, expected { testdata/gc/syntax/semi3.go:10:14
 [FAIL errorcheck: error does not match] "missing .*{.* after for clause|missing operand": unexpected {, expected optional simple statement or one of ['!', '&', '(', '*', '+', '-', ';', '[', '^', <-, chan, func, identifier, interface, literal, map, struct] testdata/gc/syntax/semi4.go:11:2
 [FAIL errorcheck: error does not match] "unexpected semicolon or newline before .?{.?": unexpected { testdata/gc/syntax/semi5.go:10:1
@@ -1671,7 +1714,7 @@
 [FAIL errorcheck: missing error] "non-declaration statement outside function body|expected declaration" testdata/gc/syntax/topexpr.go:9:21
 [FAIL errorcheck: missing error] "non-declaration statement outside function body|expected declaration" testdata/gc/syntax/topexpr.go:14:5
 [FAIL errorcheck: missing error] "non-declaration statement outside function body|expected declaration" testdata/gc/syntax/topexpr.go:19:13
-[FAIL errorcheck: missing error] "invalid variable name" testdata/gc/syntax/typesw.go:10:45
+[FAIL errorcheck: error does not match] "invalid variable name": non-name on left side of := testdata/gc/syntax/typesw.go:10:9
 [FAIL errorcheck: error does not match] "unexpected { at end of statement|expected ';' or '}' or newline": unexpected {, expected one of [')', ';', '=', '}', case, default] testdata/gc/syntax/vareq.go:10:25
 [FAIL errorcheck: error does not match] "unexpected { at end of statement|unexpected { after top level declaration|expected ';' or newline after top level declaration": unexpected {, expected one of [')', ';', '=', '}', case, default] testdata/gc/syntax/vareq1.go:9:24
 [FAIL errorcheck: missing error] "undefined.*b" testdata/gc/typecheck.go:11:24
@@ -1684,16 +1727,16 @@
 [FAIL errorcheck: missing error] "duplicate" testdata/gc/typeswitch2.go:32:5
 [FAIL errorcheck: missing error] "declared and not used" testdata/gc/typeswitch2.go:43:33
 [FAIL errorcheck: missing error] "impossible" testdata/gc/typeswitch3.go:24:15
-[FAIL errorcheck: missing error] "invalid variable name _|no new variables" testdata/gc/typeswitch3.go:39:26
-[FAIL errorcheck: missing error] "undefined.*x" testdata/gc/undef.go:13:8
-[FAIL errorcheck: missing error] "undefined.*x" testdata/gc/undef.go:14:8
-[FAIL errorcheck: missing error] "undefined.*x" testdata/gc/undef.go:15:8
+[PASS errorcheck] "invalid variable name _|no new variables": no new variables on left side of := testdata/gc/typeswitch3.go:39:9
+[PASS errorcheck] "undefined.*x": undefined: x testdata/gc/undef.go:13:6
+[PASS errorcheck] "undefined.*x": undefined: x testdata/gc/undef.go:14:6
+[PASS errorcheck] "undefined.*x": undefined: x testdata/gc/undef.go:15:6
 [FAIL errorcheck: missing error] "undefined.*y" testdata/gc/undef.go:23:29
 [FAIL errorcheck: missing error] "undefined.*v" testdata/gc/undef.go:43:14
 [FAIL errorcheck: missing error] "undefined.*asdf" testdata/gc/varerr.go:13:11
 [FAIL errorcheck: missing error] "use of builtin new not in function call|invalid left hand side" testdata/gc/varerr.go:15:10
 [TODO "errorcheck -0 -l -d=wb"] testdata/gc/writebarrier.go
-[PASS errorcheck] "anonymous functions cannot have generic type parameters": unexpected «, anonymous functions cannot have generic type parameters testdata/issue15292/0.go:36:15
+[PASS errorcheck] "anonymous functions cannot have generic type parameters": anonymous functions cannot have generic type parameters testdata/issue15292/0.go:36:15
 [FAIL errorcheck: missing error] "TODO" testdata/method.go:15:18
 [FAIL errorcheck: missing error] "cannot take address" testdata/method.go:18:17
 [FAIL errorcheck: missing error] "cannot take address" testdata/method.go:20:21

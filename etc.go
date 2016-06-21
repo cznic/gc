@@ -10,20 +10,52 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/cznic/golex/lex"
 	"github.com/cznic/strutil"
 	"github.com/cznic/xc"
 )
 
+const (
+	unicodeSurrogateFirst = 0xd800
+	unicodeSurrogateLast  = 0xdfff
+)
+
 var (
 	printHooks = strutil.PrettyPrintHooks{}
 
+	idAppend     = dict.SID("append")
 	idC          = dict.SID("C")
+	idCap        = dict.SID("cap")
+	idClose      = dict.SID("close")
+	idComplex    = dict.SID("complex")
+	idCopy       = dict.SID("copy")
+	idDelete     = dict.SID("delete")
 	idDot        = dict.SID(".")
+	idFalse      = dict.SID("false")
+	idImag       = dict.SID("imag")
 	idInit       = dict.SID("init")
+	idIota       = dict.SID("iota")
+	idLen        = dict.SID("len")
+	idMake       = dict.SID("make")
+	idNew        = dict.SID("new")
+	idNil        = dict.SID("nil")
+	idPanic      = dict.SID("panic")
+	idPointer    = dict.SID("Pointer")
+	idPrint      = dict.SID("print")
+	idPrintln    = dict.SID("println")
+	idReal       = dict.SID("real")
+	idRecover    = dict.SID("recover")
+	idTrue       = dict.SID("true")
 	idUnderscore = dict.SID("_")
+	idUnsafe     = dict.SID("unsafe")
+
+	todoPanic bool
 )
 
 func init() {
@@ -54,6 +86,50 @@ func init() {
 		}
 		f.Format(suffix)
 		return
+	}
+
+	printHooks[reflect.TypeOf((*constValue)(nil))] = func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+		f.Format(prefix)
+		f.Format("%s", v)
+		f.Format(suffix)
+	}
+
+	printHooks[reflect.TypeOf(Bindings(nil))] = func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+		f.Format(prefix)
+		b := v.(Bindings)
+		f.Format("%T{%i\n", b)
+		a := make([]string, 0, len(b))
+		for k := range b {
+			a = append(a, string(dict.S(k)))
+		}
+		sort.Strings(a)
+		for _, v := range a {
+			f.Format("%q: %T,\n", v, b[dict.SID(v)])
+		}
+		f.Format("%u}")
+		f.Format(suffix)
+	}
+
+	printHooks[reflect.TypeOf((*Scope)(nil))] = func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+		f.Format(prefix)
+		s := v.(*Scope)
+		t := fmt.Sprintf("%T", s)
+		f.Format("&%s{%i\n", t[1:])
+		if len(s.Bindings) != 0 {
+			f.Format(strutil.PrettyString(s.Bindings, "Bindings: ", ",\n", printHooks))
+		}
+		f.Format("Kind: %s,\n", s.Kind)
+		if s.Parent != nil {
+			f.Format(strutil.PrettyString(s.Parent, "Parent: ", ",\n", printHooks))
+		}
+		f.Format("%u}")
+		f.Format(suffix)
+	}
+}
+
+func todo(n Node) { //TODO-
+	if todoPanic {
+		panic(position(n.Pos()).String())
 	}
 }
 
@@ -133,3 +209,30 @@ func sanitizeContext(goos, goarch, goroot string, gopaths []string) error {
 
 	return nil
 }
+
+func isRelativeImportPath(p string) bool {
+	return strings.HasPrefix(p, "./") || strings.HasPrefix(p, "../")
+}
+
+// Adapted from github.com/golang/go: go/ast. See GO-LICENSE.
+func isExported(nm int) bool {
+	r, _ := utf8.DecodeRune(dict.S(nm))
+	return unicode.IsUpper(r)
+}
+
+func stringLiteralValue(lx *lexer, t xc.Token) stringValue {
+	s := string(t.S())
+	value, err := strconv.Unquote(s)
+	if err != nil {
+		lx.err(t, "%s: %q", err, t.S())
+		return nil
+	}
+
+	// https://github.com/golang/go/issues/15997
+	if b := t.S(); len(b) != 0 && b[0] == '`' {
+		value = strings.Replace(value, "\r", "", -1)
+	}
+	return stringID(dict.SID(value))
+}
+
+func isSurrogate(r rune) bool { return r >= unicodeSurrogateFirst && r <= unicodeSurrogateLast }

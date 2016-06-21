@@ -18,8 +18,8 @@ func (lx *lexer) scan() int {
 /* Non ASCII character classes */
 eof			\x80
 other			\x81
-ltlt			\x82
-gtgt			\x83
+ltlt			\x82	// ».
+gtgt			\x83	// «.
 
 any_to_eol		[^\x80\n\r]*
 big_u_value		\\U{hex_digit}{hex_digit}{hex_digit}{hex_digit}{hex_digit}{hex_digit}{hex_digit}{hex_digit}
@@ -51,7 +51,6 @@ string_lit		{raw_string_lit}|{interpreted_string_lit}
 
 %%
 		c = lx.Rule0()
-
  
   // White space except newline.
 [ \t\r]+

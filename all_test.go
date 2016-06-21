@@ -58,16 +58,17 @@ func dbg(s string, va ...interface{}) {
 	os.Stderr.Sync()
 }
 
-func TODO(...interface{}) string {
+func TODO(...interface{}) string { //TODOOK
 	_, fn, fl, _ := runtime.Caller(1)
-	return fmt.Sprintf("TODO: %s:%d:\n", path.Base(fn), fl)
+	return fmt.Sprintf("TODO: %s:%d:\n", path.Base(fn), fl) //TODOOK
 }
 
 func use(...interface{}) {}
 
 func init() {
-	use(caller, callers, dbg, TODO)
+	use(caller, callers, dbg, TODO) //TODOOK
 	flag.IntVar(&yyDebug, "yydebug", 0, "")
+	flag.BoolVar(&todoPanic, "todo", false, "")
 
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -115,7 +116,7 @@ func errStr(err error) string {
 
 func exampleAST(exampleRule int, src string) interface{} {
 	t := &testContext{exampleRule: exampleRule}
-	c, err := newContext("", "", "", nil, nil, addTestContext(t), EnableGenerics())
+	c, err := newContext("", "amd64", "", nil, nil, addTestContext(t), EnableGenerics())
 	if err != nil {
 		return err
 	}
@@ -139,9 +140,74 @@ func addTestContext(t *testContext) Opt {
 	}
 }
 
-func TestLoad(t *testing.T) {
+func (c *Context) packageNameFromFile(fname string) (string, error) {
+	c.clearErrors()
+	p := c.newPackage("", "")
+	p.parseOnlyName = true
+	err := p.loadFile(fname)
+	if err := c.errors(err); err != nil {
+		return "", err
+	}
+
+	return p.Name, nil
+}
+
+func (c *Context) collectPackages(ip string) (pl []string, pm map[string][]string, err error) {
+	dir0, err := c.DirectoryFromImportPath(selfImportPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dir, err := c.DirectoryFromImportPath(ip)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pm = map[string][]string{}
+	m := map[string]bool{}
+	for _, v := range matches {
+		nm, err := c.packageNameFromFile(v)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if !m[nm] {
+			pl = append(pl, nm)
+			m[nm] = true
+		}
+		pm[nm] = append(pm[nm], v[len(dir0)+1:])
+	}
+	sort.Strings(pl)
+	for _, v := range pm {
+		sort.Strings(v)
+	}
+	if len(pl) == 1 {
+		return pl, pm, nil
+	}
+
+	pl = pl[:0]
+	pm2 := map[string][]string{}
+	for _, v := range pm {
+		if len(v) != 1 {
+			panic("internal error")
+		}
+		ip := filepath.Join(selfImportPath, v[0])
+		ip = ip[:len(ip)-len(".go")]
+		pl = append(pl, ip)
+		pm2[ip] = v
+	}
+	return pl, pm2, nil
+}
+
+func testLoad(t testing.TB) {
 	var importPaths []string
 	root := filepath.Join(runtime.GOROOT(), "src")
+	builtin := filepath.Join(root, "builtin")
 	if err := filepath.Walk(
 		root,
 		func(path string, info os.FileInfo, err error) error {
@@ -153,7 +219,7 @@ func TestLoad(t *testing.T) {
 				return nil
 			}
 
-			if path == root {
+			if path == root || path == builtin {
 				return nil
 			}
 
@@ -187,9 +253,21 @@ func TestLoad(t *testing.T) {
 		importPaths,
 		disableNoBuildableFilesError(),
 	)
-	t.Log(len(m))
+	if _, ok := t.(*testing.T); ok {
+		t.Log(len(m))
+	}
 	if err != nil {
 		t.Fatal(errStr(err))
+	}
+}
+
+func TestLoad(t *testing.T) {
+	testLoad(t)
+}
+
+func BenchmarkLoad(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		testLoad(b)
 	}
 }
 
@@ -233,6 +311,19 @@ func Test(t *testing.T) {
 			return nil
 		}
 
+		if re := *oRE; re != "" {
+			ok, err := regexp.MatchString(re, path)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !ok {
+				return nil
+			}
+
+			t.Log(path)
+		}
+
 		f, err := os.Open(path)
 		if err != nil {
 			return err
@@ -269,12 +360,12 @@ func Test(t *testing.T) {
 					// N/A for a front end.
 				case
 					strings.HasPrefix(line, "errorcheck "):
-					fmt.Fprintf(logw, "[TODO %q] %s\n", line, path)
+					fmt.Fprintf(logw, "[TODO %q] %s\n", line, path) //TODOOK
 					return nil
 				case line == "errorcheck":
-					errorcheck(t, c, f.Name(), logw)
+					testErrorcheck(t, c, f.Name(), logw)
 				case line == "errorcheckdir":
-					//TODO errorcheckDir(t, c, f.Name(), logw)
+					testErrorcheckdir(t, c, f.Name(), logw)
 				}
 			case line == "":
 				return nil
@@ -286,22 +377,32 @@ func Test(t *testing.T) {
 	}
 }
 
-func errorcheck(t *testing.T, c *Context, fname string, logw io.Writer) {
-	if re := *oRE; re != "" {
-		ok, err := regexp.MatchString(re, fname)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !ok {
-			return
-		}
-
-		t.Log(fname)
-	}
-
+func testErrorcheck(t *testing.T, c *Context, fname string, logw io.Writer) {
 	ip := filepath.Join(selfImportPath, filepath.Dir(fname))
 	_, err := c.loadPackage(ip, []string{fname})
+	errorCheckResults(t, c.test.errChecks, err, fname, logw)
+}
+
+func testErrorcheckdir(t *testing.T, c *Context, fname string, logw io.Writer) {
+	const suff = ".go"
+	if !strings.HasSuffix(fname, suff) {
+		panic("internal error")
+	}
+
+	ip := filepath.Join(selfImportPath, fname[:len(fname)-len(suff)]+".dir")
+	pl, pm, err := c.collectPackages(ip)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(pl) == 1 {
+		_, err := c.loadPackage(ip, pm[pl[0]])
+		errorCheckResults(t, c.test.errChecks, err, fname, logw)
+		return
+	}
+
+	c.test.pkgMap = pm
+	_, err = c.loadPackages(pl)
 	errorCheckResults(t, c.test.errChecks, err, fname, logw)
 }
 
@@ -312,6 +413,10 @@ func qmsg(s string) string {
 var errCheckPatterns = regexp.MustCompile(`"([^"]*)"`)
 
 func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string, logw io.Writer) {
+	if len(checks) == 0 {
+		panic("internal error")
+	}
+
 	if *oRE != "" {
 		for _, v := range checks {
 			t.Log(PrettyString(v))
@@ -338,10 +443,10 @@ func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string,
 	var a scanner.ErrorList
 	fail := false
 	for k := range m {
-		line := k.Pos.Line
+		kpos := k.Pos
 		for l := range n {
-			line2 := position(l.Pos()).Line
-			if line2 != line {
+			lpos := position(l.Pos())
+			if kpos.Line != lpos.Line || kpos.Filename != lpos.Filename {
 				continue
 			}
 
@@ -386,7 +491,7 @@ func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string,
 }
 
 func TestTmp(t *testing.T) {
-	c, err := newContext("", "", "", nil, nil, EnableGenerics())
+	c, err := newContext("", runtime.GOARCH, "", nil, nil, EnableGenerics())
 	if err != nil {
 		panic("internal error")
 	}

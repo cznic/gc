@@ -4,11 +4,14 @@
 
 //go:generate go run generate.go
 //go:generate golex -o scanner.go scanner.l
+//go:generate stringer -type ChanDir
+//go:generate stringer -type ConstKind
+//go:generate stringer -type Kind
 //go:generate stringer -type ScopeKind
 //go:generate stringer -type ValueKind
 //go:generate go run generate.go -2
 
-// Package gc is a Go compiler front end. Work in progess (5.34%).
+// Package gc is a Go compiler front end. Work in progess (10.02%).
 //
 // CGO
 //
@@ -32,6 +35,24 @@ func EnableGenerics() Opt {
 func ErrLimit(n int32) Opt {
 	return func(c *Context) error {
 		c.options.errLimit = n
+		return nil
+	}
+}
+
+// MaxFloatConstPrecision sets the maximum precision of untyped floating point
+// constants.
+func MaxFloatConstPrecision(n uint) Opt {
+	return func(c *Context) error {
+		c.floatConstPrec = n
+		return nil
+	}
+}
+
+// MaxIntConstBits sets the maximum size, in bits, of untyped integer
+// constants.
+func MaxIntConstBits(n uint) Opt {
+	return func(c *Context) error {
+		c.intConstBits = n
 		return nil
 	}
 }

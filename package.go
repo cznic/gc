@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/cznic/golex/lex"
@@ -19,26 +20,36 @@ import (
 
 // Package is a Go package.
 type Package struct {
-	Context     *Context
-	Directory   string
-	Files       []*File // ASTs.
-	ImportPath  string
-	Inits       []*FuncDeclaration // All init() functions.
-	Name        string
-	Scope       *Scope // PackageScope or UniverseScope.
-	SourceFiles []string
-	avoid       map[int]token.Pos // Names declared in file scope.
-	name        int
-	namedBy     string
+	Context       *Context
+	Directory     string
+	Files         []*File // ASTs.
+	ImportPath    string
+	Inits         []*FuncDeclaration // All init() functions.
+	Name          string
+	Scope         *Scope // PackageScope or UniverseScope.
+	SourceFiles   []string
+	avoid         map[int]token.Pos // Names declared in file scope.
+	forwardTypes  Bindings
+	importPath    int
+	ipBase        int
+	name          int
+	namedBy       string
+	parseOnlyName bool
 }
 
 func newPackage(c *Context, importPath, dir string) *Package {
+	if isRelativeImportPath(importPath) {
+		panic("internal error")
+	}
+
 	return &Package{
 		Context:    c,
 		Directory:  dir,
 		ImportPath: importPath,
 		Scope:      newScope(PackageScope, c.universe),
 		avoid:      map[int]token.Pos{},
+		importPath: dict.SID(importPath),
+		ipBase:     dict.SID(filepath.Base(importPath)),
 	}
 }
 
@@ -51,11 +62,29 @@ func (p *Package) load() error {
 		}
 	}
 
-	if len(p.Files) == 0 && !p.Context.options.disableNoBuildableFilesError {
+	c := p.Context
+	if len(p.Files) == 0 && !c.options.disableNoBuildableFilesError {
 		return fmt.Errorf("package %s: no buildable Go source files in %s", p.ImportPath, p.Directory)
 	}
 
-	//TODO p.post()
+	var a []string
+	for k := range p.forwardTypes {
+		a = append(a, string(dict.S(k)))
+	}
+	sort.Strings(a)
+	for _, v := range a {
+		nm := dict.SID(v)
+		d := p.forwardTypes[nm]
+		ex := c.universe.Bindings[nm]
+		if _, ok := ex.(*TypeDeclaration); ok {
+			c.err(d, "cannot define new methods on non-local type %s", v)
+			continue
+		}
+
+		c.err(d, "undefined %s", v)
+	}
+
+	p.Scope.check(c)
 	return nil
 }
 

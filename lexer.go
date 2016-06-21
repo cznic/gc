@@ -60,27 +60,29 @@ func runeClassGenerics(r rune) int {
 type lexer struct {
 	*Context
 	*lex.Lexer
-	build                  bool // Whether build tags, if any, satisfied.
-	closed                 bool // Error limit reached.
-	dotImports             []*ImportDeclaration
-	fileScope              *Scope
-	hold                   xc.Token // Lexer state machine ({TX,RX}CHAN).
-	holdState              int      // Lexer state machine ({TX,RX}CHAN).
-	imports                []*ImportDeclaration
-	lbr                    bool   // Lexer state machine (BODY).
-	lbrStack               []bool // Lexer state machine (BODY).
-	lbrace                 int    // Lexer state machine (BODY).
-	lbraceStack            []int  // Lexer state machine (BODY).
-	lexPrev                rune
-	lookahead              xc.Token // lookahead.Char == yyParse yychar.
-	name                   string
-	parseOnlyPackageClause bool
-	pkg                    *Package
-	pkgName                int  // From the package clause.
-	scanCharPrev           rune // Lexer state machine (semicolon insertion).
-	scope                  *Scope
-	seenPackage            bool // Lexer state machine (check PACKAGE is first).
-	unboundImports         []*ImportDeclaration
+	build           bool // Whether build tags, if any, satisfied.
+	closed          bool // Error limit reached.
+	constExpr       *ExpressionList
+	dotImports      []*ImportDeclaration
+	fileScope       *Scope
+	firstConstSpec  bool
+	hold            xc.Token // Lexer state machine ({TX,RX}CHAN).
+	holdState       int      // Lexer state machine ({TX,RX}CHAN).
+	imports         []*ImportDeclaration
+	lbr             bool   // Lexer state machine (BODY).
+	lbrStack        []bool // Lexer state machine (BODY).
+	lbrace          int    // Lexer state machine (BODY).
+	lbraceStack     []int  // Lexer state machine (BODY).
+	lexPrev         rune
+	lookahead       xc.Token // lookahead.Char == yyParse yychar.
+	name            string
+	pkg             *Package
+	resolutionScope *Scope
+	scanCharPrev    rune // Lexer state machine (semicolon insertion).
+	scope           *Scope
+	seenPackage     bool // Lexer state machine (check PACKAGE is first).
+	switchDecl      []xc.Token
+	unboundImports  []*ImportDeclaration
 }
 
 func newLexer(nm string, sz int, r io.RuneReader, pkg *Package) (*lexer, error) {
@@ -91,12 +93,13 @@ func newLexer(nm string, sz int, r io.RuneReader, pkg *Package) (*lexer, error) 
 	}
 
 	lx := &lexer{
-		Context:   ctx,
-		build:     true,
-		fileScope: newScope(FileScope, pkg.Scope),
-		name:      nm,
-		pkg:       pkg,
-		scope:     pkg.Scope,
+		Context:         ctx,
+		build:           true,
+		fileScope:       newScope(FileScope, pkg.Scope),
+		name:            nm,
+		pkg:             pkg,
+		resolutionScope: pkg.Scope,
+		scope:           pkg.Scope,
 	}
 	lx0, err := lex.New(
 		xc.FileSet.AddFile(nm, -1, sz),
@@ -131,6 +134,7 @@ func (lx *lexer) errPos(pos token.Pos, format string, arg ...interface{}) {
 func (lx *lexer) pushScope() *Scope {
 	old := lx.scope
 	lx.scope = newScope(BlockScope, old)
+	lx.resolutionScope = lx.scope
 	return lx.scope
 }
 
@@ -142,6 +146,7 @@ func (lx *lexer) popScope() *Scope {
 	}
 
 	lx.scope = old.Parent
+	lx.resolutionScope = lx.scope
 	return lx.scope
 }
 
@@ -431,12 +436,24 @@ again:
 	}
 
 	switch lx.lexPrev {
+	case CONST:
+		lx.constExpr = nil
+		lx.firstConstSpec = true
 	case FUNC:
 		s := lx.pushScope()
 		s.isFnScope = true
 		s.isMergeScope = true
-	case IF, FOR, SWITCH, CASE, DEFAULT: // Implicit blocks.
+	case IF, FOR, SWITCH: // Implicit blocks.
 		lx.pushScope()
+	case CASE, DEFAULT: // Implicit blocks.
+		lx.pushScope()
+		var t xc.Token
+		if n := len(lx.switchDecl); n > 0 {
+			t = lx.switchDecl[n-1]
+		}
+		if t.IsValid() {
+			lx.scope.declare(lx, newVarDeclaration(-1, t, nil, nil, lx.lookahead.Pos())) //TODO
+		}
 	}
 	lx.lexPrev = r
 

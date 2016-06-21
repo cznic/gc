@@ -5,30 +5,31 @@
 .PHONY:	all clean cover cpu editor internalError later mem nuke todo edit
 
 grep=--include=*.go --include=*.l --include=*.y --include=*.yy
+ngrep='TODOOK\|parser\.go\|scanner\.go\|.*_string\.go'
 
 all: editor
 	go install
-	go vet || true
-	golint || true
+	go vet 2>&1 | grep -v $(ngrep) || true
+	golint 2>&1 | grep -v $(ngrep) || true
 	make todo
 	unused . || true
 	misspell *.go
-	gosimple
+	gosimple || true
 
 clean:
 	go clean
-	rm -f *~ cpu.test mem.test
+	rm -f *~ *.test *.out
 
 cover:
 	t=$(shell tempfile) ; go test -coverprofile $$t && go tool cover -html $$t && unlink $$t
 
 cpu:
 	go test -c -o cpu.test
-	./cpu.test -noerr -test.cpuprofile cpu.out
-	go tool pprof --lines cpu.test cpu.out
+	./cpu.test -test.cpuprofile cpu.out
+	go tool pprof -lines cpu.test cpu.out
 
 edit:
-	gvim -p Makefile *.l parser.yy log *.go
+	gvim -p Makefile *.l parser.yy log test.log *.go
 
 editor: parser.go scanner.go
 	gofmt -l -s -w *.go
@@ -45,10 +46,9 @@ later:
 	@grep -n $(grep) LATER * || true
 	@grep -n $(grep) MAYBE * || true
 
-mem:
-	go test -c -o mem.test
-	./mem.test -test.bench . -test.memprofile mem.out
-	go tool pprof --lines --web --alloc_space mem.test mem.out
+mem: clean
+	go test -bench Load -memprofile mem.out
+	go tool pprof -lines -web -alloc_space *.test mem.out
 
 nuke: clean
 	go clean -i
@@ -58,7 +58,7 @@ parser.go scanner.go: parser.yy scanner.l xerrors
 	go generate 2>&1 | tee log-generate
 
 todo:
-	@grep -n $(grep) ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* * || true
-	@grep -n $(grep) TODO * || true
-	@grep -n $(grep) BUG * || true
-	@grep -n $(grep) [^[:alpha:]]println * || true
+	@grep -n $(grep) ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* * | grep -v $(ngrep) || true
+	@grep -n $(grep) TODO * | grep -v $(ngrep) || true
+	@grep -n $(grep) BUG * | grep -v $(ngrep) || true
+	@grep -n $(grep) [^[:alpha:]]println * | grep -v $(ngrep) || true

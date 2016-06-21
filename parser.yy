@@ -16,8 +16,10 @@
 package gc
 
 import (
+	"math/big"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/cznic/xc"
 )
@@ -126,9 +128,7 @@ import (
 	FuncBodyOpt		"optional function body"
 	FuncDecl		"function/method declaration"
 	FuncType		"function type"
-	GenericArgumentList	"generic argument list"
 	GenericArgumentsOpt	"optional generic arguments"
-	GenericParameterList	"generic parameter list"
 	GenericParametersOpt	"optional generic parameters"
 	IdentifierList		"identifier list"
 	IdentifierOpt		"optional identifier"
@@ -166,7 +166,6 @@ import (
 	Statement		"statement"
 	StatementList		"statement list"
 	StatementNonDecl	"non declarative statement"
-	StringLitOpt		"optional string literal"
 	StructFieldDecl		"struct field declaration"
 	StructFieldDeclList	"struct field declaration list"
 	StructType		"struct type"
@@ -174,11 +173,14 @@ import (
 	SwitchCase		"switch case/default clause"
 	SwitchCaseBlock		"switch case/default clause statement block"
 	SwitchCaseList		"switch case/default clause list"
+	SwitchHeader		"switch statement header"
 	SwitchStatement		"switch statement"
+	TagOpt			"optional tag"
 	TopLevelDecl		"top level declaration"
 	TopLevelDeclList	"top level declaration list"
 	Typ			"type "
 	TypeDecl		"type declaration"
+	TypeList		"type list"
 	TypeLiteral		"type literal"
 	TypeSpec		"type specification"
 	TypeSpecList		"type specification list"
@@ -222,6 +224,7 @@ File:
 		lx.pkg.Files = append(lx.pkg.Files, lhs)
 	}
 
+//yy:field	Value	Value
 Argument:
 	Expression
 |       TypeLiteral
@@ -230,6 +233,8 @@ ArgumentList:
 	Argument
 |       ArgumentList ',' Argument
 
+//yy:field	guard	gate
+//yy:field	Type	Type
 ArrayType:
 	'[' "..." ']' Typ
 |       '[' Expression ']' Typ
@@ -248,27 +253,79 @@ Assignment:
 |       ExpressionList "-="  ExpressionList
 |       ExpressionList "^="  ExpressionList
 
-//yy:field	val	interface{}	//TODO -> Value
+//yy:field	Value	Value
+//yy:field	stringValue	stringValue
 BasicLiteral:
 	CHAR_LIT
-|       FLOAT_LIT
-|       IMAG_LIT
-|       INT_LIT
-|       STRING_LIT
 	{
 		t := lhs.Token
 		s := string(t.S())
-		value, err := strconv.Unquote(s)
+		s2 := s[1:len(s)-1]
+		r, _, _, err := strconv.UnquoteChar(s2, '\'')
 		if err != nil {
-			lx.err(t, "%s: %q", err, t.S())
+			lx.err(t, "invalid character constant")
 			break
 		}
 
-		// https://github.com/golang/go/issues/15997
-		if b := lhs.Token.S(); len(b) != 0 && b[0] == '`' {
-			value = strings.Replace(value, "\r", "", -1)
+		if isSurrogate(r) || r > unicode.MaxRune {
+			lx.err(t, "invalid Unicode code point in escape sequence: %#x", r)
+			break
 		}
-		lhs.val = StringID(dict.SID(value))
+
+		lhs.Value = newConstValue(newRuneConst(r, nil, lx.int32Type, true))
+	}
+|       FLOAT_LIT
+	{
+		t := lhs.Token
+		s := string(t.S())
+		if strings.Contains(s, "p") { // Error already reported by the scanner.
+			break
+		}
+
+		f, _, err := big.ParseFloat(s, 10, lx.floatConstPrec, big.ToNearestEven)
+		if err != nil {
+			lx.err(t, "%s %s", err, t.S())
+			break
+		}
+
+		lhs.Value = newConstValue(newFloatConst(0, f, lx.float64Type, true).normalize())
+	}
+|       IMAG_LIT
+	{
+		t := lhs.Token
+		s := string(t.S())
+		if strings.Contains(s, "p") { // Error already reported by the scanner.
+			break
+		}
+
+		s = s[:len(s)-1] // Remove final "i".
+		f, _, err := big.ParseFloat(s, 10, lx.floatConstPrec, big.ToNearestEven)
+		if err != nil {
+			lx.err(t, "%s %s", err, t.S())
+			break
+		}
+
+		lhs.Value = newConstValue(newComplexConst(0, &bigComplex{big.NewFloat(0).SetPrec(lx.floatConstPrec), f}, lx.float64Type, true).normalize())
+	}
+|       INT_LIT
+	{
+		t := lhs.Token
+		s := string(t.S())
+		var z big.Int
+		i, ok := z.SetString(s, 0)
+		if !ok {
+			lx.err(t, "invalid integer literal %s", s)
+			break
+		}
+
+		if lhs.Value = newConstValue(newIntConst(0, i, lx.intType, true).normalize()); lhs.Value == nil {
+			lx.err(t, "integer literal overflow %s", s)
+		}
+	}
+|       STRING_LIT
+	{
+		lhs.stringValue = stringLiteralValue(lx, lhs.Token)
+		lhs.Value = newConstValue(newStringConst(lhs.stringValue, lx.stringType, true))
 	}
 
 Block:
@@ -300,6 +357,8 @@ Call:
 |       '(' ArgumentList CommaOpt ')'
 |       '(' ArgumentList "..." CommaOpt ')'
 
+//yy:field	guard	gate
+//yy:field	Type	Type
 ChanType:
 	"chan" Typ
 |       "chan" TXCHAN Typ
@@ -321,6 +380,8 @@ CompLitItemList:
 	CompLitItem
 |       CompLitItemList ',' CompLitItem
 
+//yy:field	guard	gate
+//yy:field	Type	Type
 CompLitType:
 	ArrayType
 |       MapType
@@ -357,7 +418,7 @@ ConstSpecList:
 Elif:
 	"else" "if" IfHeader Body
 	{
-		lx.popScope() // Implicit block.
+		lx.popScope() // Implicit "if" block.
 	}
 
 ElifList:
@@ -368,6 +429,7 @@ ElseOpt:
 	/* empty */
 |       "else" Block
 
+//yy:field	Value	Value
 Expression:
 	UnaryExpression
 |       Expression '%' Expression
@@ -411,7 +473,7 @@ ForHeader:
 ForStatement:
 	"for" ForHeader Body
 	{
-		lx.popScope() // Implicit block.
+		lx.popScope() // Implicit "for" block.
 	}
 
 FuncBodyOpt:
@@ -424,34 +486,72 @@ FuncBodyOpt:
 FuncDecl:
 	"func" ReceiverOpt IDENTIFIER GenericParametersOpt Signature
 	{
-		switch r := $2.(*ReceiverOpt); {
-		case r == nil: // Function.
-			lx.scope.Parent.declare(lx, newFuncDeclaration($3))
-		default: // Method.
-			//TODO
+		p := lx.pkg
+		r := $2.(*ReceiverOpt)
+		if r != nil {
+			r.Parameters.post(lx)
+		}
+		sig := $5.(*Signature)
+		sig.post(lx)
+		nm := $3
+		if r == nil {// Function.
+			if nm.Val == idInit {
+				s := $5.(*Signature)
+				if l := s.Parameters.ParameterDeclList; l != nil {
+					lx.err(l, "func init must have no arguments and no return values")
+				} else if o := s.ResultOpt; o != nil {
+					lx.err(o, "func init must have no arguments and no return values")
+				}
+			}
+			p.Scope.declare(lx, newFuncDeclaration(nm, nil, sig, false))
+			break
+		}
+
+		// Method.
+		rx := r.nm
+		if !rx.IsValid() {
+			break
+		}
+
+		d := p.Scope.Bindings[rx.Val]
+		switch x := d.(type) {
+		case nil: // Forward type
+			d = p.forwardTypes[rx.Val]
+			if d == nil {
+				d = newTypeDeclaration(lx, rx, nil)
+				p.forwardTypes.declare(lx, d)
+			}
+			d.(*TypeDeclaration).declare(lx, newFuncDeclaration(nm, r, sig, false))
+		case *TypeDeclaration:
+			x.declare(lx, newFuncDeclaration(nm, r, sig, false))
+		default:
+			lx.err(rx, "%s is not a type", rx.S())
 		}
 	}
 	FuncBodyOpt
 
 /*yy:example "package a ; var b func()" */
+//yy:field	guard	gate
+//yy:field	Type	Type
 FuncType:
 	"func" Signature
-
-GenericArgumentList:
-	Typ
-|	GenericArgumentList ',' Typ
+	{
+		lhs.Signature.post(lx)
+	}
+//yy:example "package a ; var b func « b » ( )"
+|	"func" "«" IdentifierList "»" Signature
+	{
+		lx.err(lhs.Token2, "anonymous functions cannot have generic type parameters")
+		lhs.Signature.post(lx)
+	}
 
 GenericArgumentsOpt:
 	/* empty */
-|	"«" GenericArgumentList "»"
-
-GenericParameterList:
-	IDENTIFIER
-|	GenericParameterList ',' IDENTIFIER
+|	"«" TypeList "»"
 
 GenericParametersOpt:
 	/* empty */
-|	"«" GenericParameterList "»"
+|	"«" IdentifierList "»"
 
 IdentifierOpt:
 	/* empty */
@@ -461,7 +561,7 @@ IdentifierList:
 	IDENTIFIER
 |       IdentifierList ',' IDENTIFIER
 
-/*yy:example "package a ; switch b {" */
+/*yy:example "package a ; if b {" */
 IfHeader:
 	SimpleStatementOpt
 |       SimpleStatementOpt ';' SimpleStatementOpt
@@ -469,7 +569,7 @@ IfHeader:
 IfStatement:
 	"if" IfHeader Body ElifList ElseOpt
 	{
-		lx.popScope() // Implicit block.
+		lx.popScope() // Implicit "if" block.
 	}
 
 ImportDecl:
@@ -497,25 +597,37 @@ ImportList:
 	/* empty */
 |       ImportList ImportDecl ';'
 
+//yy:field	guard	gate
+//yy:field	methods	*Scope
+//yy:field	Type	Type
 InterfaceType:
 	"interface" LBrace '}'
 |       "interface" LBrace
 	{
+		s := lx.resolutionScope
 		lx.pushScope()
+		lx.resolutionScope = s
 	}
 	InterfaceMethodDeclList SemicolonOpt '}'
 	{
+		lhs.methods = lx.scope
 		lx.popScope()
 	}
 
 InterfaceMethodDecl:
 	IDENTIFIER
 	{
+		s := lx.resolutionScope
 		lx.pushScope()
+		lx.resolutionScope = s
 	}
 	Signature
 	{
+		lhs.Signature.post(lx)
+		s := lx.resolutionScope
 		lx.popScope()
+		lx.resolutionScope = s
+		lx.scope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true))
 	}
 |       QualifiedIdent
 
@@ -545,9 +657,14 @@ LBraceCompLitValue:
 	LBrace '}'
 |       LBrace LBraceCompLitItemList CommaOpt '}'
 
+//yy:field	guard	gate
+//yy:field	Type	Type
 MapType:
 	"map" '[' Typ ']' Typ
 
+//yy:field	Value		Value
+//yy:field	fileScope	*Scope
+//yy:field	resolutionScope	*Scope	// Where to search for case 4: IDENTIFIER.
 Operand:
 	'(' Expression ')'
 |       '(' TypeLiteral ')'
@@ -561,22 +678,20 @@ Operand:
 		lx.popScope()
 	}
 |       IDENTIFIER GenericArgumentsOpt
-
-QualifiedIdent:
-	IDENTIFIER
-|       IDENTIFIER '.' IDENTIFIER
+	{
+		lhs.fileScope = lx.fileScope
+		lhs.resolutionScope = lx.resolutionScope
+	}
 
 PackageClause:
-	"package"
+	"package" IDENTIFIER ';'
 	{
-		if !lx.build { // Build tags not satisfied
+		if lx.pkg.parseOnlyName {
+			lx.pkg.Name = string(lhs.Token2.S())
 			return 0
 		}
-	}
-	IDENTIFIER ';'
-	{
-		lx.pkgName = lhs.Token2.Val
-		if lx.parseOnlyPackageClause {
+
+		if !lx.build { // Build tags not satisfied
 			return 0
 		}
 
@@ -584,7 +699,9 @@ PackageClause:
 	}
 
 //yy:field	isParamName	bool
+//yy:field	isVariadic	bool
 //yy:field	nm		xc.Token
+//yy:field	typ		*Typ
 ParameterDecl:
 	"..." Typ
 |       IDENTIFIER "..." Typ
@@ -599,10 +716,8 @@ ParameterDeclList:
 Parameters:
 	'(' ')'
 |       '(' ParameterDeclList CommaOpt ')'
-	{
-		lhs.post(lx)
-	}
 
+//yy:field	Value	Value
 PrimaryExpression:
 	Operand
 |       CompLitType LBraceCompLitValue
@@ -622,15 +737,31 @@ Prologue:
 		lhs.post(lx)
 	}
 
+QualifiedIdent:
+	IDENTIFIER
+|       IDENTIFIER '.' IDENTIFIER
+
 Range:
 	ExpressionList '=' "range" Expression
 |       ExpressionList ":=" "range" Expression
+	{
+		varDecl(lx, lhs.ExpressionList, lhs.Expression, nil, ":=", 2, 1)
+	}
 |       "range" Expression
 
+//yy:field	Type		Type
+//yy:field	isPtr		bool
+//yy:field	nm		xc.Token
+//yy:field	resolutionScope	*Scope
 ReceiverOpt:
 	/* empty */
 |       Parameters %prec PARAMS
+	{
+		lhs.resolutionScope = lx.resolutionScope
+		lhs.post(lx)
+	}
 
+//yy:field	Type	Type
 ResultOpt:
 	/* empty */ %prec NO_RESULT
 |       Parameters
@@ -638,13 +769,21 @@ ResultOpt:
 |       Typ      
 
 SelectStatement:
-	"select" SwitchBody
+	"select"
+	{
+		lx.switchDecl = append(lx.switchDecl, xc.Token{})
+	}
+	SwitchBody
+	{
+		lx.switchDecl = lx.switchDecl[:len(lx.switchDecl)-1]
+	}
 
 SemicolonOpt:
 	/* empty */
 |       ';'
 
 /*yy:example "package a ; var b func ( )" */
+//yy:field	Type	Type
 Signature:
 	Parameters ResultOpt
 
@@ -654,11 +793,16 @@ SimpleStatement:
 |       Expression "--"
 |       Expression "++"
 |       ExpressionList ":=" ExpressionList
+	{
+		varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
+	}
 
 SimpleStatementOpt:
 	/* empty */
 |       SimpleStatement
 
+//yy:field	guard	gate
+//yy:field	Type	Type
 SliceType:
 	'[' ']' Typ
 
@@ -694,30 +838,49 @@ StatementNonDecl:
 |       SimpleStatement
 |       SwitchStatement
 
-StringLitOpt:
-	/* empty */
-|       STRING_LIT
-
 StructFieldDecl:
-	'*' QualifiedIdent StringLitOpt
-|       IdentifierList Typ StringLitOpt
-|       QualifiedIdent StringLitOpt
-|       '(' QualifiedIdent ')' StringLitOpt
-|       '(' '*' QualifiedIdent ')' StringLitOpt
-|       '*' '(' QualifiedIdent ')' StringLitOpt
+	'*' QualifiedIdent TagOpt
+	{
+		lhs.decl(lx)
+	}
+|       IdentifierList Typ TagOpt
+	{
+		lhs.decl(lx)
+	}
+|       QualifiedIdent TagOpt
+	{
+		lhs.decl(lx)
+	}
+|       '(' QualifiedIdent ')' TagOpt
+	{
+		lhs.decl(lx)
+	}
+|       '(' '*' QualifiedIdent ')' TagOpt
+	{
+		lhs.decl(lx)
+	}
+|       '*' '(' QualifiedIdent ')' TagOpt
+	{
+		lhs.decl(lx)
+	}
 
 StructFieldDeclList:
 	StructFieldDecl
 |       StructFieldDeclList ';' StructFieldDecl
 
+//yy:field	fields	*Scope
+//yy:field	guard	gate
+//yy:field	Type	Type
 StructType:
 	"struct" LBrace '}'
 |       "struct" LBrace
 	{
 		lx.pushScope()
+		lx.resolutionScope = lx.scope.Parent
 	}
 	StructFieldDeclList SemicolonOpt '}'
 	{
+		lhs.fields = lx.scope
 		lx.popScope()
 	}
 
@@ -736,6 +899,9 @@ SwitchCase:
 	"case" ArgumentList ':'
 |       "case" ArgumentList '=' Expression ':'
 |       "case" ArgumentList ":=" Expression ':'
+	{
+		varDecl(lx, lhs.ArgumentList, lhs.Expression, nil, ":=", 2, 1)
+	}
 |       "default" ':'	
 |	"case" error
 |	"default" error
@@ -743,17 +909,41 @@ SwitchCase:
 SwitchCaseBlock:
 	SwitchCase StatementList
 	{
-		lx.popScope() // Implicit block.
+		lx.popScope() // Implicit "case"/"default" block.
 	}
 
 SwitchCaseList:
 	SwitchCaseBlock
 |       SwitchCaseList SwitchCaseBlock
 
+/*yy:example "package a ; switch b {" */
+SwitchHeader:
+	SimpleStatementOpt
+|       SimpleStatementOpt ';'
+|       SimpleStatementOpt ';' Expression
+|       SimpleStatementOpt ';' IDENTIFIER ":=" PrimaryExpression '.' '(' "type" ')'
+
 SwitchStatement:
-	"switch" IfHeader SwitchBody
+	"switch" SwitchHeader
 	{
-		lx.popScope() // Implicit block.
+		var t xc.Token
+		if sh := $2.(*SwitchHeader); sh.Case == 3 { // SimpleStatementOpt ';' IDENTIFIER ":=" PrimaryExpression '.' '(' "type" ')'
+			t = sh.Token2 // IDENTIFIER
+		}
+		lx.switchDecl = append(lx.switchDecl, t)
+	}
+	SwitchBody
+	{
+		lx.switchDecl = lx.switchDecl[:len(lx.switchDecl)-1]
+		lx.popScope() // Implicit "switch" block.
+	}
+
+//yy:field	stringValue	stringValue
+TagOpt:
+	/* empty */
+|       STRING_LIT
+	{
+		lhs.stringValue = stringLiteralValue(lx, lhs.Token)
 	}
 
 TopLevelDecl:
@@ -768,6 +958,10 @@ TopLevelDeclList:
 	/* empty */
 |       TopLevelDeclList TopLevelDecl ';'
 
+//yy:field	Type		Type
+//yy:field	fileScope	*Scope
+//yy:field	guard		gate
+//yy:field	resolutionScope	*Scope	// Where to search for case 7: QualifiedIdent.
 Typ:
 	'(' Typ ')'
 |       '*' Typ
@@ -781,6 +975,10 @@ Typ:
 |       InterfaceType
 |       MapType
 |       QualifiedIdent GenericArgumentsOpt
+	{
+		lhs.fileScope = lx.fileScope
+		lhs.resolutionScope = lx.resolutionScope
+	}
 |       SliceType
 |       StructType
 
@@ -789,6 +987,12 @@ TypeDecl:
 |       "type" '(' TypeSpecList SemicolonOpt ')'
 |       "type" TypeSpec
 
+TypeList:
+	Typ
+|	TypeList ',' Typ
+
+//yy:field	guard	gate
+//yy:field	Type	Type
 TypeLiteral:
 	'*' TypeLiteral
 |       ArrayType
@@ -806,13 +1010,29 @@ TypeLiteral:
 TypeSpec:
 	IDENTIFIER GenericParametersOpt Typ
 	{
-		lx.scope.declare(lx, newTypeDeclaration(lhs.Token))
+	 	nm := lhs.Token
+		if lx.scope.Kind == PackageScope {
+			p := lx.pkg
+			if d := p.forwardTypes[nm.Val]; d != nil {
+				delete(p.forwardTypes, nm.Val)
+				d.(*TypeDeclaration).typ0 = lhs.Typ
+				lx.scope.declare(lx, d)
+				break
+			}
+		}
+
+		d := newTypeDeclaration(lx, nm, lhs.Typ)
+		if t := lhs.Typ; t.Case == 5 { // InterfaceType
+			d.methods = t.InterfaceType.methods
+		}
+		lx.scope.declare(lx, d)
 	}
 
 TypeSpecList:
 	TypeSpec
 |       TypeSpecList ';' TypeSpec
 
+//yy:field	Value	Value
 UnaryExpression:
 	'!' UnaryExpression
 |       '&' UnaryExpression
@@ -831,15 +1051,15 @@ VarDecl:
 VarSpec:
 	IdentifierList '=' ExpressionList
 	{
-		lhs.decl(lx, nil, lhs.ExpressionList)
+		varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, nil, "=", -1, -1)
 	}
 |       IdentifierList Typ
 	{
-		lhs.decl(lx, lhs.Typ, nil)
+		varDecl(lx, lhs.IdentifierList, nil, lhs.Typ, "", -1, -1)
 	}
 |       IdentifierList Typ '=' ExpressionList
 	{
-		lhs.decl(lx, lhs.Typ, lhs.ExpressionList)
+		varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, lhs.Typ, "=", -1, -1)
 	}
 
 VarSpecList:

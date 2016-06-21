@@ -4,13 +4,14 @@ package gc
 
 import "fmt"
 
-const _ValueKind_name = "RuntimeValueConstValue"
+const _ValueKind_name = "ConstValueNilValueRuntimeValueTypeValue"
 
-var _ValueKind_index = [...]uint8{0, 12, 22}
+var _ValueKind_index = [...]uint8{0, 10, 18, 30, 39}
 
 func (i ValueKind) String() string {
+	i -= 1
 	if i < 0 || i >= ValueKind(len(_ValueKind_index)-1) {
-		return fmt.Sprintf("ValueKind(%d)", i)
+		return fmt.Sprintf("ValueKind(%d)", i+1)
 	}
 	return _ValueKind_name[_ValueKind_index[i]:_ValueKind_index[i+1]]
 }

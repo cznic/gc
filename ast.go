@@ -18,6 +18,7 @@ import (
 //	        Expression
 //	|       TypeLiteral  // Case 1
 type Argument struct {
+	Value       Value
 	Case        int
 	Expression  *Expression
 	TypeLiteral *TypeLiteral
@@ -96,6 +97,8 @@ func (n *ArgumentList) Pos() token.Pos {
 //	        '[' "..." ']' Typ
 //	|       '[' Expression ']' Typ  // Case 1
 type ArrayType struct {
+	guard      gate
+	Type       Type
 	Case       int
 	Expression *Expression
 	Token      xc.Token
@@ -159,9 +162,10 @@ func (n *Assignment) Pos() token.Pos {
 //	|       INT_LIT     // Case 3
 //	|       STRING_LIT  // Case 4
 type BasicLiteral struct {
-	val   interface{} //TODO -> Value
-	Case  int
-	Token xc.Token
+	Value       Value
+	stringValue stringValue
+	Case        int
+	Token       xc.Token
 }
 
 func (n *BasicLiteral) fragment() interface{} { return n }
@@ -254,6 +258,8 @@ func (n *Call) Pos() token.Pos {
 //	|       "chan" TXCHAN Typ  // Case 1
 //	|       RXCHAN "chan" Typ  // Case 2
 type ChanType struct {
+	guard  gate
+	Type   Type
 	Case   int
 	Token  xc.Token
 	Token2 xc.Token
@@ -390,6 +396,8 @@ func (n *CompLitItemList) Pos() token.Pos {
 //	|       SliceType   // Case 2
 //	|       StructType  // Case 3
 type CompLitType struct {
+	guard      gate
+	Type       Type
 	ArrayType  *ArrayType
 	Case       int
 	MapType    *MapType
@@ -668,6 +676,7 @@ func (n *ElseOpt) Pos() token.Pos {
 //	|       Expression ">>" Expression  // Case 19
 //	|       Expression "<-" Expression  // Case 20
 type Expression struct {
+	Value           Value
 	Case            int
 	Expression      *Expression
 	Expression2     *Expression
@@ -930,13 +939,20 @@ func (n *FuncDecl) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
-// FuncType represents data reduced by production:
+// FuncType represents data reduced by productions:
 //
 //	FuncType:
 //	        "func" Signature
+//	|       "func" "«" IdentifierList "»" Signature  // Case 1
 type FuncType struct {
-	Signature *Signature
-	Token     xc.Token
+	guard          gate
+	Type           Type
+	Case           int
+	IdentifierList *IdentifierList
+	Signature      *Signature
+	Token          xc.Token
+	Token2         xc.Token
+	Token3         xc.Token
 }
 
 func (n *FuncType) fragment() interface{} { return n }
@@ -951,63 +967,15 @@ func (n *FuncType) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
-// GenericArgumentList represents data reduced by productions:
-//
-//	GenericArgumentList:
-//	        Typ
-//	|       GenericArgumentList ',' Typ  // Case 1
-type GenericArgumentList struct {
-	Case                int
-	GenericArgumentList *GenericArgumentList
-	Token               xc.Token
-	Typ                 *Typ
-}
-
-func (n *GenericArgumentList) reverse() *GenericArgumentList {
-	if n == nil {
-		return nil
-	}
-
-	na := n
-	nb := na.GenericArgumentList
-	for nb != nil {
-		nc := nb.GenericArgumentList
-		nb.GenericArgumentList = na
-		na = nb
-		nb = nc
-	}
-	n.GenericArgumentList = nil
-	return na
-}
-
-func (n *GenericArgumentList) fragment() interface{} { return n.reverse() }
-
-// String implements fmt.Stringer.
-func (n *GenericArgumentList) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericArgumentList) Pos() token.Pos {
-	switch n.Case {
-	case 1:
-		return n.GenericArgumentList.Pos()
-	case 0:
-		return n.Typ.Pos()
-	default:
-		panic("internal error")
-	}
-}
-
 // GenericArgumentsOpt represents data reduced by productions:
 //
 //	GenericArgumentsOpt:
 //	        /* empty */
-//	|       "«" GenericArgumentList "»"  // Case 1
+//	|       "«" TypeList "»"  // Case 1
 type GenericArgumentsOpt struct {
-	GenericArgumentList *GenericArgumentList
-	Token               xc.Token
-	Token2              xc.Token
+	Token    xc.Token
+	Token2   xc.Token
+	TypeList *TypeList
 }
 
 func (n *GenericArgumentsOpt) fragment() interface{} { return n }
@@ -1026,63 +994,15 @@ func (n *GenericArgumentsOpt) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
-// GenericParameterList represents data reduced by productions:
-//
-//	GenericParameterList:
-//	        IDENTIFIER
-//	|       GenericParameterList ',' IDENTIFIER  // Case 1
-type GenericParameterList struct {
-	Case                 int
-	GenericParameterList *GenericParameterList
-	Token                xc.Token
-	Token2               xc.Token
-}
-
-func (n *GenericParameterList) reverse() *GenericParameterList {
-	if n == nil {
-		return nil
-	}
-
-	na := n
-	nb := na.GenericParameterList
-	for nb != nil {
-		nc := nb.GenericParameterList
-		nb.GenericParameterList = na
-		na = nb
-		nb = nc
-	}
-	n.GenericParameterList = nil
-	return na
-}
-
-func (n *GenericParameterList) fragment() interface{} { return n.reverse() }
-
-// String implements fmt.Stringer.
-func (n *GenericParameterList) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *GenericParameterList) Pos() token.Pos {
-	switch n.Case {
-	case 1:
-		return n.GenericParameterList.Pos()
-	case 0:
-		return n.Token.Pos()
-	default:
-		panic("internal error")
-	}
-}
-
 // GenericParametersOpt represents data reduced by productions:
 //
 //	GenericParametersOpt:
 //	        /* empty */
-//	|       "«" GenericParameterList "»"  // Case 1
+//	|       "«" IdentifierList "»"  // Case 1
 type GenericParametersOpt struct {
-	GenericParameterList *GenericParameterList
-	Token                xc.Token
-	Token2               xc.Token
+	IdentifierList *IdentifierList
+	Token          xc.Token
+	Token2         xc.Token
 }
 
 func (n *GenericParametersOpt) fragment() interface{} { return n }
@@ -1480,6 +1400,9 @@ func (n *InterfaceMethodDeclList) Pos() token.Pos {
 //	        "interface" LBrace '}'
 //	|       "interface" LBrace InterfaceMethodDeclList SemicolonOpt '}'  // Case 1
 type InterfaceType struct {
+	guard                   gate
+	methods                 *Scope
+	Type                    Type
 	Case                    int
 	InterfaceMethodDeclList *InterfaceMethodDeclList
 	LBrace                  *LBrace
@@ -1634,6 +1557,8 @@ func (n *LBraceCompLitValue) Pos() token.Pos {
 //	MapType:
 //	        "map" '[' Typ ']' Typ
 type MapType struct {
+	guard  gate
+	Type   Type
 	Token  xc.Token
 	Token2 xc.Token
 	Token3 xc.Token
@@ -1662,6 +1587,9 @@ func (n *MapType) Pos() token.Pos {
 //	|       FuncType LBrace StatementList '}'  // Case 3
 //	|       IDENTIFIER GenericArgumentsOpt     // Case 4
 type Operand struct {
+	Value               Value
+	fileScope           *Scope
+	resolutionScope     *Scope // Where to search for case 4: IDENTIFIER.
 	BasicLiteral        *BasicLiteral
 	Case                int
 	Expression          *Expression
@@ -1726,7 +1654,9 @@ func (n *PackageClause) Pos() token.Pos {
 //	|       Typ                   // Case 3
 type ParameterDecl struct {
 	isParamName bool
+	isVariadic  bool
 	nm          xc.Token
+	typ         *Typ
 	Case        int
 	Token       xc.Token
 	Token2      xc.Token
@@ -1841,6 +1771,7 @@ func (n *Parameters) Pos() token.Pos {
 //	|       PrimaryExpression CompLitValue                                               // Case 9
 //	|       TypeLiteral '(' Expression CommaOpt ')'                                      // Case 10
 type PrimaryExpression struct {
+	Value              Value
 	Call               *Call
 	Case               int
 	CommaOpt           *CommaOpt
@@ -1968,7 +1899,11 @@ func (n *Range) Pos() token.Pos {
 //	        /* empty */
 //	|       Parameters   // Case 1
 type ReceiverOpt struct {
-	Parameters *Parameters
+	Type            Type
+	isPtr           bool
+	nm              xc.Token
+	resolutionScope *Scope
+	Parameters      *Parameters
 }
 
 func (n *ReceiverOpt) fragment() interface{} { return n }
@@ -1994,6 +1929,7 @@ func (n *ReceiverOpt) Pos() token.Pos {
 //	|       Parameters   // Case 1
 //	|       Typ          // Case 2
 type ResultOpt struct {
+	Type       Type
 	Case       int
 	Parameters *Parameters
 	Typ        *Typ
@@ -2071,6 +2007,7 @@ func (n *SemicolonOpt) Pos() token.Pos {
 //	Signature:
 //	        Parameters ResultOpt
 type Signature struct {
+	Type       Type
 	Parameters *Parameters
 	ResultOpt  *ResultOpt
 }
@@ -2155,6 +2092,8 @@ func (n *SimpleStatementOpt) Pos() token.Pos {
 //	SliceType:
 //	        '[' ']' Typ
 type SliceType struct {
+	guard  gate
+	Type   Type
 	Token  xc.Token
 	Token2 xc.Token
 	Typ    *Typ
@@ -2331,45 +2270,20 @@ func (n *StatementNonDecl) Pos() token.Pos {
 	}
 }
 
-// StringLitOpt represents data reduced by productions:
-//
-//	StringLitOpt:
-//	        /* empty */
-//	|       STRING_LIT   // Case 1
-type StringLitOpt struct {
-	Token xc.Token
-}
-
-func (n *StringLitOpt) fragment() interface{} { return n }
-
-// String implements fmt.Stringer.
-func (n *StringLitOpt) String() string {
-	return PrettyString(n)
-}
-
-// Pos reports the position of the first component of n or zero if it's empty.
-func (n *StringLitOpt) Pos() token.Pos {
-	if n == nil {
-		return 0
-	}
-
-	return n.Token.Pos()
-}
-
 // StructFieldDecl represents data reduced by productions:
 //
 //	StructFieldDecl:
-//	        '*' QualifiedIdent StringLitOpt
-//	|       IdentifierList Typ StringLitOpt          // Case 1
-//	|       QualifiedIdent StringLitOpt              // Case 2
-//	|       '(' QualifiedIdent ')' StringLitOpt      // Case 3
-//	|       '(' '*' QualifiedIdent ')' StringLitOpt  // Case 4
-//	|       '*' '(' QualifiedIdent ')' StringLitOpt  // Case 5
+//	        '*' QualifiedIdent TagOpt
+//	|       IdentifierList Typ TagOpt          // Case 1
+//	|       QualifiedIdent TagOpt              // Case 2
+//	|       '(' QualifiedIdent ')' TagOpt      // Case 3
+//	|       '(' '*' QualifiedIdent ')' TagOpt  // Case 4
+//	|       '*' '(' QualifiedIdent ')' TagOpt  // Case 5
 type StructFieldDecl struct {
 	Case           int
 	IdentifierList *IdentifierList
 	QualifiedIdent *QualifiedIdent
-	StringLitOpt   *StringLitOpt
+	TagOpt         *TagOpt
 	Token          xc.Token
 	Token2         xc.Token
 	Token3         xc.Token
@@ -2451,6 +2365,9 @@ func (n *StructFieldDeclList) Pos() token.Pos {
 //	        "struct" LBrace '}'
 //	|       "struct" LBrace StructFieldDeclList SemicolonOpt '}'  // Case 1
 type StructType struct {
+	fields              *Scope
+	guard               gate
+	Type                Type
 	Case                int
 	LBrace              *LBrace
 	SemicolonOpt        *SemicolonOpt
@@ -2593,14 +2510,58 @@ func (n *SwitchCaseList) Pos() token.Pos {
 	}
 }
 
+// SwitchHeader represents data reduced by productions:
+//
+//	SwitchHeader:
+//	        SimpleStatementOpt
+//	|       SimpleStatementOpt ';'                                                       // Case 1
+//	|       SimpleStatementOpt ';' Expression                                            // Case 2
+//	|       SimpleStatementOpt ';' IDENTIFIER ":=" PrimaryExpression '.' '(' "type" ')'  // Case 3
+type SwitchHeader struct {
+	Case               int
+	Expression         *Expression
+	PrimaryExpression  *PrimaryExpression
+	SimpleStatementOpt *SimpleStatementOpt
+	Token              xc.Token
+	Token2             xc.Token
+	Token3             xc.Token
+	Token4             xc.Token
+	Token5             xc.Token
+	Token6             xc.Token
+	Token7             xc.Token
+}
+
+func (n *SwitchHeader) fragment() interface{} { return n }
+
+// String implements fmt.Stringer.
+func (n *SwitchHeader) String() string {
+	return PrettyString(n)
+}
+
+// Pos reports the position of the first component of n or zero if it's empty.
+func (n *SwitchHeader) Pos() token.Pos {
+	switch n.Case {
+	case 0:
+		return n.SimpleStatementOpt.Pos()
+	case 1, 2, 3:
+		if p := n.SimpleStatementOpt.Pos(); p != 0 {
+			return p
+		}
+
+		return n.Token.Pos()
+	default:
+		panic("internal error")
+	}
+}
+
 // SwitchStatement represents data reduced by production:
 //
 //	SwitchStatement:
-//	        "switch" IfHeader SwitchBody
+//	        "switch" SwitchHeader SwitchBody
 type SwitchStatement struct {
-	IfHeader   *IfHeader
-	SwitchBody *SwitchBody
-	Token      xc.Token
+	SwitchBody   *SwitchBody
+	SwitchHeader *SwitchHeader
+	Token        xc.Token
 }
 
 func (n *SwitchStatement) fragment() interface{} { return n }
@@ -2612,6 +2573,32 @@ func (n *SwitchStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchStatement) Pos() token.Pos {
+	return n.Token.Pos()
+}
+
+// TagOpt represents data reduced by productions:
+//
+//	TagOpt:
+//	        /* empty */
+//	|       STRING_LIT   // Case 1
+type TagOpt struct {
+	stringValue stringValue
+	Token       xc.Token
+}
+
+func (n *TagOpt) fragment() interface{} { return n }
+
+// String implements fmt.Stringer.
+func (n *TagOpt) String() string {
+	return PrettyString(n)
+}
+
+// Pos reports the position of the first component of n or zero if it's empty.
+func (n *TagOpt) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2723,6 +2710,10 @@ func (n *TopLevelDeclList) Pos() token.Pos {
 //	|       SliceType                           // Case 8
 //	|       StructType                          // Case 9
 type Typ struct {
+	Type                Type
+	fileScope           *Scope
+	guard               gate
+	resolutionScope     *Scope // Where to search for case 7: QualifiedIdent.
 	ArrayType           *ArrayType
 	Case                int
 	ChanType            *ChanType
@@ -2799,6 +2790,54 @@ func (n *TypeDecl) Pos() token.Pos {
 	return n.Token.Pos()
 }
 
+// TypeList represents data reduced by productions:
+//
+//	TypeList:
+//	        Typ
+//	|       TypeList ',' Typ  // Case 1
+type TypeList struct {
+	Case     int
+	Token    xc.Token
+	Typ      *Typ
+	TypeList *TypeList
+}
+
+func (n *TypeList) reverse() *TypeList {
+	if n == nil {
+		return nil
+	}
+
+	na := n
+	nb := na.TypeList
+	for nb != nil {
+		nc := nb.TypeList
+		nb.TypeList = na
+		na = nb
+		nb = nc
+	}
+	n.TypeList = nil
+	return na
+}
+
+func (n *TypeList) fragment() interface{} { return n.reverse() }
+
+// String implements fmt.Stringer.
+func (n *TypeList) String() string {
+	return PrettyString(n)
+}
+
+// Pos reports the position of the first component of n or zero if it's empty.
+func (n *TypeList) Pos() token.Pos {
+	switch n.Case {
+	case 0:
+		return n.Typ.Pos()
+	case 1:
+		return n.TypeList.Pos()
+	default:
+		panic("internal error")
+	}
+}
+
 // TypeLiteral represents data reduced by productions:
 //
 //	TypeLiteral:
@@ -2811,6 +2850,8 @@ func (n *TypeDecl) Pos() token.Pos {
 //	|       SliceType        // Case 6
 //	|       StructType       // Case 7
 type TypeLiteral struct {
+	guard         gate
+	Type          Type
 	ArrayType     *ArrayType
 	Case          int
 	ChanType      *ChanType
@@ -2936,6 +2977,7 @@ func (n *TypeSpecList) Pos() token.Pos {
 //	|       "<-" UnaryExpression  // Case 6
 //	|       PrimaryExpression     // Case 7
 type UnaryExpression struct {
+	Value             Value
 	Case              int
 	PrimaryExpression *PrimaryExpression
 	Token             xc.Token
