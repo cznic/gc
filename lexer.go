@@ -8,10 +8,13 @@ import (
 	"bytes"
 	"go/token"
 	"io"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode"
 
 	"github.com/cznic/golex/lex"
+	"github.com/cznic/mathutil"
 	"github.com/cznic/xc"
 )
 
@@ -60,29 +63,31 @@ func runeClassGenerics(r rune) int {
 type lexer struct {
 	*Context
 	*lex.Lexer
-	build           bool // Whether build tags, if any, satisfied.
-	closed          bool // Error limit reached.
-	constExpr       *ExpressionList
-	dotImports      []*ImportDeclaration
-	fileScope       *Scope
-	firstConstSpec  bool
-	hold            xc.Token // Lexer state machine ({TX,RX}CHAN).
-	holdState       int      // Lexer state machine ({TX,RX}CHAN).
-	imports         []*ImportDeclaration
-	lbr             bool   // Lexer state machine (BODY).
-	lbrStack        []bool // Lexer state machine (BODY).
-	lbrace          int    // Lexer state machine (BODY).
-	lbraceStack     []int  // Lexer state machine (BODY).
-	lexPrev         rune
-	lookahead       xc.Token // lookahead.Char == yyParse yychar.
-	name            string
-	pkg             *Package
-	resolutionScope *Scope
-	scanCharPrev    rune // Lexer state machine (semicolon insertion).
-	scope           *Scope
-	seenPackage     bool // Lexer state machine (check PACKAGE is first).
-	switchDecl      []xc.Token
-	unboundImports  []*ImportDeclaration
+	build                bool // Whether build tags, if any, satisfied.
+	closed               bool // Error limit reached.
+	constExpr            *ExpressionList
+	dotImports           []*ImportDeclaration
+	fileScope            *Scope
+	firstConstSpec       bool
+	hold                 xc.Token // Lexer state machine ({TX,RX}CHAN).
+	holdState            int      // Lexer state machine ({TX,RX}CHAN).
+	imports              []*ImportDeclaration
+	iota                 int64
+	lbr                  bool   // Lexer state machine (BODY).
+	lbrStack             []bool // Lexer state machine (BODY).
+	lbrace               int    // Lexer state machine (BODY).
+	lbraceStack          []int  // Lexer state machine (BODY).
+	lexPrev              rune
+	lookahead            xc.Token // lookahead.Char == yyParse yychar.
+	name                 string
+	pkg                  *Package
+	resolutionScope      *Scope
+	resolutionScopeStack []*Scope
+	scanCharPrev         rune // Lexer state machine (semicolon insertion).
+	scope                *Scope
+	seenPackage          bool // Lexer state machine (check PACKAGE is first).
+	switchDecl           []xc.Token
+	unboundImports       []*ImportDeclaration
 }
 
 func newLexer(nm string, sz int, r io.RuneReader, pkg *Package) (*lexer, error) {
@@ -132,6 +137,7 @@ func (lx *lexer) errPos(pos token.Pos, format string, arg ...interface{}) {
 }
 
 func (lx *lexer) pushScope() *Scope {
+	lx.resolutionScopeStack = append(lx.resolutionScopeStack, lx.resolutionScope)
 	old := lx.scope
 	lx.scope = newScope(BlockScope, old)
 	lx.resolutionScope = lx.scope
@@ -146,7 +152,9 @@ func (lx *lexer) popScope() *Scope {
 	}
 
 	lx.scope = old.Parent
-	lx.resolutionScope = lx.scope
+	n := len(lx.resolutionScopeStack)
+	lx.resolutionScope = lx.resolutionScopeStack[n-1]
+	lx.resolutionScopeStack = lx.resolutionScopeStack[:n-1]
 	return lx.scope
 }
 
@@ -164,6 +172,10 @@ func (lx *lexer) checkComment() {
 }
 
 func (lx *lexer) buildDirective(b []byte) {
+	if !lx.build {
+		return
+	}
+
 	ctx := lx.pkg.Context
 	s := string(b[len(buildMark):])
 	s = strings.Replace(s, "\t", " ", -1)
@@ -247,6 +259,30 @@ func (lx *lexer) errorcheckDirective() {
 	t.errChecksMu.Lock()
 	t.errChecks = append(t.errChecks, xc.Token{Char: ch, Val: dict.ID(s)})
 	t.errChecksMu.Unlock()
+}
+
+var colon = []byte{':'}
+
+func (lx *lexer) lineDirective() {
+	if position(lx.First.Pos()).Column != 1 {
+		return
+	}
+
+	line := lx.TokenBytes(nil)
+	i := bytes.LastIndex(line, colon)
+	n, err := strconv.ParseUint(string(line[i+1:len(line)-1]), 10, mathutil.IntBits-1)
+	if err != nil || n <= 0 {
+		return
+	}
+
+	fn := string(bytes.TrimSpace(line[len("//line "):i]))
+	if fn != "" {
+		fn = filepath.Clean(fn)
+		if !filepath.IsAbs(fn) {
+			fn = filepath.Join(lx.pkg.Directory, fn)
+		}
+	}
+	lx.File.AddLineInfo(lx.Offset()-1, fn, int(n))
 }
 
 func (lx *lexer) fixLBR() {
@@ -439,10 +475,13 @@ again:
 	case CONST:
 		lx.constExpr = nil
 		lx.firstConstSpec = true
+		lx.iota = 0
 	case FUNC:
+		rs := lx.resolutionScope
 		s := lx.pushScope()
 		s.isFnScope = true
 		s.isMergeScope = true
+		lx.resolutionScope = rs
 	case IF, FOR, SWITCH: // Implicit blocks.
 		lx.pushScope()
 	case CASE, DEFAULT: // Implicit blocks.

@@ -55,6 +55,9 @@ string_lit		{raw_string_lit}|{interpreted_string_lit}
   // White space except newline.
 [ \t\r]+
 
+"//line "[^:\x80\n\r]*:.*[\n\r\x80]
+                lx.lineDirective()
+
  // A general comment containing no newlines acts like a space.
 "/*"([^*\x80\n]|\*+[^*/\x80\n])*\*+\/
 		lx.checkComment()

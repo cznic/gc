@@ -59,6 +59,6 @@ parser.go scanner.go: parser.yy scanner.l xerrors
 
 todo:
 	@grep -n $(grep) ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* * | grep -v $(ngrep) || true
-	@grep -n $(grep) TODO * | grep -v $(ngrep) || true
+	@grep -n $(grep) 'TODO\|todo' * | grep -v $(ngrep) || true
 	@grep -n $(grep) BUG * | grep -v $(ngrep) || true
 	@grep -n $(grep) [^[:alpha:]]println * | grep -v $(ngrep) || true

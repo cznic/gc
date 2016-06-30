@@ -1,8 +1,4 @@
 [PASS errorcheck] "invalid recursive type t": invalid recursive type t testdata/badtype.go:7:6
-[PASS errorcheck] "import statement not a string": import statement not a string testdata/extra.go:5:8
-[PASS errorcheck] "func init must have no arguments and no return values": func init must have no arguments and no return values testdata/extra.go:7:11
-[PASS errorcheck] "func init must have no arguments and no return values": func init must have no arguments and no return values testdata/extra.go:10:13
-[PASS errorcheck] "duplicate method m": duplicate method m, previous declaration at testdata/extra.go:14:2 testdata/extra.go:16:2
 [FAIL errorcheck: missing error] "byte" testdata/gc/alias.go:23:7
 [FAIL errorcheck: missing error] "uint8" testdata/gc/alias.go:24:7
 [FAIL errorcheck: missing error] "rune" testdata/gc/alias.go:30:19
@@ -139,32 +135,32 @@
 [FAIL errorcheck: missing error] "missing type in composite literal|omit types within composite literal" testdata/gc/complit1.go:41:38
 [PASS errorcheck] "overflow": constant 10100 overflows int8 testdata/gc/const1.go:33:12
 [PASS errorcheck] "overflow": constant 1000 overflows int8 testdata/gc/const1.go:35:12
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:36:31
+[PASS errorcheck] "overflow": constant 1000 overflows int8 testdata/gc/const1.go:36:19
 [PASS errorcheck] "overflow": constant 1000 overflows int8 testdata/gc/const1.go:37:17
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:38:31
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:39:31
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:40:31
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:43:36
+[PASS errorcheck] "overflow": constant 1000 overflows int8 testdata/gc/const1.go:38:24
+[PASS errorcheck] "overflow": constant 202 overflows int8 testdata/gc/const1.go:39:15
+[PASS errorcheck] "overflow": constant 10403 overflows int8 testdata/gc/const1.go:40:12
+[PASS errorcheck] "overflow": constant 10404 overflows uint8 testdata/gc/const1.go:43:20
 [PASS errorcheck] "overflow": constant -1 overflows uint8 testdata/gc/const1.go:44:20
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:46:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:47:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:51:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:52:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:53:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:55:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:56:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:57:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:58:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:59:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:60:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:61:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:63:36
-[FAIL errorcheck: missing error] "division by zero" testdata/gc/const1.go:64:36
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:67:34
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:68:34
-[FAIL errorcheck: missing error] "overflow" testdata/gc/const1.go:69:34
-[FAIL errorcheck: missing error] "division by zero" testdata/gc/const1.go:70:34
-[FAIL errorcheck: missing error] "floating-point % operation|expected integer type" testdata/gc/const1.go:71:34
+[PASS errorcheck] "overflow": constant -102 overflows uint8 testdata/gc/const1.go:46:28
+[PASS errorcheck] "overflow": constant -1 overflows uint8 testdata/gc/const1.go:47:20
+[PASS errorcheck] "overflow": constant -1 overflows uint8 testdata/gc/const1.go:51:20
+[PASS errorcheck] "overflow": constant -1 overflows uint8 testdata/gc/const1.go:52:20
+[PASS errorcheck] "overflow": constant -1 overflows uint8 testdata/gc/const1.go:53:20
+[PASS errorcheck] "overflow": constant 1024 overflows uint8 testdata/gc/const1.go:55:14
+[PASS errorcheck] "overflow": constant 1024 overflows uint8 testdata/gc/const1.go:56:23
+[PASS errorcheck] "overflow": constant 1000 overflows uint8 testdata/gc/const1.go:57:14
+[PASS errorcheck] "overflow": constant 1000 overflows uint8 testdata/gc/const1.go:58:19
+[PASS errorcheck] "overflow": constant 10000 overflows uint8 testdata/gc/const1.go:59:24
+[PASS errorcheck] "overflow": constant 10000 overflows uint8 testdata/gc/const1.go:60:24
+[PASS errorcheck] "overflow": constant 1000 overflows uint8 testdata/gc/const1.go:61:22
+[PASS errorcheck] "overflow": constant 1000 overflows uint8 testdata/gc/const1.go:63:29
+[PASS errorcheck] "division by zero": division by zero testdata/gc/const1.go:64:20
+[PASS errorcheck] "overflow": constant 1e+600 overflows float64 testdata/gc/const1.go:67:19
+[PASS errorcheck] "overflow": constant 1e+600 overflows float64 testdata/gc/const1.go:68:28
+[PASS errorcheck] "overflow": constant 1e+600 overflows float64 testdata/gc/const1.go:69:19
+[PASS errorcheck] "division by zero": division by zero testdata/gc/const1.go:70:19
+[PASS errorcheck] "floating-point % operation|expected integer type": illegal constant expression: floating-point % operation testdata/gc/const1.go:71:20
 [FAIL errorcheck: missing error] "convert|wrong type|cannot" testdata/gc/const1.go:77:22
 [FAIL errorcheck: missing error] "convert|wrong type|cannot" testdata/gc/const1.go:78:22
 [FAIL errorcheck: missing error] "convert|wrong type|cannot" testdata/gc/const1.go:79:22
@@ -174,14 +170,14 @@
 [FAIL errorcheck: missing error] "convert|wrong type|cannot" testdata/gc/const1.go:85:22
 [FAIL errorcheck: missing error] "convert|wrong type|cannot|incompatible" testdata/gc/const1.go:86:22
 [FAIL errorcheck: missing error] "convert|wrong type|cannot|incompatible" testdata/gc/const1.go:87:22
-[FAIL errorcheck: missing error] "const.*nil" testdata/gc/const1.go:90:17
-[FAIL errorcheck: missing error] "is not a? ?constant" testdata/gc/const1.go:91:31
+[PASS errorcheck] "const.*nil": const initializer cannot be nil testdata/gc/const1.go:90:13
+[PASS errorcheck] "is not a? ?constant": const initializer is not a constant testdata/gc/const1.go:91:11
 [FAIL errorcheck: missing error] "is not a? ?constant" testdata/gc/const1.go:92:48
 [FAIL errorcheck: missing error] "cannot be nil|invalid constant type" testdata/gc/const1.go:93:39
-[FAIL errorcheck: missing error] "cannot be nil|invalid constant type" testdata/gc/const1.go:94:23
+[PASS errorcheck] "cannot be nil|invalid constant type": invalid constant type testdata/gc/const1.go:94:11
 [PASS errorcheck] "type without expr|expected .=.": unexpected ;, expected '=' testdata/gc/const2.go:14:8
-[FAIL errorcheck: missing error] "constant multiplication overflow" testdata/gc/const2.go:19:41
-[FAIL errorcheck: missing error] "constant shift overflow" testdata/gc/const2.go:21:55
+[PASS errorcheck] "constant multiplication overflow": constant multiplication overflow testdata/gc/const2.go:19:32
+[PASS errorcheck] "constant shift overflow": constant shift overflow testdata/gc/const2.go:21:34
 [FAIL errorcheck: missing error] "is not a constant|is not constant" testdata/gc/const5.go:28:17
 [FAIL errorcheck: missing error] "is not a constant|is not constant" testdata/gc/const5.go:29:16
 [FAIL errorcheck: missing error] "is not a constant|is not constant" testdata/gc/const5.go:31:17
@@ -227,10 +223,10 @@
 [FAIL errorcheck: missing error] "cannot convert.*Tbyte|invalid type conversion" testdata/gc/convert1.go:96:19
 [FAIL errorcheck: missing error] "cannot convert.*Trune|invalid type conversion" testdata/gc/convert1.go:97:19
 [FAIL errorcheck: missing error] "compat|illegal|cannot" testdata/gc/convert3.go:28:14
-[FAIL errorcheck: missing error] "convert|truncate" testdata/gc/convlit.go:17:23
-[FAIL errorcheck: missing error] "convert|truncate" testdata/gc/convlit.go:18:23
-[FAIL errorcheck: missing error] "overflow" testdata/gc/convlit.go:20:26
-[FAIL errorcheck: missing error] "overflow" testdata/gc/convlit.go:21:26
+[PASS errorcheck] "convert|truncate": constant 1.5 truncated to integer testdata/gc/convlit.go:17:14
+[PASS errorcheck] "convert|truncate": constant 1.5 truncated to integer testdata/gc/convlit.go:18:18
+[PASS errorcheck] "overflow": constant 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 overflows int testdata/gc/convlit.go:20:14
+[PASS errorcheck] "overflow": constant 1e+1000 overflows float32 testdata/gc/convlit.go:21:18
 [FAIL errorcheck: missing error] "convert" testdata/gc/convlit.go:24:46
 [FAIL errorcheck: missing error] "convert" testdata/gc/convlit.go:25:46
 [FAIL errorcheck: missing error] "convert" testdata/gc/convlit.go:26:46
@@ -239,17 +235,17 @@
 [FAIL errorcheck: missing error] "conver|incompatible|invalid" testdata/gc/convlit.go:32:22
 [FAIL errorcheck: missing error] "literals|incompatible|convert|invalid" testdata/gc/convlit.go:33:22
 [FAIL errorcheck: missing error] "literals|incompatible|convert|invalid" testdata/gc/convlit.go:34:22
-[FAIL errorcheck: missing error] "convert|truncate" testdata/gc/convlit.go:36:26
-[FAIL errorcheck: missing error] "overflow" testdata/gc/convlit.go:37:26
-[FAIL errorcheck: missing error] "overflow" testdata/gc/convlit.go:38:26
-[FAIL errorcheck: missing error] "cannot use|incompatible|invalid" testdata/gc/convlit.go:51:22
-[FAIL errorcheck: missing error] "cannot use|incompatible|invalid" testdata/gc/convlit.go:52:22
+[PASS errorcheck] "convert|truncate": constant 1.5 truncated to integer testdata/gc/convlit.go:36:16
+[PASS errorcheck] "overflow": constant 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 overflows int testdata/gc/convlit.go:37:16
+[PASS errorcheck] "overflow": constant 1e+200 overflows float32 testdata/gc/convlit.go:38:20
+[PASS errorcheck] "cannot use|incompatible|invalid": cannot use "abc" (type string) as type []int in assignment testdata/gc/convlit.go:51:15
+[PASS errorcheck] "cannot use|incompatible|invalid": cannot use "abc" (type string) as type []uint8 in assignment testdata/gc/convlit.go:52:16
 [FAIL errorcheck: missing error] "cannot use|incompatible|invalid" testdata/gc/convlit.go:62:19
 [FAIL errorcheck: missing error] "cannot use|incompatible|invalid" testdata/gc/convlit.go:63:19
-[FAIL errorcheck: missing error] "cannot use|incompatible|invalid" testdata/gc/convlit.go:73:21
-[FAIL errorcheck: missing error] "cannot use|incompatible|invalid" testdata/gc/convlit.go:74:21
-[FAIL errorcheck: missing error] "conver|incompatible|cannot" testdata/gc/convlit1.go:12:24
-[FAIL errorcheck: missing error] "compos" testdata/gc/convlit1.go:13:20
+[PASS errorcheck] "cannot use|incompatible|invalid": cannot use "abc" (type string) as type main.Trune in assignment testdata/gc/convlit.go:73:15
+[PASS errorcheck] "cannot use|incompatible|invalid": cannot use "abc" (type string) as type main.Tbyte in assignment testdata/gc/convlit.go:74:15
+[PASS errorcheck] "conver|incompatible|cannot": cannot use "a" (type string) as type int in array or slice literal testdata/gc/convlit1.go:12:17
+[PASS errorcheck] "compos": invalid type for composite literal: int testdata/gc/convlit1.go:13:15
 [FAIL errorcheck: missing error] "conver|incompatible|invalid" testdata/gc/convlit1.go:19:15
 [FAIL errorcheck: missing error] "integer" testdata/gc/ddd1.go:20:20
 [FAIL errorcheck: missing error] ".hello. .type string. as type int|incompatible" testdata/gc/ddd1.go:21:20
@@ -316,7 +312,7 @@
 [FAIL errorcheck: missing error] "illegal|inval|shift" testdata/gc/fixedbugs/bug073.go:13:15
 [FAIL errorcheck: missing error] "composite" testdata/gc/fixedbugs/bug074.go:10:31
 [PASS errorcheck] "loop|type": x is not a type testdata/gc/fixedbugs/bug081.go:9:9
-[FAIL errorcheck: missing error] "bug0" testdata/gc/fixedbugs/bug083.dir/bug1.go:13:17
+[PASS errorcheck] "bug0": undefined: bug0.t0 testdata/gc/fixedbugs/bug083.dir/bug1.go:13:8
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug085.go:12:15
 [FAIL errorcheck: missing error] "return" testdata/gc/fixedbugs/bug086.go:14:3
 [FAIL errorcheck: missing error] "truncate" testdata/gc/fixedbugs/bug090.go:36:14
@@ -349,7 +345,7 @@
 [PASS errorcheck] "char": invalid character constant testdata/gc/fixedbugs/bug169.go:8:9
 [FAIL errorcheck: missing error] "illegal|nil|invalid" testdata/gc/fixedbugs/bug170.go:8:26
 [FAIL errorcheck: missing error] "illegal|nil|incompatible" testdata/gc/fixedbugs/bug170.go:9:24
-[FAIL errorcheck: missing error] "nil" testdata/gc/fixedbugs/bug170.go:11:15
+[PASS errorcheck] "nil": use of untyped nil testdata/gc/fixedbugs/bug170.go:11:10
 [FAIL errorcheck: missing error] "illegal|nil|incompatible" testdata/gc/fixedbugs/bug170.go:13:13
 [FAIL errorcheck: missing error] "return|control" testdata/gc/fixedbugs/bug171.go:9:18
 [FAIL errorcheck: missing error] "return|control" testdata/gc/fixedbugs/bug171.go:10:24
@@ -370,18 +366,18 @@
 [PASS errorcheck] "redecl|redefinition": fmt redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/bug192.go:9:8 testdata/gc/fixedbugs/bug192.go:11:5
 [FAIL errorcheck: missing error] "shift" testdata/gc/fixedbugs/bug193.go:13:24
 [FAIL errorcheck: missing error] "shift" testdata/gc/fixedbugs/bug193.go:14:24
-[FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:9:26
-[FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:12:27
-[FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:15:19
-[FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:18:5
-[FAIL errorcheck: missing error] "interface" testdata/gc/fixedbugs/bug195.go:26:5
-[FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/fixedbugs/bug197.go:14:18
+[PASS errorcheck] "interface": interface contains embedded non-interface I2 testdata/gc/fixedbugs/bug195.go:9:21
+[PASS errorcheck] "interface": interface contains embedded non-interface int testdata/gc/fixedbugs/bug195.go:12:21
+[PASS errorcheck] "interface": interface type loop involving S testdata/gc/fixedbugs/bug195.go:15:15
+[PASS errorcheck] "interface": interface type loop involving I4 testdata/gc/fixedbugs/bug195.go:18:2
+[PASS errorcheck] "interface": interface type loop involving I5 testdata/gc/fixedbugs/bug195.go:26:2
+[PASS errorcheck] "cannot use|incompatible": cannot use 0 (type int) as type main.T in assignment testdata/gc/fixedbugs/bug197.go:14:11
 [FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/fixedbugs/bug197.go:15:19
-[FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/fixedbugs/bug197.go:16:18
+[PASS errorcheck] "cannot use|incompatible": cannot use 0 (type int) as type main.U in assignment testdata/gc/fixedbugs/bug197.go:16:11
 [FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/fixedbugs/bug197.go:17:19
 [FAIL errorcheck: missing error] "invalid operation|incompatible" testdata/gc/fixedbugs/bug197.go:24:30
 [FAIL errorcheck: missing error] "invalid operation|incompatible" testdata/gc/fixedbugs/bug197.go:25:30
-[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug198.go:8:28
+[PASS errorcheck] "undefined": undefined: T testdata/gc/fixedbugs/bug198.go:8:10
 [FAIL errorcheck: missing error] "duplicate" testdata/gc/fixedbugs/bug200.go:17:20
 [FAIL errorcheck: missing error] "non-integer slice index|must be integer" testdata/gc/fixedbugs/bug205.go:14:20
 [FAIL errorcheck: missing error] "non-integer string index|must be integer" testdata/gc/fixedbugs/bug205.go:15:20
@@ -393,7 +389,7 @@
 [FAIL errorcheck: missing error] "cannot|illegal|incompatible|wrong" testdata/gc/fixedbugs/bug212.go:11:34
 [FAIL errorcheck: missing error] "cannot|illegal|incompatible|wrong" testdata/gc/fixedbugs/bug212.go:12:34
 [FAIL errorcheck: missing error] "fallthrough" testdata/gc/fixedbugs/bug213.go:12:17
-[FAIL errorcheck: missing error] "recursive" testdata/gc/fixedbugs/bug215.go:12:23
+[PASS errorcheck] "recursive": invalid recursive type A testdata/gc/fixedbugs/bug215.go:12:21
 [PASS errorcheck] "no receiver": method has no receiver testdata/gc/fixedbugs/bug217.go:12:6
 [PASS errorcheck] "multiple receiver": method has multiple receivers testdata/gc/fixedbugs/bug217.go:14:12
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/bug223.go:21:30
@@ -407,7 +403,7 @@
 [FAIL errorcheck: missing error] "unexported" "undefined: testing.anyLowercaseName" testdata/gc/fixedbugs/bug229.go:19:44
 [FAIL errorcheck: missing error] "not a method|has no methods" "does not implement I" testdata/gc/fixedbugs/bug231.go:20:8
 [PASS errorcheck] "convert|wrong|invalid": invalid constant type *int testdata/gc/fixedbugs/bug238.go:11:9
-[FAIL errorcheck: missing error] "convert|wrong|invalid" testdata/gc/fixedbugs/bug238.go:12:25
+[PASS errorcheck] "convert|wrong|invalid": invalid constant type [2]int testdata/gc/fixedbugs/bug238.go:12:9
 [PASS errorcheck] "convert|wrong|invalid": invalid constant type map[int]int testdata/gc/fixedbugs/bug238.go:13:9
 [PASS errorcheck] "convert|wrong|invalid": invalid constant type chan int testdata/gc/fixedbugs/bug238.go:14:9
 [PASS errorcheck] "convert|wrong|invalid": invalid constant type func() testdata/gc/fixedbugs/bug238.go:15:9
@@ -418,13 +414,13 @@
 [FAIL errorcheck: missing error] "String" testdata/gc/fixedbugs/bug241.go:10:20
 [FAIL errorcheck: missing error] "chan|incompatible" testdata/gc/fixedbugs/bug249.go:10:53
 [FAIL errorcheck: missing error] "chan|incompatible" testdata/gc/fixedbugs/bug249.go:26:53
-[FAIL errorcheck: missing error] "loop|interface" testdata/gc/fixedbugs/bug251.go:15:5
+[PASS errorcheck] "loop|interface": interface type loop involving I1 testdata/gc/fixedbugs/bug251.go:15:2
 [FAIL errorcheck: missing error] "cannot use|incompatible" testdata/gc/fixedbugs/bug252.go:14:10
 [FAIL errorcheck: missing error] "truncated" testdata/gc/fixedbugs/bug255.go:11:20
 [FAIL errorcheck: missing error] "invalid array bound|not numeric" testdata/gc/fixedbugs/bug255.go:12:20
 [FAIL errorcheck: missing error] "invalid array bound|not numeric" testdata/gc/fixedbugs/bug255.go:13:20
 [FAIL errorcheck: missing error] "invalid array bound|not constant" testdata/gc/fixedbugs/bug255.go:14:20
-[FAIL errorcheck: missing error] "array bound is too large|overflows" testdata/gc/fixedbugs/bug255.go:15:20
+[PASS errorcheck] "array bound is too large|overflows": array bound is too large testdata/gc/fixedbugs/bug255.go:15:8
 [FAIL errorcheck: missing error] "non-constant array bound|not constant" testdata/gc/fixedbugs/bug255.go:20:33
 [PASS errorcheck] "invalid recursive type": invalid recursive type V testdata/gc/fixedbugs/bug256.go:14:6
 [FAIL errorcheck: missing error] "statement" testdata/gc/fixedbugs/bug274.go:23:8
@@ -483,7 +479,7 @@
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:26:22
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:27:22
 [FAIL errorcheck: missing error] "parenthesize" testdata/gc/fixedbugs/bug300.go:28:22
-[FAIL errorcheck: missing error] "cannot|incompatible" testdata/gc/fixedbugs/bug305.go:24:1
+[PASS errorcheck] "cannot|incompatible": cannot use "bogus" (type string) as type int in assignment testdata/gc/fixedbugs/bug305.go:24:13
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug313.dir/a.go:10:21
 [FAIL errorcheck: missing error] "type" testdata/gc/fixedbugs/bug318.go:12:18
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/bug323.go:18:12
@@ -503,7 +499,7 @@
 [PASS errorcheck] "T[.]m redeclared|redefinition": T.m redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/bug350.go:11:10 testdata/gc/fixedbugs/bug350.go:12:10
 [PASS errorcheck] "[(][*]T[)][.]p redeclared|redefinition": (*T).p redeclared in this block\n\tprevious declaration at testdata/gc/fixedbugs/bug350.go:14:11 testdata/gc/fixedbugs/bug350.go:15:11
 [PASS errorcheck] "non-name [(]x[)]|non-name on left side": non-name on left side of := testdata/gc/fixedbugs/bug351.go:12:2
-[FAIL errorcheck: missing error] "undefined.*io.ReadWriterCloser" testdata/gc/fixedbugs/bug353.go:16:37
+[PASS errorcheck] "undefined.*io.ReadWriterCloser": undefined: io.ReadWriterCloser testdata/gc/fixedbugs/bug353.go:16:14
 [FAIL errorcheck: missing error] "false evaluated but not used|value computed is not used" testdata/gc/fixedbugs/bug357.go:18:9
 [FAIL errorcheck: error does not match] "syntax error|not an expression|invalid use of type": unexpected ;, expected left brace or one of ['(', ')', ',', ':', '=', '{', ..., :=, {] testdata/gc/fixedbugs/bug358.go:20:55
 [FAIL errorcheck: missing error] "undefined: iota|iota is only defined in const" testdata/gc/fixedbugs/bug362.go:13:12
@@ -511,11 +507,12 @@
 [FAIL errorcheck: missing error] "undefined: iota|iota is only defined in const" testdata/gc/fixedbugs/bug362.go:15:12
 [FAIL errorcheck: missing error] "shift of type float64|invalid.*shift" testdata/gc/fixedbugs/bug363.go:13:24
 [FAIL errorcheck: missing error] "shift of type float64|invalid.*shift" testdata/gc/fixedbugs/bug363.go:16:24
-[FAIL errorcheck: missing error] "undefined|expected package" testdata/gc/fixedbugs/bug365.go:15:14
+[PASS errorcheck] "undefined|expected package": undefined: foo.Bar testdata/gc/fixedbugs/bug365.go:15:6
 [FAIL errorcheck: missing error] "requires explicit dereference" testdata/gc/fixedbugs/bug371.go:22:9
 [FAIL errorcheck: missing error] "requires explicit dereference" testdata/gc/fixedbugs/bug371.go:23:9
 [FAIL errorcheck: missing error] "declared and not used" testdata/gc/fixedbugs/bug373.go:12:26
-[FAIL errorcheck: missing error] "xxxx" testdata/gc/fixedbugs/bug374.go:18:43
+[FAIL errorcheck: extra error] "cannot use 0 (type foo.T) as type foo.I in assignment" testdata/gc/fixedbugs/bug374.go:16:11
+[PASS errorcheck] "xxxx": undefined: xxxx testdata/gc/fixedbugs/bug374.go:18:34
 [FAIL errorcheck: missing error] "must be called" testdata/gc/fixedbugs/bug376.go:10:24
 [FAIL errorcheck: missing error] "1 \+ 2 evaluated but not used|value computed is not used" testdata/gc/fixedbugs/bug379.go:17:8
 [FAIL errorcheck: missing error] "unsafe\.Alignof|value computed is not used" testdata/gc/fixedbugs/bug381.go:29:20
@@ -545,7 +542,7 @@
 [FAIL errorcheck: missing error] "types" testdata/gc/fixedbugs/bug421.go:13:29
 [FAIL errorcheck: missing error] "types" testdata/gc/fixedbugs/bug421.go:16:20
 [PASS errorcheck] "unexpected|missing|undefined": unexpected EOF, expected expression/type literal or one of ['!', '&', '(', ')', '*', '+', '-', '[', '^', <-, chan, func, identifier, interface, literal, map, struct] testdata/gc/fixedbugs/bug435.go:15:48
-[FAIL errorcheck: missing error] "undefined|expected package" testdata/gc/fixedbugs/bug451.go:9:12
+[PASS errorcheck] "undefined|expected package": undefined: x.T testdata/gc/fixedbugs/bug451.go:9:8
 [FAIL errorcheck: missing error] "loop|depends upon itself" testdata/gc/fixedbugs/bug459.go:12:32
 [FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:12:16
 [FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:13:16
@@ -553,8 +550,8 @@
 [FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:15:16
 [FAIL errorcheck: missing error] "unexported field" testdata/gc/fixedbugs/bug460.dir/b.go:16:16
 [FAIL errorcheck: missing error] "unknown T? ?field" testdata/gc/fixedbugs/bug462.go:17:15
-[FAIL errorcheck: missing error] "refers to itself|definition loop" testdata/gc/fixedbugs/bug463.go:12:13
-[FAIL errorcheck: missing error] "refers to itself|definition loop" testdata/gc/fixedbugs/bug463.go:16:11
+[PASS errorcheck] "refers to itself|definition loop": constant definition loop\n\ttestdata/gc/fixedbugs/bug463.go:12:7: a uses a testdata/gc/fixedbugs/bug463.go:12:7
+[PASS errorcheck] "refers to itself|definition loop": constant definition loop\n\ttestdata/gc/fixedbugs/bug463.go:16:2: A uses B\n\ttestdata/gc/fixedbugs/bug463.go:17:2: B uses D\n\ttestdata/gc/fixedbugs/bug463.go:18:5: D uses A testdata/gc/fixedbugs/bug463.go:16:2
 [PASS errorcheck] "expected type|not a type": foo is not a type testdata/gc/fixedbugs/bug464.go:12:12
 [FAIL errorcheck: missing error] "mismatch" testdata/gc/fixedbugs/bug487.go:17:14
 [FAIL errorcheck: missing error] "mismatch" testdata/gc/fixedbugs/bug487.go:18:13
@@ -575,7 +572,7 @@
 [FAIL errorcheck: missing error] "\(\*z\)\.Dont undefined \(type other\.Exported has no field or method Dont\)" testdata/gc/fixedbugs/issue10700.dir/test.go:42:16
 [FAIL errorcheck: missing error] "z\.secret undefined \(type \*other\.Exported is pointer to interface, not interface\)" testdata/gc/fixedbugs/issue10700.dir/test.go:43:16
 [FAIL errorcheck: missing error] "\(\*z\)\.secret undefined \(cannot refer to unexported field or method secret\)" testdata/gc/fixedbugs/issue10700.dir/test.go:44:16
-[FAIL errorcheck: missing error] "interface contains embedded non-interface int" testdata/gc/fixedbugs/issue10975.go:13:6
+[PASS errorcheck] "interface contains embedded non-interface int": interface contains embedded non-interface int testdata/gc/fixedbugs/issue10975.go:13:2
 [FAIL errorcheck: missing error] "1e\+646456992 overflows float64" testdata/gc/fixedbugs/issue11326.go:21:23
 [FAIL errorcheck: missing error] "1e\+64645699 overflows float64" testdata/gc/fixedbugs/issue11326.go:22:23
 [FAIL errorcheck: missing error] "1e\+6464569 overflows float64" testdata/gc/fixedbugs/issue11326.go:23:23
@@ -585,16 +582,16 @@
 [FAIL errorcheck: missing error] "1e\+646 overflows float64" testdata/gc/fixedbugs/issue11326.go:27:23
 [FAIL errorcheck: missing error] "1e\+309 overflows float64" testdata/gc/fixedbugs/issue11326.go:28:23
 [PASS errorcheck] "identifier cannot begin with digit": identifier cannot begin with digit testdata/gc/fixedbugs/issue11359.go:11:5
-[FAIL errorcheck: missing error] "imported and not used" testdata/gc/fixedbugs/issue11361.go:9:15
-[FAIL errorcheck: missing error] "fmt without selector" "fmt is not a constant" testdata/gc/fixedbugs/issue11361.go:11:15
+[FAIL errorcheck: missing error] "imported and not used" testdata/gc/fixedbugs/issue11361.go:9:14
+[PASS errorcheck] "fmt without selector" "is not a constant": const initializer is not a constant testdata/gc/fixedbugs/issue11361.go:11:11
 [FAIL errorcheck: missing error] "non-canonical import path .unicode//utf8. \(should be .unicode/utf8.\)" "can't find import: .unicode//utf8." testdata/gc/fixedbugs/issue11362.go:11:26
-[FAIL errorcheck: missing error] "constant 300 overflows int8" "constant 1200 overflows int8" testdata/gc/fixedbugs/issue11590.go:9:31
+[PASS errorcheck] "constant 300 overflows int8" "constant 1200 overflows int8": constant 300 overflows int8 testdata/gc/fixedbugs/issue11590.go:9:17
 [FAIL errorcheck: missing error] "constant 1e\+200 overflows complex64" testdata/gc/fixedbugs/issue11590.go:10:31
 [FAIL errorcheck: missing error] "constant 1e\+500 overflows complex128" testdata/gc/fixedbugs/issue11590.go:11:31
 [PASS errorcheck] "import path is empty": import path is empty testdata/gc/fixedbugs/issue11610.go:11:7
 [FAIL errorcheck: error does not match] "illegal character U\+003F '\?'": unexpected ?, expected variable specification or one of ['(', identifier] testdata/gc/fixedbugs/issue11610.go:12:4
 [FAIL errorcheck: missing error] "unexpected var" "cannot declare name" testdata/gc/fixedbugs/issue11610.go:14:11
-[FAIL errorcheck: missing error] "interface contains embedded non-interface int" testdata/gc/fixedbugs/issue11614.go:14:6
+[PASS errorcheck] "interface contains embedded non-interface int": interface contains embedded non-interface int testdata/gc/fixedbugs/issue11614.go:14:2
 [FAIL errorcheck: missing error] "type I is not an expression" testdata/gc/fixedbugs/issue11614.go:18:6
 [FAIL errorcheck: missing error] "interface contains embedded non-interface int" "type interface { int } is not an expression" testdata/gc/fixedbugs/issue11614.go:22:19
 [FAIL errorcheck: missing error] "invalid case f \(type func\(\)\) in switch \(incomparable type\)" testdata/gc/fixedbugs/issue11737.go:15:10
@@ -720,7 +717,7 @@
 [FAIL errorcheck: missing error] "cannot use 1" testdata/gc/fixedbugs/issue14136.go:18:19
 [PASS errorcheck] "import path": invalid import path testdata/gc/fixedbugs/issue14520.go:9:37
 [PASS errorcheck] "unexpected semicolon" "unexpected ;": unexpected ;, expected one of [')', ','] testdata/gc/fixedbugs/issue14520.go:12:14
-[FAIL errorcheck: missing error] "undefined: any" testdata/gc/fixedbugs/issue14652.go:9:11
+[PASS errorcheck] "undefined: any": undefined: any testdata/gc/fixedbugs/issue14652.go:9:7
 [FAIL errorcheck: missing error] "embedded type cannot be a pointer" testdata/gc/fixedbugs/issue14729.go:13:34
 [FAIL errorcheck: missing error] "invalid map key type" testdata/gc/fixedbugs/issue14988.go:12:18
 [TODO "errorcheck -+"] testdata/gc/fixedbugs/issue14999.go
@@ -732,7 +729,7 @@
 [FAIL errorcheck: missing error] "multiple nil cases in type switch" testdata/gc/fixedbugs/issue15898.go:16:12
 [FAIL errorcheck: missing error] "missing function body|cannot declare init" testdata/gc/fixedbugs/issue3705.go:9:13
 [PASS errorcheck] "not a type|expected type": i is not a type testdata/gc/fixedbugs/issue3783.go:11:8
-[FAIL errorcheck: missing error] "missing key|must have keys" testdata/gc/fixedbugs/issue3925.go:15:12
+[PASS errorcheck] "missing key|must have keys": missing key in map literal testdata/gc/fixedbugs/issue3925.go:15:2
 [FAIL errorcheck: missing error] "cannot use|incompatible type" testdata/gc/fixedbugs/issue3925.go:21:6
 [FAIL errorcheck: missing error] "negative" testdata/gc/fixedbugs/issue4085a.go:12:21
 [FAIL errorcheck: missing error] "constant 0.5 truncated to integer|non-integer len argument" testdata/gc/fixedbugs/issue4085a.go:13:21
@@ -769,7 +766,7 @@
 [FAIL errorcheck: missing error] "division by zero" testdata/gc/fixedbugs/issue4264.go:16:15
 [FAIL errorcheck: missing error] "invalid" testdata/gc/fixedbugs/issue4283.go:12:20
 [FAIL errorcheck: missing error] "invalid" testdata/gc/fixedbugs/issue4283.go:16:20
-[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/issue4359.go:13:7
+[PASS errorcheck] "undefined": undefined: T1 testdata/gc/fixedbugs/issue4359.go:13:4
 [FAIL errorcheck: missing error] "has no methods|not a method|cannot use" testdata/gc/fixedbugs/issue4365.go:25:25
 [PASS errorcheck] "illegal character|invalid character": invalid character U+0007 testdata/gc/fixedbugs/issue4405.go:11:3
 [PASS errorcheck] "illegal character|invalid character": invalid character U+0008 testdata/gc/fixedbugs/issue4405.go:12:3
@@ -886,10 +883,10 @@
 [FAIL errorcheck: missing error] "method value" testdata/gc/fixedbugs/issue4909a.go:34:38
 [FAIL errorcheck: missing error] "method value" testdata/gc/fixedbugs/issue4909a.go:35:38
 [PASS errorcheck] "non-local|redefinition": cannot define new methods on non-local type bufio.Reader testdata/gc/fixedbugs/issue5089.go:13:10
-[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/issue5172.go:12:8
+[PASS errorcheck] "undefined": undefined: bar testdata/gc/fixedbugs/issue5172.go:12:4
 [FAIL errorcheck: missing error] "as type int in|incompatible type" testdata/gc/fixedbugs/issue5358.go:16:9
-[FAIL errorcheck: missing error] "undefined.*Blah" testdata/gc/fixedbugs/issue5581.go:29:14
-[FAIL errorcheck: missing error] "array bound is too large|array bound overflows" testdata/gc/fixedbugs/issue5609.go:13:23
+[PASS errorcheck] "undefined.*Blah": undefined: Blah testdata/gc/fixedbugs/issue5581.go:29:9
+[PASS errorcheck] "array bound is too large|array bound overflows": array bound is too large testdata/gc/fixedbugs/issue5609.go:13:10
 [FAIL errorcheck: missing error] "invalid map key type" testdata/gc/fixedbugs/issue5698.go:18:22
 [FAIL errorcheck: missing error] "imported and not used: \x22a\x22 as surprise|imported and not used: surprise" testdata/gc/fixedbugs/issue5957.dir/c.go:4:8
 [FAIL errorcheck: missing error] "imported and not used: \x22b\x22 as surprise2|imported and not used: surprise2" testdata/gc/fixedbugs/issue5957.dir/c.go:5:8
@@ -901,14 +898,14 @@
 [FAIL errorcheck: missing error] "use of untyped nil" testdata/gc/fixedbugs/issue6004.go:12:16
 [FAIL errorcheck: missing error] "untyped nil" testdata/gc/fixedbugs/issue6004.go:13:27
 [FAIL errorcheck: missing error] "cannot use nil as type uintptr in return argument" testdata/gc/fixedbugs/issue6402.go:12:13
-[FAIL errorcheck: missing error] "undefined: syscall.X" testdata/gc/fixedbugs/issue6403.go:13:25
+[PASS errorcheck] "undefined: syscall.X": undefined: syscall.X testdata/gc/fixedbugs/issue6403.go:13:23
 [PASS errorcheck] "undefined: voidpkg": undefined: voidpkg testdata/gc/fixedbugs/issue6403.go:14:15
 [FAIL errorcheck: missing error] "undefined: OpenFile" testdata/gc/fixedbugs/issue6405.go:12:20
 [FAIL errorcheck: missing error] "undefined.*s" testdata/gc/fixedbugs/issue6406.go:10:12
 [FAIL errorcheck: missing error] "undefined.*s" testdata/gc/fixedbugs/issue6406.go:11:8
 [FAIL errorcheck: missing error] "fallthrough" testdata/gc/fixedbugs/issue6500.go:16:16
-[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/issue6572.go:9:21
-[FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/issue6572.go:13:29
+[PASS errorcheck] "undefined": undefined: T testdata/gc/fixedbugs/issue6572.go:9:13
+[PASS errorcheck] "undefined": undefined: T testdata/gc/fixedbugs/issue6572.go:13:13
 [FAIL errorcheck: missing error] "cannot (use type|assign) string" testdata/gc/fixedbugs/issue6572.go:20:18
 [FAIL errorcheck: missing error] "cannot use" testdata/gc/fixedbugs/issue6671.go:17:29
 [FAIL errorcheck: missing error] "cannot use" testdata/gc/fixedbugs/issue6671.go:19:29
@@ -938,7 +935,7 @@
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/issue6703x.go:20:13
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/issue6703y.go:23:17
 [FAIL errorcheck: missing error] "initialization loop|depends upon itself" testdata/gc/fixedbugs/issue6703z.go:23:19
-[FAIL errorcheck: missing error] "overflow" testdata/gc/fixedbugs/issue6889.go:110:17
+[PASS errorcheck] "overflow": constant multiplication overflow testdata/gc/fixedbugs/issue6889.go:110:12
 [FAIL errorcheck: missing error] "-4 \+ 2i" testdata/gc/fixedbugs/issue6964.go:10:26
 [FAIL errorcheck: missing error] "in argument to f" testdata/gc/fixedbugs/issue7129.go:18:16
 [FAIL errorcheck: missing error] "in argument to f" testdata/gc/fixedbugs/issue7129.go:19:16
@@ -948,7 +945,7 @@
 [FAIL errorcheck: missing error] "index 5 out of bounds \[0:0\]" testdata/gc/fixedbugs/issue7150.go:14:34
 [FAIL errorcheck: missing error] "index 15 out of bounds \[0:10\]" testdata/gc/fixedbugs/issue7150.go:15:34
 [FAIL errorcheck: missing error] "index 12 out of bounds \[0:10\]" testdata/gc/fixedbugs/issue7150.go:16:34
-[FAIL errorcheck: missing error] "undefined: a" "cannot use true \(type bool\) as type int in array or slice literal" testdata/gc/fixedbugs/issue7153.go:11:30
+[PASS errorcheck] "undefined: a" "cannot use true \(type bool\) as type int in array or slice literal": cannot use true (type bool) as type int in array or slice literal testdata/gc/fixedbugs/issue7153.go:11:24
 [FAIL errorcheck: missing error] "duplicate key" testdata/gc/fixedbugs/issue7214.go:11:41
 [FAIL errorcheck: missing error] "duplicate key" testdata/gc/fixedbugs/issue7214.go:13:55
 [FAIL errorcheck: missing error] "duplicate key" testdata/gc/fixedbugs/issue7214.go:17:45
@@ -973,15 +970,15 @@
 [FAIL errorcheck: missing error] "not enough arguments" testdata/gc/fixedbugs/issue7675.go:19:27
 [FAIL errorcheck: missing error] "not enough arguments" testdata/gc/fixedbugs/issue7675.go:21:28
 [FAIL errorcheck: missing error] "too many arguments" testdata/gc/fixedbugs/issue7675.go:23:40
-[FAIL errorcheck: missing error] "overflow" testdata/gc/fixedbugs/issue7746.go:13:17
+[PASS errorcheck] "overflow": constant multiplication overflow testdata/gc/fixedbugs/issue7746.go:13:12
 [FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:15:38
-[FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:16:33
+[FAIL errorcheck: error does not match] "is not (a )?constant": cannot convert type uintptr to main.myPointer testdata/gc/fixedbugs/issue7760.go:16:21
 [FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:18:46
-[FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:19:41
+[FAIL errorcheck: error does not match] "is not (a )?constant": cannot convert type uintptr to main.myPointer testdata/gc/fixedbugs/issue7760.go:19:28
 [FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:21:47
-[FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:22:42
-[FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:24:22
-[FAIL errorcheck: missing error] "is not (a )?constant" testdata/gc/fixedbugs/issue7760.go:25:22
+[FAIL errorcheck: error does not match] "is not (a )?constant": cannot convert type uintptr to main.myPointer testdata/gc/fixedbugs/issue7760.go:22:29
+[PASS errorcheck] "is not (a )?constant": const initializer is not a constant testdata/gc/fixedbugs/issue7760.go:24:11
+[PASS errorcheck] "is not (a )?constant": const initializer is not a constant testdata/gc/fixedbugs/issue7760.go:25:11
 [FAIL errorcheck: missing error] "constant 256 overflows byte" testdata/gc/fixedbugs/issue8183.go:15:7
 [FAIL errorcheck: missing error] "array bound must be non-negative" "const initializer len\(composite literal\) is not a constant" testdata/gc/fixedbugs/issue8183.go:21:4
 [FAIL errorcheck: missing error] "array bound must be non-negative" "const initializer len\(composite literal\) is not a constant" testdata/gc/fixedbugs/issue8183.go:22:4
@@ -996,7 +993,7 @@
 [FAIL errorcheck: missing error] "not enough arguments in call to method expression \(\*T\)\.M" testdata/gc/fixedbugs/issue8385.go:41:11
 [FAIL errorcheck: missing error] "invalid operation|not enough arguments" testdata/gc/fixedbugs/issue8501.go:16:19
 [FAIL errorcheck: missing error] "invalid operation|not enough arguments" testdata/gc/fixedbugs/issue8501.go:17:19
-[FAIL errorcheck: missing error] "invalid recursive type T" testdata/gc/fixedbugs/issue8507.go:12:20
+[PASS errorcheck] "invalid recursive type T": invalid recursive type T testdata/gc/fixedbugs/issue8507.go:12:18
 [FAIL errorcheck: missing error] "cannot use.*type byte.*as type float64" testdata/gc/fixedbugs/issue8745.go:12:23
 [FAIL errorcheck: missing error] ".*" testdata/gc/fixedbugs/issue8836.go:22:7
 [FAIL errorcheck: missing error] "undefined" testdata/gc/fixedbugs/issue9017.go:47:9
@@ -1006,8 +1003,8 @@
 [FAIL errorcheck: error does not match] "unexpected p10": malformed floating point constant testdata/gc/fixedbugs/issue9036.go:26:12
 [FAIL errorcheck: error does not match] "unexpected p10": malformed floating point constant testdata/gc/fixedbugs/issue9036.go:27:12
 [FAIL errorcheck: error does not match] "unexpected p0": malformed floating point constant testdata/gc/fixedbugs/issue9036.go:28:12
-[FAIL errorcheck: missing error] "100 \/ unsafe.Sizeof\(int\(0\)\) \+ 1" testdata/gc/fixedbugs/issue9076.go:14:45
-[FAIL errorcheck: missing error] "Hundred \/ unsafe.Sizeof\(int\(0\)\) \+ 1" testdata/gc/fixedbugs/issue9076.go:15:49
+[PASS errorcheck] "cannot use .* \(type uintptr\) as type int32 in assignment": cannot use 13 (type uintptr) as type int32 in assignment testdata/gc/fixedbugs/issue9076.go:15:15
+[PASS errorcheck] "cannot use .* \(type uintptr\) as type int32 in assignment": cannot use 13 (type uintptr) as type int32 in assignment testdata/gc/fixedbugs/issue9076.go:16:15
 [FAIL errorcheck: missing error] "cannot use make\(map\[int\]int\)|incompatible" testdata/gc/fixedbugs/issue9083.go:16:24
 [FAIL errorcheck: missing error] "cannot use make\(map\[int\]int, 0\)|incompatible" testdata/gc/fixedbugs/issue9083.go:17:27
 [FAIL errorcheck: missing error] "cannot use make\(map\[int\]int, zero\)|incompatible" testdata/gc/fixedbugs/issue9083.go:18:30
@@ -1075,7 +1072,7 @@
 [FAIL errorcheck: missing error] "invalid operation.*mismatched types" testdata/gc/fixedbugs/issue9370.go:122:12
 [FAIL errorcheck: missing error] "invalid operation.*mismatched types" testdata/gc/fixedbugs/issue9370.go:123:12
 [FAIL errorcheck: missing error] "invalid operation.*mismatched types" testdata/gc/fixedbugs/issue9370.go:124:12
-[FAIL errorcheck: missing error] "invalid recursive type foo" testdata/gc/fixedbugs/issue9432.go:15:3
+[PASS errorcheck] "invalid recursive type foo": invalid recursive type foo testdata/gc/fixedbugs/issue9432.go:15:1
 [FAIL errorcheck: missing error] "cannot append \[\]int value to \[\]int" testdata/gc/fixedbugs/issue9521.go:16:18
 [FAIL errorcheck: missing error] "cannot append float64 value to \[\]int" testdata/gc/fixedbugs/issue9521.go:17:18
 [FAIL errorcheck: missing error] "must be a slice|must be slice" testdata/gc/fixedbugs/issue9634.go:17:19
@@ -1510,9 +1507,9 @@
 [FAIL errorcheck: missing error] "invalid" "as type float32" testdata/gc/shift1.go:21:23
 [FAIL errorcheck: missing error] "invalid|shift of non-integer operand" "as type interface" testdata/gc/shift1.go:26:25
 [FAIL errorcheck: missing error] "invalid" "as type float64" testdata/gc/shift1.go:27:25
-[FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:28:25
+[FAIL errorcheck: error does not match] "truncated": invalid operand for binary << testdata/gc/shift1.go:28:17
 [FAIL errorcheck: missing error] "overflow" testdata/gc/shift1.go:35:23
-[FAIL errorcheck: missing error] "overflow" testdata/gc/shift1.go:36:23
+[PASS errorcheck] "overflow": constant 36893488147419103232 overflows int testdata/gc/shift1.go:36:2
 [FAIL errorcheck: missing error] "overflow" testdata/gc/shift1.go:37:23
 [FAIL errorcheck: missing error] "invalid|shift of non-integer operand" testdata/gc/shift1.go:42:18
 [FAIL errorcheck: missing error] "invalid|shift of non-integer operand" testdata/gc/shift1.go:44:22
@@ -1559,13 +1556,13 @@
 [FAIL errorcheck: missing error] "invalid|non-integer|shift of type float64" testdata/gc/shift1.go:116:33
 [FAIL errorcheck: missing error] "invalid|non-integer|shift of type float64" testdata/gc/shift1.go:117:33
 [FAIL errorcheck: missing error] "invalid|non-integer|shift of type float64" testdata/gc/shift1.go:118:33
-[FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:126:18
+[FAIL errorcheck: error does not match] "truncated": invalid operand for binary << testdata/gc/shift1.go:126:9
 [FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:130:20
 [FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:133:22
-[FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:134:22
-[FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:135:22
-[FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:136:22
-[FAIL errorcheck: missing error] "truncated" testdata/gc/shift1.go:140:21
+[FAIL errorcheck: error does not match] "truncated": invalid operand for binary << testdata/gc/shift1.go:134:9
+[FAIL errorcheck: error does not match] "truncated": invalid operand for binary << testdata/gc/shift1.go:135:9
+[FAIL errorcheck: error does not match] "truncated": invalid operand for binary << testdata/gc/shift1.go:136:9
+[FAIL errorcheck: error does not match] "truncated": invalid operand for binary << testdata/gc/shift1.go:140:9
 [FAIL errorcheck: missing error] "integer|shift of type float64" testdata/gc/shift1.go:150:16
 [FAIL errorcheck: missing error] "integer|shift of type float64" testdata/gc/shift1.go:151:16
 [FAIL errorcheck: missing error] "non-integer|truncated" testdata/gc/shift1.go:156:26
@@ -1717,11 +1714,11 @@
 [FAIL errorcheck: error does not match] "invalid variable name": non-name on left side of := testdata/gc/syntax/typesw.go:10:9
 [FAIL errorcheck: error does not match] "unexpected { at end of statement|expected ';' or '}' or newline": unexpected {, expected one of [')', ';', '=', '}', case, default] testdata/gc/syntax/vareq.go:10:25
 [FAIL errorcheck: error does not match] "unexpected { at end of statement|unexpected { after top level declaration|expected ';' or newline after top level declaration": unexpected {, expected one of [')', ';', '=', '}', case, default] testdata/gc/syntax/vareq1.go:9:24
-[FAIL errorcheck: missing error] "undefined.*b" testdata/gc/typecheck.go:11:24
+[PASS errorcheck] "undefined.*b": undefined: b testdata/gc/typecheck.go:11:15
 [FAIL errorcheck: missing error] "undefined.*b" testdata/gc/typecheck.go:12:15
 [FAIL errorcheck: missing error] "undefined.*c|not enough arguments" testdata/gc/typecheck.go:17:13
-[FAIL errorcheck: missing error] "constant definition loop\n.*A uses B\n.*B uses C\n.*C uses A" testdata/gc/typecheckloop.go:12:17
-[FAIL errorcheck: missing error] "constant definition loop\n.*B uses C\n.*C uses B" testdata/gc/typecheckloop.go:13:17
+[PASS errorcheck] "constant definition loop\n.*A uses B\n.*B uses C\n.*C uses A": constant definition loop\n\ttestdata/gc/typecheckloop.go:12:7: A uses B\n\ttestdata/gc/typecheckloop.go:13:7: B uses C\n\ttestdata/gc/typecheckloop.go:14:7: C uses A testdata/gc/typecheckloop.go:12:7
+[PASS errorcheck] "constant definition loop\n.*B uses C\n.*C uses B": constant definition loop\n\ttestdata/gc/typecheckloop.go:13:7: B uses C\n\ttestdata/gc/typecheckloop.go:14:7: C uses B testdata/gc/typecheckloop.go:13:7
 [FAIL errorcheck: missing error] "duplicate" testdata/gc/typeswitch2.go:18:12
 [FAIL errorcheck: missing error] "duplicate" testdata/gc/typeswitch2.go:22:18
 [FAIL errorcheck: missing error] "duplicate" testdata/gc/typeswitch2.go:32:5
@@ -1743,5 +1740,9 @@
 [FAIL errorcheck: missing error] "cannot take address" testdata/method.go:21:21
 [FAIL errorcheck: missing error] "TODO" testdata/method.go:23:23
 [FAIL errorcheck: missing error] "TODO" testdata/method.go:26:16
+[PASS errorcheck] "import statement not a string": import statement not a string testdata/more.go:5:8
+[PASS errorcheck] "func init must have no arguments and no return values": func init must have no arguments and no return values testdata/more.go:7:11
+[PASS errorcheck] "func init must have no arguments and no return values": func init must have no arguments and no return values testdata/more.go:10:13
+[PASS errorcheck] "duplicate method m": duplicate method m, previous declaration at testdata/more.go:14:2 testdata/more.go:16:2
 [FAIL errorcheck: missing error] "undefined" testdata/scope.go:12:12
 [FAIL errorcheck: missing error] "undefined" testdata/scope.go:15:12

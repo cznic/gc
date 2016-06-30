@@ -7,9 +7,12 @@ package gc
 import (
 	"fmt"
 	"go/token"
+	"math"
+	"math/big"
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,33 +32,21 @@ const (
 var (
 	printHooks = strutil.PrettyPrintHooks{}
 
-	idAppend     = dict.SID("append")
+	idAlignof    = dict.SID("Alignof")
 	idC          = dict.SID("C")
-	idCap        = dict.SID("cap")
-	idClose      = dict.SID("close")
-	idComplex    = dict.SID("complex")
-	idCopy       = dict.SID("copy")
-	idDelete     = dict.SID("delete")
 	idDot        = dict.SID(".")
 	idFalse      = dict.SID("false")
-	idImag       = dict.SID("imag")
 	idInit       = dict.SID("init")
 	idIota       = dict.SID("iota")
-	idLen        = dict.SID("len")
-	idMake       = dict.SID("make")
-	idNew        = dict.SID("new")
 	idNil        = dict.SID("nil")
-	idPanic      = dict.SID("panic")
+	idOffsetof   = dict.SID("Offsetof")
 	idPointer    = dict.SID("Pointer")
-	idPrint      = dict.SID("print")
-	idPrintln    = dict.SID("println")
-	idReal       = dict.SID("real")
-	idRecover    = dict.SID("recover")
+	idSizeof     = dict.SID("Sizeof")
 	idTrue       = dict.SID("true")
 	idUnderscore = dict.SID("_")
-	idUnsafe     = dict.SID("unsafe")
 
 	todoPanic bool
+	todoTrace bool
 )
 
 func init() {
@@ -127,9 +118,21 @@ func init() {
 	}
 }
 
-func todo(n Node) { //TODO-
+func todo(n Node, opt ...bool) { //TODO-
 	if todoPanic {
 		panic(position(n.Pos()).String())
+	}
+
+	if len(opt) != 0 && todoTrace {
+		p := position(n.Pos()).String()
+		if !strings.HasPrefix(p, "testdata") {
+			return
+		}
+
+		_, fn, fl, _ := runtime.Caller(1)
+		fmt.Fprintf(os.Stderr, "trace %s:%d: ", filepath.Base(fn), fl)
+		fmt.Fprintf(os.Stderr, "%s\n", p)
+		os.Stderr.Sync()
 	}
 }
 
@@ -236,3 +239,12 @@ func stringLiteralValue(lx *lexer, t xc.Token) stringValue {
 }
 
 func isSurrogate(r rune) bool { return r >= unicodeSurrogateFirst && r <= unicodeSurrogateLast }
+
+func uintptrConstValueFromUint64(ctx *Context, n uint64) Value {
+	switch {
+	case n > math.MaxInt64:
+		return newConstValue(newIntConst(0, big.NewInt(0).SetUint64(n), ctx.uintptrType, false))
+	default:
+		return newConstValue(newIntConst(int64(n), nil, ctx.uintptrType, false))
+	}
+}

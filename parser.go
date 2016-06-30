@@ -2670,12 +2670,16 @@ yynewstate:
 		}
 	case 50:
 		{
-			yyVAL.node = &CompLitValue{
+			lhs := &CompLitValue{
 				Case:            1,
 				Token:           yyS[yypt-3].Token,
 				CompLitItemList: yyS[yypt-2].node.(*CompLitItemList).reverse(),
 				CommaOpt:        yyS[yypt-1].node.(*CommaOpt),
 				Token2:          yyS[yypt-0].Token,
+			}
+			yyVAL.node = lhs
+			for l := lhs.CompLitItemList; l != nil; l = l.CompLitItemList {
+				lhs.items++
 			}
 		}
 	case 51:
@@ -3074,7 +3078,7 @@ yynewstate:
 						lx.err(o, "func init must have no arguments and no return values")
 					}
 				}
-				p.Scope.declare(lx, newFuncDeclaration(nm, nil, sig, false))
+				p.Scope.declare(lx, newFuncDeclaration(nm, nil, sig, false, lx.pkg.unsafe))
 				break
 			}
 
@@ -3092,9 +3096,9 @@ yynewstate:
 					d = newTypeDeclaration(lx, rx, nil)
 					p.forwardTypes.declare(lx, d)
 				}
-				d.(*TypeDeclaration).declare(lx, newFuncDeclaration(nm, r, sig, false))
+				d.(*TypeDeclaration).declare(lx, newFuncDeclaration(nm, r, sig, false, lx.pkg.unsafe))
 			case *TypeDeclaration:
-				x.declare(lx, newFuncDeclaration(nm, r, sig, false))
+				x.declare(lx, newFuncDeclaration(nm, r, sig, false, lx.pkg.unsafe))
 			default:
 				lx.err(rx, "%s is not a type", rx.S())
 			}
@@ -3330,6 +3334,7 @@ yynewstate:
 			}
 			yyVAL.node = lhs
 			lhs.methods = lx.scope
+			lhs.pkgPath = lx.pkg.importPath
 			lx.popScope()
 		}
 	case 126:
@@ -3348,17 +3353,19 @@ yynewstate:
 			}
 			yyVAL.node = lhs
 			lhs.Signature.post(lx)
-			s := lx.resolutionScope
 			lx.popScope()
-			lx.resolutionScope = s
-			lx.scope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true))
+			lx.scope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true, false))
 		}
 	case 128:
 		{
-			yyVAL.node = &InterfaceMethodDecl{
+			lx := yylex.(*lexer)
+			lhs := &InterfaceMethodDecl{
 				Case:           1,
 				QualifiedIdent: yyS[yypt-0].node.(*QualifiedIdent),
 			}
+			yyVAL.node = lhs
+			lhs.fileScope = lx.fileScope
+			lhs.resolutionScope = lx.resolutionScope
 		}
 	case 129:
 		{
@@ -3445,12 +3452,16 @@ yynewstate:
 		}
 	case 140:
 		{
-			yyVAL.node = &LBraceCompLitValue{
+			lhs := &LBraceCompLitValue{
 				Case:                  1,
 				LBrace:                yyS[yypt-3].node.(*LBrace),
 				LBraceCompLitItemList: yyS[yypt-2].node.(*LBraceCompLitItemList).reverse(),
 				CommaOpt:              yyS[yypt-1].node.(*CommaOpt),
 				Token:                 yyS[yypt-0].Token,
+			}
+			yyVAL.node = lhs
+			for l := lhs.LBraceCompLitItemList; l != nil; l = l.LBraceCompLitItemList {
+				lhs.items++
 			}
 		}
 	case 141:
@@ -4162,6 +4173,7 @@ yynewstate:
 			}
 			yyVAL.node = lhs
 			lhs.fields = lx.scope
+			lhs.pkgPath = lx.pkg.importPath
 			lx.popScope()
 		}
 	case 225:

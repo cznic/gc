@@ -97,8 +97,9 @@ func (n *ArgumentList) Pos() token.Pos {
 //	        '[' "..." ']' Typ
 //	|       '[' Expression ']' Typ  // Case 1
 type ArrayType struct {
-	guard      gate
 	Type       Type
+	guard      gate
+	items      int64
 	Case       int
 	Expression *Expression
 	Token      xc.Token
@@ -434,6 +435,8 @@ func (n *CompLitType) Pos() token.Pos {
 //	        '{' '}'
 //	|       '{' CompLitItemList CommaOpt '}'  // Case 1
 type CompLitValue struct {
+	Type            Type
+	items           int64
 	Case            int
 	CommaOpt        *CommaOpt
 	CompLitItemList *CompLitItemList
@@ -1321,10 +1324,12 @@ func (n *ImportSpecList) Pos() token.Pos {
 //	        IDENTIFIER Signature
 //	|       QualifiedIdent        // Case 1
 type InterfaceMethodDecl struct {
-	Case           int
-	QualifiedIdent *QualifiedIdent
-	Signature      *Signature
-	Token          xc.Token
+	fileScope       *Scope
+	resolutionScope *Scope // Where to search for case 1: QualifiedIdent.
+	Case            int
+	QualifiedIdent  *QualifiedIdent
+	Signature       *Signature
+	Token           xc.Token
 }
 
 func (n *InterfaceMethodDecl) fragment() interface{} { return n }
@@ -1400,9 +1405,10 @@ func (n *InterfaceMethodDeclList) Pos() token.Pos {
 //	        "interface" LBrace '}'
 //	|       "interface" LBrace InterfaceMethodDeclList SemicolonOpt '}'  // Case 1
 type InterfaceType struct {
+	Type                    Type
 	guard                   gate
 	methods                 *Scope
-	Type                    Type
+	pkgPath                 int
 	Case                    int
 	InterfaceMethodDeclList *InterfaceMethodDeclList
 	LBrace                  *LBrace
@@ -1533,6 +1539,8 @@ func (n *LBraceCompLitItemList) Pos() token.Pos {
 //	        LBrace '}'
 //	|       LBrace LBraceCompLitItemList CommaOpt '}'  // Case 1
 type LBraceCompLitValue struct {
+	items                 int64
+	Type                  Type
 	Case                  int
 	CommaOpt              *CommaOpt
 	LBrace                *LBrace
@@ -2365,9 +2373,10 @@ func (n *StructFieldDeclList) Pos() token.Pos {
 //	        "struct" LBrace '}'
 //	|       "struct" LBrace StructFieldDeclList SemicolonOpt '}'  // Case 1
 type StructType struct {
+	Type                Type
 	fields              *Scope
 	guard               gate
-	Type                Type
+	pkgPath             int
 	Case                int
 	LBrace              *LBrace
 	SemicolonOpt        *SemicolonOpt

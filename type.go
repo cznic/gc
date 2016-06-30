@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Portions of this source are a derived work. The original code is at
+// Portions of this source file is a derived work. The original code is at
 //
 //	https://github.com/golang/go/blob/e805bf39458915365924228dc53969ce04e32813/src/reflect/type.go
 //
@@ -22,6 +22,8 @@ package gc
 import (
 	"bytes"
 	"fmt"
+
+	"github.com/cznic/mathutil"
 )
 
 var (
@@ -97,6 +99,9 @@ type Type interface {
 	base() *typeBase
 	context() *Context
 	str(*bytes.Buffer)
+	field(int) Type
+	numField() int
+	setOffset(int, uint64)
 
 	// Align returns the alignment in bytes of a value of this type when
 	// allocated in memory.
@@ -196,6 +201,10 @@ type Type interface {
 
 	// Ordered reports whether values of this type are ordered.
 	Ordered() bool
+
+	// UnsignedIntegerType reports whether this type's Kind is one of Uint*
+	// including Uintptr.
+	UnsignedIntegerType() bool
 
 	// --------------------------------------------------------------------
 	// Methods applicable only to some types, depending on Kind.
@@ -351,9 +360,9 @@ func (t *typeBase) Align() int                        { return t.align }
 func (t *typeBase) base() *typeBase                   { return t }
 func (t *typeBase) ChanDir() ChanDir                  { panic("ChanDir of non-chan type") }
 func (t *typeBase) context() *Context                 { return t.ctx }
-func (t *typeBase) Elem() Type                        { panic("Elem if inappropriate type") }
 func (t *typeBase) Elements() []Type                  { panic("Elements of non-tuple type") }
 func (t *typeBase) Field(int) *StructField            { panic("Field of non-struct type") }
+func (t *typeBase) field(int) Type                    { panic("internal error") }
 func (t *typeBase) FieldAlign() int                   { return t.fieldAlign }
 func (t *typeBase) FieldByIndex([]int) StructField    { panic("FieldByIndex of non-struct type") }
 func (t *typeBase) FieldByName(name int) *StructField { panic("FieldByName of non-struct type") }
@@ -364,12 +373,14 @@ func (t *typeBase) Key() Type                         { panic("Key of non-map ty
 func (t *typeBase) Kind() Kind                        { return t.kind }
 func (t *typeBase) Len() int64                        { panic("Len of non-array type") }
 func (t *typeBase) Name() int                         { return 0 }
+func (t *typeBase) numField() int                     { panic("internal error") }
 func (t *typeBase) NumField() int                     { panic("NumField of non-struct type") }
 func (t *typeBase) NumIn() int                        { panic("NumIn of non-func type") }
 func (t *typeBase) NumMethod() int                    { return len(t.methods) }
 func (t *typeBase) NumOut() int                       { panic("NumIn¨Out of non-func type") }
 func (t *typeBase) Out(i int) Type                    { panic("Out of a non-func type") }
 func (t *typeBase) PkgPath() int                      { return t.pkgPath }
+func (t *typeBase) setOffset(int, uint64)             { panic("internal error") }
 func (t *typeBase) Size() uint64                      { return t.size }
 func (t *typeBase) str(*bytes.Buffer)                 { panic("internal error") }
 
@@ -573,13 +584,22 @@ func (t *typeBase) ConvertibleTo(u Type) bool {
 	return false
 }
 
+func (t *typeBase) Elem() Type {
+	switch n := t.typ.UnderlyingType(); n.Kind() {
+	case Array, Slice, Ptr:
+		return n.Elem()
+	default:
+		panic("Elem of inappropriate type")
+	}
+}
+
 func (t *typeBase) FieldByNameFunc(match func(int) bool) *StructField {
 	panic("FieldByNameFunc of a non-struct type")
 }
 
 func (t *typeBase) FloatingPointType() bool {
 	k := t.Kind()
-	return k == Float32 || k == Float64
+	return k == Float32 || k == Float64 || k == Complex64 || k == Complex128
 }
 
 func (t *typeBase) Implements(u Type) bool {
@@ -675,10 +695,23 @@ func (t *typeBase) Ordered() bool {
 func (t *typeBase) UnderlyingType() Type {
 	switch t := t.typ; x := t.(type) {
 	case *TypeDeclaration:
-		return x.UnderlyingType()
+		if x.typ != nil {
+			return x.typ.UnderlyingType()
+		}
+
+		return x
 	default:
 		return t
 	}
+}
+
+func (t *typeBase) UnsignedIntegerType() bool {
+	switch t.Kind() {
+	case
+		Uint8, Uint16, Uint32, Uint64, Uint, Uintptr:
+		return true
+	}
+	return false
 }
 
 func (t *typeBase) String() string {
@@ -697,8 +730,11 @@ type arrayType struct {
 
 func newArrayType(ctx *Context, elem Type, len int64) *arrayType {
 	t := &arrayType{elem: elem, len: len}
+	t.align = elem.Align()
 	t.ctx = ctx
+	t.fieldAlign = elem.FieldAlign()
 	t.kind = Array
+	t.size = elem.Size() * uint64(len)
 	t.typ = t
 	return t
 }
@@ -727,8 +763,11 @@ type chanType struct {
 
 func newChanType(ctx *Context, dir ChanDir, elem Type) *chanType {
 	t := &chanType{dir: dir, elem: elem}
+	t.align = ctx.model.PtrBytes
 	t.ctx = ctx
+	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Chan
+	t.size = uint64(ctx.model.PtrBytes)
 	t.typ = t
 	return t
 }
@@ -767,8 +806,11 @@ type funcType struct {
 
 func newFuncType(ctx *Context, name int, in, out []Type, isExported, isVariadic bool) *funcType {
 	t := &funcType{name: name, in: in, out: out, isExported: isExported, isVariadic: isVariadic}
+	t.align = ctx.model.PtrBytes
 	t.ctx = ctx
+	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Func
+	t.size = uint64(ctx.model.PtrBytes)
 	t.typ = t
 	return t
 }
@@ -861,9 +903,12 @@ type interfaceType struct {
 
 func newInterfaceType(ctx *Context, methods []Method) *interfaceType {
 	t := &interfaceType{}
+	t.align = ctx.model.PtrBytes
 	t.ctx = ctx
+	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Interface
 	t.methods = methods
+	t.size = uint64(2 * ctx.model.PtrBytes)
 	t.typ = t
 	return t
 }
@@ -911,8 +956,11 @@ type mapType struct {
 
 func newMapType(ctx *Context, key, elem Type) *mapType {
 	t := &mapType{elem: elem, key: key}
+	t.align = ctx.model.PtrBytes
 	t.ctx = ctx
+	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Map
+	t.size = uint64(ctx.model.PtrBytes)
 	t.typ = t
 	return t
 }
@@ -940,8 +988,11 @@ type ptrType struct {
 
 func newPtrType(ctx *Context, elem Type) *ptrType {
 	t := &ptrType{elem: elem}
+	t.align = ctx.model.PtrBytes
 	t.ctx = ctx
+	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Ptr
+	t.size = uint64(ctx.model.PtrBytes)
 	t.typ = t
 	return t
 }
@@ -963,8 +1014,11 @@ type sliceType struct {
 
 func newSliceType(ctx *Context, elem Type) *sliceType {
 	t := &sliceType{elem: elem}
+	t.align = ctx.model.PtrBytes
 	t.ctx = ctx
+	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Slice
+	t.size = uint64(3 * ctx.model.PtrBytes)
 	t.typ = t
 	return t
 }
@@ -989,10 +1043,14 @@ func newStructType(ctx *Context, fields []StructField) *structType {
 	t.ctx = ctx
 	t.kind = Struct
 	t.typ = t
+	t.align, t.fieldAlign, t.size = measure(t)
 	return t
 }
 
-func (t *structType) NumField() int { return len(t.fields) }
+func (t *structType) field(i int) Type          { return t.fields[i].Type }
+func (t *structType) NumField() int             { return len(t.fields) }
+func (t *structType) numField() int             { return len(t.fields) }
+func (t *structType) setOffset(i int, o uint64) { t.Field(i).Offset = o }
 
 func (t *structType) Field(i int) *StructField {
 	if i < 0 || i > len(t.fields) {
@@ -1058,6 +1116,7 @@ func (t *structType) str(w *bytes.Buffer) {
 	w.WriteString("struct{")
 	for i, v := range t.fields {
 		w.Write(dict.S(v.Name))
+		w.WriteByte(' ')
 		safeTypeStr(v.Type, w)
 		if i != len(t.fields)-1 {
 			w.WriteString("; ")
@@ -1078,10 +1137,14 @@ func newTupleType(ctx *Context, elements []Type) *tupleType {
 	t.ctx = ctx
 	t.kind = Tuple
 	t.typ = t
+	t.align, t.fieldAlign, t.size = measure(t)
 	return t
 }
 
-func (t *tupleType) Elements() []Type { return t.elements }
+func (t *tupleType) Elements() []Type      { return t.elements }
+func (t *tupleType) field(i int) Type      { return t.elements[i] }
+func (t *tupleType) numField() int         { return len(t.elements) }
+func (t *tupleType) setOffset(int, uint64) {}
 
 func (t *tupleType) Identical(u Type) bool {
 	if u.Kind() != Tuple {
@@ -1124,4 +1187,34 @@ func safeTypeStr(t Type, w *bytes.Buffer) {
 	}
 
 	w.WriteString("<nil>")
+}
+
+// ----------------------------------------------------------------------------
+
+func align(n, to uint64) uint64 {
+	n += to - 1
+	return n - n%to
+}
+
+func measure(t Type) (algn, fieldAlign int, size uint64) {
+	algn = 1
+	var ofs uint64
+	for i := 0; i < t.numField(); i++ {
+		ft := t.field(i)
+		if ft == nil || ft.Kind() == Invalid {
+			continue
+		}
+
+		falign := ft.FieldAlign()
+		sz := ft.Size()
+		if falign == 0 {
+			panic("internal error")
+		}
+
+		ofs = align(ofs, uint64(falign))
+		t.setOffset(i, ofs)
+		algn = mathutil.Max(algn, falign)
+		ofs += sz
+	}
+	return algn, algn, align(ofs, uint64(algn))
 }

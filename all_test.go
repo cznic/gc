@@ -68,7 +68,8 @@ func use(...interface{}) {}
 func init() {
 	use(caller, callers, dbg, TODO) //TODOOK
 	flag.IntVar(&yyDebug, "yydebug", 0, "")
-	flag.BoolVar(&todoPanic, "todo", false, "")
+	flag.BoolVar(&todoPanic, "todo", false, "")      //TODOOK
+	flag.BoolVar(&todoTrace, "tracetodo", false, "") //TODOOK
 
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -94,7 +95,6 @@ func init() {
 
 var (
 	testTags = []string{
-		"cgo",
 		"go1.1",
 		"go1.2",
 		"go1.3",
@@ -207,7 +207,6 @@ func (c *Context) collectPackages(ip string) (pl []string, pm map[string][]strin
 func testLoad(t testing.TB) {
 	var importPaths []string
 	root := filepath.Join(runtime.GOROOT(), "src")
-	builtin := filepath.Join(root, "builtin")
 	if err := filepath.Walk(
 		root,
 		func(path string, info os.FileInfo, err error) error {
@@ -219,11 +218,13 @@ func testLoad(t testing.TB) {
 				return nil
 			}
 
-			if path == root || path == builtin {
+			if path == root {
 				return nil
 			}
 
-			if b := filepath.Base(path); b == "testdata" || strings.HasPrefix(b, ".") {
+			if b := filepath.Base(path); b == "testdata" ||
+				b == "builtin" ||
+				strings.HasPrefix(b, ".") {
 				return filepath.SkipDir
 			}
 
@@ -419,7 +420,7 @@ func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string,
 
 	if *oRE != "" {
 		for _, v := range checks {
-			t.Log(PrettyString(v))
+			t.Logf("%s: %q", xc.FileSet.PositionFor(v.Pos(), false), dict.S(v.Val))
 		}
 		if err != nil {
 			t.Logf("FAIL\n%s", errStr(err))
@@ -445,7 +446,7 @@ func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string,
 	for k := range m {
 		kpos := k.Pos
 		for l := range n {
-			lpos := position(l.Pos())
+			lpos := xc.FileSet.PositionFor(l.Pos(), false)
 			if kpos.Line != lpos.Line || kpos.Filename != lpos.Filename {
 				continue
 			}

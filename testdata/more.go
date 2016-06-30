@@ -15,3 +15,9 @@ type i interface {
 	n()
 	m() // ERROR "duplicate method m"
 }
+
+var _ = stringID(0)
+
+type stringID int
+
+var forcegcperiod int64 = 2 * 60 * 1e9

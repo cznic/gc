@@ -35,22 +35,28 @@ type Package struct {
 	name          int
 	namedBy       string
 	parseOnlyName bool
+	unsafe        bool
 }
 
-func newPackage(c *Context, importPath, dir string) *Package {
+func newPackage(ctx *Context, importPath, dir string) *Package {
 	if isRelativeImportPath(importPath) {
 		panic("internal error")
 	}
 
-	return &Package{
-		Context:    c,
+	p := &Package{
+		Context:    ctx,
 		Directory:  dir,
 		ImportPath: importPath,
-		Scope:      newScope(PackageScope, c.universe),
+		Scope:      newScope(PackageScope, ctx.universe),
 		avoid:      map[int]token.Pos{},
 		importPath: dict.SID(importPath),
 		ipBase:     dict.SID(filepath.Base(importPath)),
 	}
+	if importPath == "unsafe" {
+		_, err := filepath.Rel(ctx.searchPaths[0], dir)
+		p.unsafe = err == nil
+	}
+	return p
 }
 
 // Load files in p.SourceFiles.

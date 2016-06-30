@@ -20,12 +20,14 @@ import (
 )
 
 const (
-	// DefaultIntConstBits is the maximum untyped integer constant size.
+	// DefaultIntConstBits is the default maximum untyped integer constant
+	// size.
 	DefaultIntConstBits = 512
-	// DefaultFloatConstPrec is the maximum untyped floating point constant precision.
+	// DefaultFloatConstPrec is the default maximum untyped floating point
+	// constant precision.
 	DefaultFloatConstPrec = 512
 
-	builtin = `
+	builtinSrc = `
 
 package builtin
 
@@ -136,6 +138,7 @@ type Context struct {
 	bigIntMinInt     *big.Int
 	boolType         Type
 	complex128Type   Type
+	falseValue       *constValue
 	fileCentral      *xc.FileCentral
 	float32Type      Type
 	float64Type      Type
@@ -156,12 +159,15 @@ type Context struct {
 	maxUintptr       uint64
 	minInt           int64
 	model            Model
+	nilValue         *nilValue
 	options          *contextOptions
 	report           *xc.Report
 	searchPaths      []string
 	stringType       Type
 	tags             map[string]struct{}
 	test             *testContext
+	trueValue        *constValue
+	uintptrType      Type
 	universe         *Scope
 	voidType         Type
 }
@@ -258,33 +264,38 @@ func (c *Context) setupLimits() {
 
 func (c *Context) declareBuiltins() error {
 	for _, v := range []struct {
-		name string
-		kind Kind
+		name              string
+		kind              Kind
+		align, fieldAlign int
+		size              uint64
 	}{
-		{"bool", Bool},
-		{"complex64", Complex64},
-		{"complex128", Complex128},
-		{"float32", Float32},
-		{"float64", Float64},
-		{"int", Int},
-		{"int8", Int8},
-		{"int16", Int16},
-		{"int32", Int32},
-		{"int64", Int64},
-		{"string", String},
-		{"uint", Uint},
-		{"uint8", Uint8},
-		{"uint16", Uint16},
-		{"uint32", Uint32},
-		{"uint64", Uint64},
-		{"uintptr", Uintptr},
+		{"bool", Bool, 1, 1, 1},
+		{"complex64", Complex64, 8, 8, 8},
+		{"complex128", Complex128, 8, 8, 16},
+		{"float32", Float32, 4, 4, 4},
+		{"float64", Float64, 8, 8, 8},
+		{"int", Int, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes)},
+		{"int8", Int8, 1, 1, 1},
+		{"int16", Int16, 2, 2, 2},
+		{"int32", Int32, 4, 4, 4},
+		{"int64", Int64, 8, 8, 8},
+		{"string", String, c.model.PtrBytes, c.model.PtrBytes, uint64(2 * c.model.PtrBytes)},
+		{"uint", Uint, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes)},
+		{"uint8", Uint8, 1, 1, 1},
+		{"uint16", Uint16, 2, 2, 2},
+		{"uint32", Uint32, 4, 4, 4},
+		{"uint64", Uint64, 8, 8, 8},
+		{"uintptr", Uintptr, c.model.PtrBytes, c.model.PtrBytes, uint64(c.model.PtrBytes)},
 	} {
 		t := xc.Token{Val: dict.SID(v.name)}
 		d := newTypeDeclaration(nil, t, nil)
 		d.ctx = c
 		base := d.base()
-		base.typ = d
+		base.align = v.align
+		base.fieldAlign = v.fieldAlign
 		base.kind = v.kind
+		base.size = v.size
+		base.typ = d
 		c.universe.declare(nil, d)
 	}
 
@@ -299,11 +310,12 @@ func (c *Context) declareBuiltins() error {
 	c.int32Type = b[dict.SID("int32")].(*TypeDeclaration)
 	c.intType = b[dict.SID("int")].(*TypeDeclaration)
 	c.stringType = b[dict.SID("string")].(*TypeDeclaration)
+	c.uintptrType = b[dict.SID("uintptr")].(*TypeDeclaration)
 	c.voidType = newTupleType(c, nil)
 
 	p := c.newPackage("", "")
 	p.Scope = c.universe
-	if err := p.loadString("", builtin); err != nil {
+	if err := p.loadString("", builtinSrc); err != nil {
 		return err
 	}
 
@@ -311,8 +323,12 @@ func (c *Context) declareBuiltins() error {
 		return nil
 	}
 
-	b[dict.SID("true")].(*ConstDeclaration).Value = newConstValue(newBoolConst(true, c.boolType, true))
 	b[dict.SID("false")].(*ConstDeclaration).Value = newConstValue(newBoolConst(false, c.boolType, true))
+	b[dict.SID("true")].(*ConstDeclaration).Value = newConstValue(newBoolConst(true, c.boolType, true))
+
+	c.falseValue = newConstValue(newBoolConst(false, c.boolType, true))
+	c.nilValue = newNilValue()
+	c.trueValue = newConstValue(newBoolConst(true, c.boolType, true))
 	return nil
 }
 
@@ -511,13 +527,17 @@ func (c *Context) loadPackages(importPaths []string) (map[string]*Package, error
 	return c.pkgMap(), c.errors()
 }
 
-func (c *Context) isBuiltin(d Declaration) bool {
+func (c *Context) isPredeclared(d Declaration) bool {
 	return d != nil && d == c.universe.Bindings[d.Name()]
 }
 
+// Except for shift operations, if the operands of a binary operation are
+// different kinds of untyped constants, the operation and, for non-boolean
+// operations, the result use the kind that appears later in this list:
+// integer, rune, floating-point, complex.
 var untypedArithmeticBinOpTab = [maxKind][maxKind]Kind{
 	Int:        {Int: Int},
-	Int32:      {Int: Int, Int32: Int32},
+	Int32:      {Int: Int32, Int32: Int32},
 	Float64:    {Int: Float64, Int32: Float64, Float64: Float64},
 	Complex128: {Int: Complex128, Int32: Complex128, Float64: Complex128, Complex128: Complex128},
 }
@@ -542,23 +562,114 @@ func (c *Context) untypedArithmeticBinOpType(a, b Type) Type {
 	}
 }
 
-func (c *Context) arithmeticBinOpShape(a, b Const, n Node) (Const, Const) {
+func (c *Context) constAssignmentFail(n Node, t Type, d Const) {
+	if d.Untyped() && d.Type().ConvertibleTo(t) &&
+		!(d.Type().Kind() == String && t.Kind() == Slice && (t.Elem().Kind() == Uint8 || t.Elem().Kind() == Int32)) {
+		c.constConversionFail(n, t, d)
+		return
+	}
+
+	c.err(n, "cannot use %s (type %s) as type %s in assignment", d, d.Type(), t)
+}
+
+func (c *Context) constConversionFail(n Node, t Type, d Const) {
+	switch {
+	case t.Kind() == Interface && d.Type().Implements(t):
+		// nop
+	case !d.Type().ConvertibleTo(t):
+		c.err(n, "cannot convert type %s to %s", d.Type(), t)
+	case d.Type().FloatingPointType() && t.IntegerType() && !d.Integral():
+		c.err(n, "constant %s truncated to integer", d)
+	default:
+		c.err(n, "constant %s overflows %s", d, t)
+	}
+}
+
+func (c *Context) arithmeticBinOpShape(a, b Const, n Node) (Type, bool, Const, Const) {
 	switch {
 	case a.Untyped():
 		switch {
 		case b.Untyped():
-			todo(n) //TODO
-		default:
-			todo(n) //TODO
+			t := c.untypedArithmeticBinOpType(a.Type(), b.Type())
+			d := a.convert(t)
+			if d == nil {
+				c.constConversionFail(n, t, a)
+			}
+
+			e := b.convert(t)
+			if e == nil {
+				c.constConversionFail(n, t, b)
+			}
+
+			if d != nil && e != nil {
+				return t, true, d, e
+			}
+		default: // a.Untyped && !b.Untyped
+			t := b.Type()
+			if d := a.mustConvert(n, t); d != nil {
+				return t, false, d, b.convert(t)
+			}
+
+			c.constConversionFail(n, t, a)
 		}
 	case b.Untyped(): // !a.Untyped() && b.Untyped()
-		if d := b.Convert(a.Type()); d != nil {
-			return a, d
+		t := a.Type()
+		if d := b.mustConvert(n, t); d != nil {
+			return t, false, a.convert(t), d
 		}
 
-		c.err(n, "constant %s overflows %s", b, a.Type())
+		c.constConversionFail(n, t, b)
 	default: // !a.Untyped() && !b.Untyped()
-		todo(n) //TODO
+		t := a.Type()
+		if b.Type() != t {
+			todo(n, true)
+			break
+		}
+
+		d := a.convert(t)
+		if d == nil {
+			c.constConversionFail(n, t, a)
+		}
+
+		e := b.convert(t)
+		if e == nil {
+			c.constConversionFail(n, t, b)
+		}
+
+		if d != nil && e != nil {
+			return t, false, d, e
+		}
 	}
-	return nil, nil
+	return nil, false, nil, nil
+}
+
+func (c *Context) mustConvertConst(n Node, t Type, d Const) Const {
+	e := d.normalize()
+	if e == nil {
+		todo(n, true)
+		//TODO c.err(n, "constant %s overflows %s", d, d.Type())
+		return nil
+	}
+
+	if t == nil {
+		return e
+	}
+
+	if f := e.Convert(t); f != nil {
+		if f.Kind() == ConstValue {
+			return f.Const()
+		}
+	}
+
+	c.constConversionFail(n, t, e)
+	return nil
+}
+
+func (c *Context) compositeLiteralValueFail(n Node, v Value, t Type) bool {
+	switch v.Kind() {
+	case ConstValue:
+		return c.err(n, "cannot use %s (type %s) as type %s in array or slice literal", v.Const(), v.Type(), t)
+	default:
+		return c.err(n, "cannot use value of type %s as type %s in array or slice literal", v.Type(), t)
+	}
 }

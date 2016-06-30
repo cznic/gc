@@ -22,12 +22,30 @@ type Node interface {
 
 // ------------------------------------------------------------------- Argument
 
-func (n *Argument) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Argument) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return
 	}
 
-	return n.Expression.check(ctx, stack, node) || n.TypeLiteral.check(ctx, stack, node)
+	switch n.Case {
+	case 0: // Expression
+		if n.Expression.check(ctx, stack, node, iota) {
+			return true
+		}
+
+		n.Value = n.Expression.Value
+	case 1: // TypeLiteral
+		if n.TypeLiteral.check(ctx, stack, node, iota) {
+			return true
+		}
+
+		if t := n.TypeLiteral.Type; t != nil {
+			n.Value = newTypeValue(t)
+		}
+	default:
+		panic("internal error")
+	}
+	return false
 }
 
 func (n *Argument) ident() (t xc.Token) {
@@ -40,12 +58,12 @@ func (n *Argument) ident() (t xc.Token) {
 
 // ------------------------------------------------------------------ ArrayType
 
-func (n *ArrayType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *ArrayType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -54,11 +72,44 @@ func (n *ArrayType) check(ctx *Context, stack []Declaration, node Node) (stop bo
 
 	switch n.Case {
 	case 0: // '[' "..." ']' Typ
-		stop = n.Typ.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.Typ.check(ctx, stack, node, iota)
+		if t := n.Typ.Type; t != nil {
+			n.Type = newArrayType(ctx, t, n.items)
+		}
 	case 1: // '[' Expression ']' Typ
-		stop = n.Expression.check(ctx, stack, node) || n.Typ.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.Expression.check(ctx, stack, node, iota) || n.Typ.check(ctx, stack, node, iota)
+		v := n.Expression.Value
+		if v == nil {
+			break
+		}
+
+		t := n.Typ.Type
+		if t == nil {
+			break
+		}
+
+		switch v.Kind() {
+		case ConstValue:
+			switch c := v.Const(); c.Kind() {
+			case IntConst:
+				if d := c.Convert(ctx.intType); d != nil {
+					val := d.Const().(*intConst).val
+					if val >= 0 {
+						n.Type = newArrayType(ctx, t, val)
+						break
+					}
+
+					todo(n, true)
+					break
+				}
+
+				ctx.err(n.Expression, "array bound is too large")
+			default:
+				todo(n)
+			}
+		default:
+			todo(n, true)
+		}
 	default:
 		panic("internal error")
 	}
@@ -67,13 +118,13 @@ func (n *ArrayType) check(ctx *Context, stack []Declaration, node Node) (stop bo
 
 // ----------------------------------------------------------------------- Call
 
-func (n *Call) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Call) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
 	for l := n.ArgumentList; l != nil; l = l.ArgumentList {
-		if l.Argument.check(ctx, stack, node) {
+		if l.Argument.check(ctx, stack, node, iota) {
 			return true
 		}
 	}
@@ -90,19 +141,19 @@ func (n *Call) args() (_ []Value, ddd bool) {
 
 // ------------------------------------------------------------------- ChanType
 
-func (n *ChanType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *ChanType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
 
 	defer n.guard.done()
 
-	if n.Typ.check(ctx, stack, node) {
+	if n.Typ.check(ctx, stack, node, iota) {
 		return true
 	}
 
@@ -122,29 +173,73 @@ func (n *ChanType) check(ctx *Context, stack []Declaration, node Node) (stop boo
 
 // ------------------------------------------------------------ CompLitItemList
 
-func (n *CompLitItemList) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
-	for ; n != nil; n = n.CompLitItemList {
-		i := n.CompLitItem
-		if i.CompLitValue.check(ctx, stack, node) ||
-			i.CompLitValue2.check(ctx, stack, node) ||
-			i.Expression.check(ctx, stack, node) ||
-			i.Expression2.check(ctx, stack, node) {
-			return true
-		}
+func (n *CompLitItemList) check(ctx *Context, stack []Declaration, node Node, t Type, iota Value) (stop bool) {
+	if t == nil || t.Kind() == Invalid {
+		return false
+	}
 
-		switch i.Case {
+	var index, len int64
+	var numField int
+	var et Type
+	tk := t.Kind()
+	switch tk {
+	case Array:
+		len = t.Len()
+		et = t.Elem()
+	case Map:
+		//kt = t.Key()
+		et = t.Elem()
+	case Slice:
+		et = t.Elem()
+	case Struct:
+		numField = t.NumField()
+	default:
+		ctx.err(n, "invalid type for composite literal: %s", t)
+		return false
+	}
+
+	m := map[int64]struct{}{}
+	_ = et
+	_ = len
+	_ = m
+	for ; n != nil; n = n.CompLitItemList {
+		switch i := n.CompLitItem; i.Case {
 		case 0: // CompLitValue
-			todo(n) //TODO
+			todo(i)
 		case 1: // CompLitValue ':' CompLitValue
-			todo(n) //TODO
+			todo(i)
 		case 2: // CompLitValue ':' Expression
-			todo(n) //TODO
+			todo(i)
 		case 3: // Expression
-			todo(n) //TODO
+			switch tk {
+			case Array:
+				todo(i)
+			case Map:
+				todo(i, true)
+			case Slice:
+				todo(i)
+			case Struct:
+				if int(index) >= numField {
+					todo(i, true)
+					break
+				}
+
+				f := t.Field(int(index))
+				if i.Expression.check(ctx, stack, node, iota) {
+					return true
+				}
+
+				if v := i.Expression.Value; v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
+					todo(i, true)
+				}
+				index++
+			default:
+				panic("internal error")
+			}
 		case 4: // Expression ':' CompLitValue
-			todo(n) //TODO
+			todo(i)
 		case 5: // Expression ':' Expression
-			todo(n) //TODO
+			todo(i)
 		default:
 			panic("internal error")
 		}
@@ -154,12 +249,12 @@ func (n *CompLitItemList) check(ctx *Context, stack []Declaration, node Node) (s
 
 // ---------------------------------------------------------------- CompLitType
 
-func (n *CompLitType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *CompLitType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -168,17 +263,17 @@ func (n *CompLitType) check(ctx *Context, stack []Declaration, node Node) (stop 
 
 	switch n.Case {
 	case 0: // ArrayType
-		stop = n.ArrayType.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.ArrayType.check(ctx, stack, node, iota)
+		n.Type = n.ArrayType.Type
 	case 1: // MapType
-		stop = n.MapType.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.MapType.check(ctx, stack, node, iota)
+		n.Type = n.MapType.Type
 	case 2: // SliceType
-		stop = n.SliceType.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.SliceType.check(ctx, stack, node, iota)
+		n.Type = n.SliceType.Type
 	case 3: // StructType
-		stop = n.StructType.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.StructType.check(ctx, stack, node, iota)
+		n.Type = n.StructType.Type
 	default:
 		panic("internal error")
 	}
@@ -187,17 +282,17 @@ func (n *CompLitType) check(ctx *Context, stack []Declaration, node Node) (stop 
 
 // --------------------------------------------------------------- CompLitValue
 
-func (n *CompLitValue) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
-	if n == nil {
+func (n *CompLitValue) check(ctx *Context, stack []Declaration, node Node, t Type, iota Value) (stop bool) {
+	if n == nil || t == nil || t.Kind() == Invalid {
 		return false
 	}
 
+	n.Type = t
 	switch n.Case {
 	case 0: // '{' '}'
-		todo(n) //TODO
+		// nop
 	case 1: // '{' CompLitItemList CommaOpt '}'
-		stop = n.CompLitItemList.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.CompLitItemList.check(ctx, stack, node, t, iota)
 	default:
 		panic("internal error")
 	}
@@ -209,6 +304,7 @@ func (n *CompLitValue) check(ctx *Context, stack []Declaration, node Node) (stop
 func (n *ConstSpec) decl(lx *lexer, t *Typ, el *ExpressionList) {
 	defer func() {
 		lx.firstConstSpec = false
+		lx.iota++
 	}()
 
 	el0 := el
@@ -231,7 +327,7 @@ loop:
 			lx.err(el0, "not enough expression(s) in list")
 			break loop
 		}
-		d := newConstDeclaration(l.ident(), t, e, scopeStart)
+		d := newConstDeclaration(l.ident(), t, e, lx.iota, scopeStart)
 		lx.scope.declare(lx, d)
 	}
 	if el != nil {
@@ -241,14 +337,14 @@ loop:
 
 // ----------------------------------------------------------------- Expression
 
-func (n *Expression) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Expression) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	if n.Expression.check(ctx, stack, node) ||
-		n.Expression2.check(ctx, stack, node) ||
-		n.UnaryExpression.check(ctx, stack, node) {
+	if n.Expression.check(ctx, stack, node, iota) ||
+		n.Expression2.check(ctx, stack, node, iota) ||
+		n.UnaryExpression.check(ctx, stack, node, iota) {
 		return true
 	}
 
@@ -260,45 +356,45 @@ func (n *Expression) check(ctx *Context, stack []Declaration, node Node) (stop b
 	case 0: // UnaryExpression
 		n.Value = n.UnaryExpression.Value
 	case 1: // Expression '%' Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.Mod(n.Token, n.Expression2.Value)
 	case 2: // Expression '&' Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.And(n.Token, n.Expression2.Value)
 	case 3: // Expression '*' Expression
-		n.Value = n.Expression.Value.BinaryMultiply(ctx, n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.Mul(n.Token, n.Expression2.Value)
 	case 4: // Expression '+' Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.Add(n.Token, n.Expression2.Value)
 	case 5: // Expression '-' Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.Sub(n.Token, n.Expression2.Value)
 	case 6: // Expression '/' Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.Div(n.Token, n.Expression2.Value)
 	case 7: // Expression '<' Expression
-		todo(n) //TODO
+		todo(n)
 	case 8: // Expression '>' Expression
-		todo(n) //TODO
+		todo(n)
 	case 9: // Expression '^' Expression
-		todo(n) //TODO
+		todo(n)
 	case 10: // Expression '|' Expression
-		todo(n) //TODO
+		todo(n)
 	case 11: // Expression "&&" Expression
-		todo(n) //TODO
+		todo(n)
 	case 12: // Expression "&^" Expression
-		todo(n) //TODO
+		todo(n)
 	case 13: // Expression "==" Expression
-		todo(n) //TODO
+		todo(n)
 	case 14: // Expression ">=" Expression
-		todo(n) //TODO
+		todo(n)
 	case 15: // Expression "<=" Expression
-		todo(n) //TODO
+		todo(n)
 	case 16: // Expression "<<" Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.Lsh(n.Token, n.Expression2.Value)
 	case 17: // Expression "!=" Expression
-		todo(n) //TODO
+		todo(n)
 	case 18: // Expression "||" Expression
-		todo(n) //TODO
+		todo(n)
 	case 19: // Expression ">>" Expression
-		todo(n) //TODO
+		n.Value = n.Expression.Value.Rsh(n.Token, n.Expression2.Value)
 	case 20: // Expression "<-" Expression
-		todo(n) //TODO
+		todo(n)
 	default:
 		panic("internal error")
 	}
@@ -326,38 +422,38 @@ func (n *Expression) ident() (t xc.Token) {
 	}
 
 	if o.GenericArgumentsOpt != nil {
-		todo(n) //TODO
+		todo(n)
 	}
 	return o.Token
 }
 
 //--------------------------------------------------------------- ExpressionOpt
 
-func (n *ExpressionOpt) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *ExpressionOpt) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	n.Expression.check(ctx, stack, node)
-	todo(n) //TODO
+	n.Expression.check(ctx, stack, node, iota)
+	todo(n)
 	return false
 }
 
 // ------------------------------------------------------------------- FuncType
 
-func (n *FuncType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *FuncType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
 
 	defer n.guard.done()
 
-	if n.Signature.check(ctx, stack, node) {
+	if n.Signature.check(ctx, stack, node, iota) {
 		return true
 	}
 
@@ -488,12 +584,12 @@ func (n *ImportSpec) post(lx *lexer) {
 
 // -------------------------------------------------------------- InterfaceType
 
-func (n *InterfaceType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *InterfaceType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -504,7 +600,6 @@ func (n *InterfaceType) check(ctx *Context, stack []Declaration, node Node) (sto
 	case 0: // "interface" LBrace '}'
 		n.Type = newInterfaceType(ctx, nil)
 	case 1: // "interface" LBrace InterfaceMethodDeclList SemicolonOpt '}'
-		//TODO process embedded interfaces
 		s := n.methods
 		a := make(declarations, 0, len(s.Bindings)+len(s.Unbound))
 		for _, d := range s.Bindings {
@@ -513,13 +608,68 @@ func (n *InterfaceType) check(ctx *Context, stack []Declaration, node Node) (sto
 		for _, d := range s.Unbound {
 			a = append(a, d)
 		}
+		var mta []Method
+		var index int
+		for l := n.InterfaceMethodDeclList; l != nil; l = l.InterfaceMethodDeclList {
+			switch id := l.InterfaceMethodDecl; id.Case {
+			case 1: //  QualifiedIdent
+				if d := id.resolutionScope.mustLookupQI(ctx, id.QualifiedIdent, id.fileScope); d != nil {
+					if d.check(ctx, stack, node, iota, func() bool {
+						ctx.err(id.QualifiedIdent, "interface type loop involving %s", id.QualifiedIdent.str())
+						return true
+					}) {
+						continue
+					}
+
+					switch x := d.(type) {
+					case *TypeDeclaration:
+						t := Type(x)
+						switch t.Kind() {
+						case Interface:
+							for i := 0; i < t.NumMethod(); i++ {
+								m := t.Method(i)
+								switch {
+								case s.Bindings[m.Name] != nil:
+									todo(n, true)
+								default:
+									var pth int
+									if !isExported(m.Name) {
+										pth = n.pkgPath
+									}
+									mt := Method{m.Name, pth, m.Type, index}
+									index++
+									mta = append(mta, mt)
+								}
+							}
+						default:
+							if ctx.err(id, "interface contains embedded non-interface %s", id.QualifiedIdent.str()) {
+								return true
+							}
+						}
+					default:
+						todo(n, true)
+					}
+				}
+			}
+		}
 		sort.Sort(a)
 		for _, m := range a {
-			if m.check(ctx, stack, node) {
+			if m.check(ctx, stack, node, iota, nil) {
 				return true
 			}
-			todo(n) //TODO
+
+			if m.Name() != idUnderscore {
+				var pth int
+				fd := m.(*FuncDeclaration)
+				if !fd.isExported {
+					pth = n.pkgPath
+				}
+				mt := Method{m.Name(), pth, fd.Type, index}
+				index++
+				mta = append(mta, mt)
+			}
 		}
+		n.Type = newInterfaceType(ctx, mta)
 	default:
 		panic("internal error")
 	}
@@ -529,45 +679,222 @@ func (n *InterfaceType) check(ctx *Context, stack []Declaration, node Node) (sto
 
 // ------------------------------------------------------ LBraceCompLitItemList
 
-func (n *LBraceCompLitItemList) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
-	for ; n != nil; n = n.LBraceCompLitItemList {
-		i := n.LBraceCompLitItem
-		if i.Expression.check(ctx, stack, node) ||
-			i.Expression2.check(ctx, stack, node) ||
-			i.LBraceCompLitValue.check(ctx, stack, node) {
-			return true
-		}
+func (n *LBraceCompLitItemList) check(ctx *Context, stack []Declaration, node Node, t Type, iota Value) (stop bool) {
+	if n == nil || t == nil || t.Kind() == Invalid {
+		return
+	}
 
-		switch i.Case {
+	var index, len int64
+	var numField int
+	var et Type
+	tk := t.Kind()
+	switch tk {
+	case Array:
+		len = t.Len()
+		et = t.Elem()
+	case Map:
+		//kt = t.Key()
+		et = t.Elem()
+	case Slice:
+		et = t.Elem()
+	case Struct:
+		numField = t.NumField()
+	default:
+		ctx.err(n, "invalid type for composite literal: %s", t)
+		return false
+	}
+
+	m := map[int64]struct{}{}
+	for ; n != nil; n = n.LBraceCompLitItemList {
+		switch i := n.LBraceCompLitItem; i.Case {
 		case 0: // Expression
-			todo(n) //TODO
+			switch tk {
+			case Array:
+				if index >= len {
+					todo(i, true)
+				}
+
+				if _, ok := m[index]; ok {
+					todo(i, true)
+				}
+
+				m[index] = struct{}{}
+				if i.Expression.check(ctx, stack, node, iota) {
+					return true
+				}
+
+				if v := i.Expression.Value; v != nil && et != nil && !v.AssignableTo(et) {
+					todo(i, true)
+				}
+				index++
+			case Map:
+				if ctx.err(i, "missing key in map literal") {
+					return true
+				}
+			case Slice:
+				if _, ok := m[index]; ok {
+					todo(i, true)
+				}
+
+				m[index] = struct{}{}
+				if i.Expression.check(ctx, stack, node, iota) {
+					return true
+				}
+
+				if v := i.Expression.Value; v != nil && et != nil && !v.AssignableTo(et) {
+					if ctx.compositeLiteralValueFail(i, v, et) {
+						return true
+					}
+				}
+				index++
+			case Struct:
+				if int(index) >= numField {
+					todo(i, true)
+					break
+				}
+
+				f := t.Field(int(index))
+				if i.Expression.check(ctx, stack, node, iota) {
+					return true
+				}
+
+				if v := i.Expression.Value; v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
+					todo(i, true)
+				}
+				index++
+			default:
+				panic("internal error")
+			}
 		case 1: // Expression ':' Expression
-			todo(n) //TODO
+			todo(i)
 		case 2: // Expression ':' LBraceCompLitValue
-			todo(n) //TODO
+			switch tk {
+			case Array:
+				if i.Expression.check(ctx, stack, node, iota) {
+					return true
+				}
+
+				if v := i.Expression.Value; v != nil {
+					switch {
+					case v.Kind() == ConstValue:
+						c := v.Const().Convert(ctx.intType)
+						if c == nil {
+							todo(i, true)
+							break
+						}
+
+						j := c.Const().(*intConst).val //TODO .IntValue()
+						if j < 0 {
+							todo(i, true)
+							break
+						}
+
+						if j >= len {
+							todo(i, true)
+							break
+						}
+
+						index = j
+					default:
+						todo(i, true)
+					}
+				}
+				if et == nil {
+					break
+				}
+
+				et2 := et
+				if et2.Kind() == Ptr && et2.Elem().Kind() == Struct {
+					et2 = et2.Elem()
+				}
+				if i.LBraceCompLitValue.check(ctx, stack, node, et2, iota) {
+					return true
+				}
+
+				if t := i.LBraceCompLitValue.Type; t != nil && !t.AssignableTo(et2) {
+					todo(i, true)
+				}
+				index++
+			case Map:
+				todo(i)
+			case Slice:
+				todo(i)
+			case Struct:
+				todo(i)
+			default:
+				panic("internal error")
+			}
 		case 3: // LBraceCompLitValue
-			todo(n) //TODO
+			switch tk {
+			case Array:
+				if index >= len {
+					todo(i, true)
+				}
+
+				if _, ok := m[index]; ok {
+					todo(i, true)
+				}
+
+				m[index] = struct{}{}
+				if et == nil {
+					break
+				}
+
+				et2 := et
+				if et2.Kind() == Ptr && et2.Elem().Kind() == Struct {
+					et2 = et2.Elem()
+				}
+				if i.LBraceCompLitValue.check(ctx, stack, node, et2, iota) {
+					return true
+				}
+
+				index++
+			case Map:
+				todo(i, true)
+			case Slice:
+				if _, ok := m[index]; ok {
+					todo(i, true)
+				}
+
+				m[index] = struct{}{}
+				if et == nil {
+					break
+				}
+
+				et2 := et
+				if et2.Kind() == Ptr && et2.Elem().Kind() == Struct {
+					et2 = et2.Elem()
+				}
+				if i.LBraceCompLitValue.check(ctx, stack, node, et2, iota) {
+					return true
+				}
+
+				index++
+			case Struct:
+				todo(i)
+			default:
+				panic("internal error")
+			}
 		default:
 			panic("internal error")
 		}
-
 	}
 	return false
 }
 
 // --------------------------------------------------------- LBraceCompLitValue
 
-func (n *LBraceCompLitValue) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
-	if n == nil {
+func (n *LBraceCompLitValue) check(ctx *Context, stack []Declaration, node Node, t Type, iota Value) (stop bool) {
+	if n == nil || t == nil || t.Kind() == Invalid {
 		return false
 	}
 
+	n.Type = t
 	switch n.Case {
 	case 0: // LBrace '}'
-		todo(n) //TODO
+		// nop
 	case 1: // LBrace LBraceCompLitItemList CommaOpt '}'
-		stop = n.LBraceCompLitItemList.check(ctx, stack, node)
-		todo(n) //TODO
+		stop = n.LBraceCompLitItemList.check(ctx, stack, node, t, iota)
 	default:
 		panic("internal error")
 	}
@@ -576,13 +903,13 @@ func (n *LBraceCompLitValue) check(ctx *Context, stack []Declaration, node Node)
 
 // -------------------------------------------------------------------- MapType
 
-func (n *MapType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *MapType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
 	stack = nil
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -590,36 +917,36 @@ func (n *MapType) check(ctx *Context, stack []Declaration, node Node) (stop bool
 	defer n.guard.done()
 
 	// "map" '[' Typ ']' Typ
-	stop = n.Typ.check(ctx, stack, node) || n.Typ2.check(ctx, stack, node)
+	stop = n.Typ.check(ctx, stack, node, iota) || n.Typ2.check(ctx, stack, node, iota)
 	n.Type = newMapType(ctx, n.Typ.Type, n.Typ2.Type)
 	return stop
 }
 
 // -------------------------------------------------------------------- Operand
 
-func (n *Operand) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Operand) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	if n.Expression.check(ctx, stack, node) ||
-		n.FuncType.check(ctx, stack, node) ||
+	if n.Expression.check(ctx, stack, node, iota) ||
+		n.FuncType.check(ctx, stack, node, iota) ||
 		n.StatementList.check(ctx, stack, node) {
 		return true
 	}
 
 	switch n.Case {
 	case 0: // '(' Expression ')'
-		todo(n) //TODO
+		n.Value = n.Expression.Value
 	case 1: // '(' TypeLiteral ')'
-		todo(n) //TODO
+		todo(n)
 	case 2: // BasicLiteral
 		n.Value = n.BasicLiteral.Value
 	case 3: // FuncType LBrace StatementList '}'
-		todo(n) //TODO
+		todo(n)
 	case 4: // IDENTIFIER GenericArgumentsOpt
 		if n.GenericArgumentsOpt != nil {
-			todo(n) //TODO
+			todo(n)
 		}
 		if n.Token.Val == idUnderscore {
 			if ctx.err(n, "cannot use _ as value") {
@@ -630,27 +957,77 @@ func (n *Operand) check(ctx *Context, stack []Declaration, node Node) (stop bool
 		}
 
 		d := n.resolutionScope.mustLookup(ctx, n.Token, n.fileScope)
-		switch isBuiltin := ctx.isBuiltin(d); x := d.(type) {
+		switch isPredeclared := ctx.isPredeclared(d); x := d.(type) {
 		case nil:
 			// nop
 		case *ConstDeclaration:
-			if isBuiltin {
+			if x.check(ctx, stack, node, iota, nil) {
+				return true
+			}
+
+			if isPredeclared {
 				switch d.Name() {
+				case idFalse:
+					n.Value = ctx.falseValue
 				case idIota:
-					todo(n) //TODO
+					n.Value = iota
+					if iota == nil {
+						todo(n, true)
+					}
+				case idTrue:
+					n.Value = ctx.trueValue
+				default:
+					panic("internal error")
 				}
 				break
 			}
 
 			n.Value = x.Value
+		case *FuncDeclaration:
+			if isPredeclared || x.unsafe {
+				n.Value = newPredeclaredFunctionValue(d)
+				break
+			}
+
+			if x.check(ctx, stack, node, iota, nil) {
+				return true
+			}
+
+			if t := x.Type; t != nil {
+				n.Value = newRuntimeValue(t)
+			}
+		case *ImportDeclaration:
+			n.Value = newPackageValue(x.Package)
 		case *TypeDeclaration:
+			if x.check(ctx, stack, node, iota, nil) {
+				return true
+			}
+
 			n.Value = newTypeValue(x)
+		case *VarDeclaration:
+			if x.check(ctx, stack, node, iota, nil) {
+				return true
+			}
+
+			if isPredeclared {
+				switch d.Name() {
+				case idNil:
+					n.Value = ctx.nilValue
+				default:
+					panic("internal error")
+				}
+				break
+			}
+
+			if t := x.Type; t != nil {
+				n.Value = newAddressableValue(t)
+			}
 		default:
-			//dbg("%T", d)
-			todo(n) //TODO
+			//dbg("%s: %T", position(n.Pos()), d)
+			todo(n)
 		}
 	default:
-		panic("TODO")
+		panic("internal error")
 	}
 	return false
 }
@@ -729,7 +1106,7 @@ func (n *Parameters) post(lx *lexer) {
 			switch t := pd.Typ; t.Case {
 			case 7: // QualifiedIdent GenericArgumentsOpt
 				if t.GenericArgumentsOpt != nil {
-					todo(n) //TODO
+					todo(n)
 				}
 				switch qi := t.QualifiedIdent; qi.Case {
 				case 0: // IDENTIFIER
@@ -761,7 +1138,7 @@ func (n *Parameters) post(lx *lexer) {
 	}
 }
 
-func (n *Parameters) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Parameters) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
@@ -772,49 +1149,102 @@ func (n *Parameters) check(ctx *Context, stack []Declaration, node Node) (stop b
 			0, // "..." Typ
 			1, // IDENTIFIER "..." Typ
 			2: // IDENTIFIER Typ
-			if i.Typ.check(ctx, stack, node) {
-				return true
-			}
+			stop = stop || i.Typ.check(ctx, stack, node, iota)
 		case 3: // Typ
 			if i.isParamName {
-				if i.typ.check(ctx, stack, node) {
-					return true
-				}
-
-				todo(n) //TODO
+				stop = stop || i.typ.check(ctx, stack, node, iota)
 				break
 			}
 
-			if i.Typ.check(ctx, stack, node) {
-				return true
-			}
-
-			todo(n) //TODO
+			stop = stop || i.Typ.check(ctx, stack, node, iota)
 		default:
 			panic("internal error")
 		}
 	}
-	return false
+	return stop
 }
 
 // ---------------------------------------------------------- PrimaryExpression
 
-func (n *PrimaryExpression) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *PrimaryExpression) checkConversion(node Node, t Type, arg Value) {
+	if t == nil || arg == nil {
+		return
+	}
+
+	ctx := t.context()
+	if t := arg.Type(); t != nil && !t.ConvertibleTo(t) {
+		ctx.err(node, "cannot convert type %s to %s", arg.Type(), t)
+		return
+	}
+
+	switch arg.Kind() {
+	case ConstValue:
+		c := arg.Const()
+		if n.Value = c.Convert(t); n.Value == nil {
+			ctx.constConversionFail(node, t, c)
+		}
+	case NilValue:
+		if n.Value = arg.Convert(t); n.Value == nil {
+			todo(n, true)
+		}
+	case RuntimeValue:
+		if n.Value = arg.Convert(t); n.Value == nil {
+			todo(n, true)
+		}
+	case TypeValue:
+		todo(n)
+	default:
+		panic("internal error")
+	}
+}
+
+func (n *PrimaryExpression) checkCall(ft Type, skip int) (stop bool) {
+	if ft == nil {
+		return false
+	}
+
+	args, ddd := n.Call.args()
+	switch {
+	case ft.IsVariadic():
+		todo(n)
+	default:
+		if len(args) != ft.NumIn()-skip {
+			todo(n) //TODO special case single tuple arg.
+		}
+		if ddd {
+			todo(n)
+		}
+		for i, arg := range args {
+			if arg != nil && !arg.AssignableTo(ft.In(i+skip)) {
+				todo(n, true)
+			}
+		}
+	}
+
+	switch ft.NumOut() {
+	case 0:
+		todo(n)
+	case 1:
+		n.Value = newRuntimeValue(ft.Out(0))
+	default:
+		todo(n)
+	}
+	return false
+}
+
+func (n *PrimaryExpression) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	if n.Call.check(ctx, stack, node) ||
-		n.CompLitType.check(ctx, stack, node) ||
-		//TODO- n.CompLitValue.check(ctx, stack, node) ||
-		n.Expression.check(ctx, stack, node) ||
-		n.ExpressionOpt.check(ctx, stack, node) ||
-		n.ExpressionOpt2.check(ctx, stack, node) ||
-		n.ExpressionOpt3.check(ctx, stack, node) ||
-		//TODO- n.LBraceCompLitValue.check(ctx, stack, node) ||
-		n.Operand.check(ctx, stack, node) ||
-		n.PrimaryExpression.check(ctx, stack, node) ||
-		n.TypeLiteral.check(ctx, stack, node) {
+	if n.Call.check(ctx, stack, node, iota) ||
+		n.Expression.check(ctx, stack, node, iota) ||
+		n.ExpressionOpt.check(ctx, stack, node, iota) ||
+		n.ExpressionOpt2.check(ctx, stack, node, iota) ||
+		n.ExpressionOpt3.check(ctx, stack, node, iota) ||
+		n.Operand.check(ctx, stack, node, iota) ||
+		n.PrimaryExpression.check(ctx, stack, node, iota) ||
+		n.TypeLiteral.check(ctx, stack, node, iota) {
 		return true
 	}
 
@@ -822,22 +1252,92 @@ func (n *PrimaryExpression) check(ctx *Context, stack []Declaration, node Node) 
 	case 0: // Operand
 		n.Value = n.Operand.Value
 	case 1: // CompLitType LBraceCompLitValue
-		//TODO if n.LBraceCompLitValue.check(ctx, stack, node) {
-		//TODO 	return true
-		//TODO }
-		todo(n) //TODO
+		if ct := n.CompLitType; ct.Case == 0 { // ArrayType
+			ct.ArrayType.items = n.LBraceCompLitValue.items
+		}
+		if n.CompLitType.check(ctx, stack, node, iota) {
+			return true
+		}
+
+		if t := n.CompLitType.Type; t != nil {
+			if n.LBraceCompLitValue.check(ctx, stack, node, t, iota) {
+				return true
+			}
+
+			n.Value = newAddressableValue(t)
+		}
 	case 2: // PrimaryExpression '.' '(' "type" ')'
-		todo(n) //TODO
+		todo(n)
 	case 3: // PrimaryExpression '.' '(' Typ ')'
-		todo(n) //TODO
+		todo(n)
 	case 4: // PrimaryExpression '.' IDENTIFIER
-		todo(n) //TODO
+		v := n.PrimaryExpression.Value
+		if v == nil {
+			break
+		}
+
+		switch v.Kind() {
+		case PackageValue:
+			t := n.Token2
+			if !isExported(t.Val) {
+				todo(n, true)
+				break
+			}
+
+			if d := v.Package().Scope.Bindings[t.Val]; d != nil {
+				switch x := d.(type) {
+				case *ConstDeclaration:
+					n.Value = x.Value
+				case *FuncDeclaration:
+					if x.unsafe {
+						n.Value = newPredeclaredFunctionValue(d)
+						break
+					}
+
+					if t := x.Type; t != nil {
+						n.Value = newRuntimeValue(t)
+					}
+				default:
+					//dbg("%s: %T", position(n.Pos()), d)
+					todo(n)
+				}
+				break
+			}
+
+			ctx.err(t, "undefined: %s.%s", v.Package().Name, t.S())
+		case RuntimeValue:
+			t := v.Type()
+			if t == nil {
+				break
+			}
+
+			if t.Kind() == Ptr {
+				t = t.Elem()
+			}
+			switch t.Kind() {
+			case Struct:
+				tok := n.Token2 // IDENTIFIER
+				f := t.FieldByName(tok.Val)
+				if f == nil {
+					todo(n, true)
+					break
+				}
+
+				_, off := v.StructField()
+				n.Value = newStructFieldalue(f, off+f.Offset)
+			default:
+				//dbg("", t.Kind())
+				todo(n, true)
+			}
+		default:
+			todo(n)
+		}
 	case 5: // PrimaryExpression '[' Expression ']'
-		todo(n) //TODO
+		todo(n)
 	case 6: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ':' ExpressionOpt ']'
-		todo(n) //TODO
+		todo(n)
 	case 7: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ']'
-		todo(n) //TODO
+		todo(n)
 	case 8: // PrimaryExpression Call
 		v := n.PrimaryExpression.Value
 		if v == nil {
@@ -845,30 +1345,77 @@ func (n *PrimaryExpression) check(ctx *Context, stack []Declaration, node Node) 
 		}
 
 		switch v.Kind() {
+		case RuntimeValue:
+			t := v.Type()
+			if t == nil {
+				break
+			}
+
+			if t.Kind() != Func {
+				todo(n, true)
+				break
+			}
+
+			if d := v.PredeclaredFunction(); d != nil {
+				switch {
+				case ctx.isPredeclared(d):
+					todo(n)
+				default:
+					if !d.(*FuncDeclaration).unsafe {
+						panic("internal error")
+					}
+
+					switch d.Name() {
+					case idAlignof:
+						todo(n)
+					case idOffsetof:
+						n.Value = offsetof(ctx, n.Call)
+					case idSizeof:
+						n.Value = sizeof(ctx, n.Call)
+					default:
+						panic("internal error")
+					}
+				}
+				break
+			}
+
+			return n.checkCall(t, 0)
 		case TypeValue: // Conversion.
+			t := v.Type()
 			args, ddd := n.Call.args()
 			if ddd {
-				todo(n) //TODO
+				todo(n, true)
 			}
 			switch len(args) {
 			case 0:
-				todo(n) //TODO
+				todo(n, true)
 			case 1:
-				todo(n) //TODO
+				n.checkConversion(n.Call.ArgumentList.Argument, t, args[0])
 			default:
-				todo(n) //TODO
+				todo(n, true)
 			}
 		default:
 			//dbg("", v.Kind())
-			todo(n) //TODO
+			todo(n, true)
 		}
 	case 9: // PrimaryExpression CompLitValue
-		//TODO if n.CompLitValue.check(ctx, stack, node) {
-		//TODO 	return true
-		//TODO }
-		todo(n) //TODO
+		v := n.PrimaryExpression.Value
+		if v == nil {
+			break
+		}
+
+		switch v.Kind() {
+		case TypeValue:
+			if n.CompLitValue.check(ctx, stack, node, v.Type(), iota) {
+				return true
+			}
+
+			n.Value = newRuntimeValue(v.Type())
+		default:
+			todo(n, true)
+		}
 	case 10: // TypeLiteral '(' Expression CommaOpt ')'
-		todo(n) //TODO
+		n.checkConversion(n.Expression, n.TypeLiteral.Type, n.Expression.Value)
 	default:
 		panic("internal error")
 	}
@@ -981,7 +1528,7 @@ func (n *ReceiverOpt) post(lx *lexer) {
 			}
 		case 7: // QualifiedIdent GenericArgumentsOpt
 			if t.GenericArgumentsOpt != nil {
-				todo(n) //TODO
+				todo(n)
 			}
 			switch qi := t.QualifiedIdent; qi.Case {
 			case 0: // IDENTIFIER
@@ -1013,13 +1560,13 @@ func (n *ReceiverOpt) check(ctx *Context, stack []Declaration, node Node) (stop 
 
 // ------------------------------------------------------------------ ResultOpt
 
-func (n *ResultOpt) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *ResultOpt) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
 	stack = nil
-	if n.Parameters.check(ctx, stack, node) || n.Typ.check(ctx, stack, node) {
+	if n.Parameters.check(ctx, stack, node, iota) || n.Typ.check(ctx, stack, node, iota) {
 		return true
 	}
 
@@ -1049,7 +1596,7 @@ func (n *ResultOpt) check(ctx *Context, stack []Declaration, node Node) (stop bo
 		}
 		switch len(a) {
 		case 0:
-			// nop
+			n.Type = ctx.voidType
 		case 1:
 			n.Type = a[0]
 		default:
@@ -1072,13 +1619,13 @@ func (n *Signature) post(lx *lexer) {
 	}
 }
 
-func (n *Signature) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Signature) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	if n.Parameters.check(ctx, stack, node) ||
-		n.ResultOpt.check(ctx, stack, node) {
+	if n.Parameters.check(ctx, stack, node, iota) ||
+		n.ResultOpt.check(ctx, stack, node, iota) {
 		return true
 	}
 
@@ -1090,13 +1637,13 @@ func (n *Signature) check(ctx *Context, stack []Declaration, node Node) (stop bo
 
 // ------------------------------------------------------------------ SliceType
 
-func (n *SliceType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *SliceType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
 	stack = nil
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -1104,16 +1651,18 @@ func (n *SliceType) check(ctx *Context, stack []Declaration, node Node) (stop bo
 	defer n.guard.done()
 
 	// '[' ']' Typ
-	stop = n.Typ.check(ctx, stack, node)
-	todo(n) //TODO
+	if n.Typ.check(ctx, stack, node, iota) {
+		return true
+	}
 
-	return stop
+	n.Type = newSliceType(ctx, n.Typ.Type)
+	return false
 }
 
 // ------------------------------------------------------------------ Statement
 
 func (n *Statement) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
-	todo(n) //TODO
+	todo(n)
 	return false
 }
 
@@ -1144,15 +1693,19 @@ func (n *StructFieldDecl) decl(lx *lexer) {
 			true,
 			n.QualifiedIdent,
 			tag,
+			lx.fileScope,
+			lx.resolutionScope,
 		))
 	case 1: // IdentifierList Typ TagOpt
 		for l := n.IdentifierList; l != nil; l = l.IdentifierList {
 			lx.scope.declare(lx, newFieldDeclaration(
 				l.ident(),
-				nil,
+				n.Typ.normalize(),
 				false,
 				nil,
 				tag,
+				lx.fileScope,
+				lx.resolutionScope,
 			))
 		}
 	case 2: // QualifiedIdent TagOpt
@@ -1162,6 +1715,8 @@ func (n *StructFieldDecl) decl(lx *lexer) {
 			false,
 			n.QualifiedIdent,
 			tag,
+			lx.fileScope,
+			lx.resolutionScope,
 		))
 	case 3: // '(' QualifiedIdent ')' TagOpt
 		lx.err(n.Token, "cannot parenthesize embedded type")
@@ -1176,12 +1731,12 @@ func (n *StructFieldDecl) decl(lx *lexer) {
 
 // ----------------------------------------------------------------- StructType
 
-func (n *StructType) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *StructType) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -1192,7 +1747,6 @@ func (n *StructType) check(ctx *Context, stack []Declaration, node Node) (stop b
 	case 0: // "struct" LBrace '}'
 		n.Type = newStructType(ctx, nil)
 	case 1: // "struct" LBrace StructFieldDeclList SemicolonOpt '}'
-		//TODO process embedded fields
 		s := n.fields
 		a := make(fields, 0, len(s.Bindings)+len(s.Unbound))
 		for _, d := range s.Bindings {
@@ -1202,12 +1756,40 @@ func (n *StructType) check(ctx *Context, stack []Declaration, node Node) (stop b
 			a = append(a, d.(*FieldDeclaration))
 		}
 		sort.Sort(a)
+		sf := make([]StructField, 0, len(a))
 		for _, f := range a {
-			if f.check(ctx, stack, node) {
+			if f.check(ctx, stack, node, iota, nil) {
 				return true
 			}
-			todo(n) //TODO
+
+			if f.isAnonymous && f.Type.NumMethod() != 0 {
+				if f.Type.Kind() == Interface {
+					todo(n) // Merge interface methods (must synthesize new w/ receiver)
+					break
+				}
+
+				todo(n) // Merge methods of the embedded field.
+			}
+
+			pkgPath := 0
+			if !f.isExported {
+				pkgPath = n.pkgPath
+			}
+			tag := 0
+			if f.tag != nil {
+				tag = int(f.tag.(stringID))
+			}
+			sf = append(sf, StructField{
+				f.name,
+				pkgPath,
+				f.Type,
+				tag,
+				0, // Offset is set in newStructType.
+				nil,
+				f.isAnonymous,
+			})
 		}
+		n.Type = newStructType(ctx, sf)
 	default:
 		panic("internal error")
 	}
@@ -1228,12 +1810,12 @@ func (n *Typ) normalize() *Typ {
 	}
 }
 
-func (n *Typ) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *Typ) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
@@ -1246,113 +1828,138 @@ func (n *Typ) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
 		panic("internal error")
 	case 1: // '*' Typ
 		t2 := t.Typ.normalize()
-		if t2.check(ctx, stack, node) {
-			return true
-		}
+		stop = t2.check(ctx, nil, nil, iota)
 		n.Type = newPtrType(ctx, t2.Type)
 	case 2: // ArrayType
-		if t.ArrayType.check(ctx, stack, node) {
-			return true
-		}
-
-		todo(n) //TODO
+		stop = t.ArrayType.check(ctx, stack, node, iota)
+		n.Type = t.ArrayType.Type
 	case 3: // ChanType
-		if t.ChanType.check(ctx, stack, node) {
-			return true
-		}
-
+		stop = t.ChanType.check(ctx, stack, node, iota)
 		n.Type = t.ChanType.Type
 	case 4: // FuncType
-		if t.FuncType.check(ctx, stack, node) {
-			return true
-		}
-
+		stop = t.FuncType.check(ctx, stack, node, iota)
 		n.Type = t.FuncType.Type
 	case 5: // InterfaceType
-		if t.InterfaceType.check(ctx, stack, node) {
-			return true
-		}
-
+		stop = t.InterfaceType.check(ctx, stack, node, iota)
 		n.Type = t.InterfaceType.Type
 	case 6: // MapType
-		if t.MapType.check(ctx, stack, node) {
-			return true
-		}
-
+		stop = t.MapType.check(ctx, stack, node, iota)
 		n.Type = t.MapType.Type
 	case 7: // QualifiedIdent GenericArgumentsOpt
 		if t.GenericArgumentsOpt != nil {
-			todo(n) //TODO
+			todo(n)
 		}
 		if t := n.resolutionScope.mustLookupType(ctx, n.QualifiedIdent, n.fileScope); t != nil {
 			n.Type = t
-			t.check(ctx, stack, node)
+			stop = t.check(ctx, stack, node, iota, nil)
 		}
 	case 8: // SliceType
-		if t.SliceType.check(ctx, stack, node) {
-			return true
-		}
-
+		stop = t.SliceType.check(ctx, stack, node, iota)
 		n.Type = t.SliceType.Type
 	case 9: // StructType
-		if t.StructType.check(ctx, stack, node) {
-			return true
-		}
-
+		stop = t.StructType.check(ctx, stack, node, iota)
 		n.Type = t.StructType.Type
 	default:
 		panic("internal error")
 	}
-	return false
+	return stop
 }
 
 // ---------------------------------------------------------------- TypeLiteral
 
-func (n *TypeLiteral) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *TypeLiteral) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, stack, node)
+	done, stop := n.guard.check(ctx, stack, node, nil)
 	if done || stop {
 		return stop
 	}
 
 	defer n.guard.done()
 
-	todo(n) //TODO
-	return false
+	switch n.Case {
+	case 0: // '*' TypeLiteral
+		todo(n)
+	case 1: // ArrayType
+		todo(n)
+	case 2: // ChanType
+		todo(n)
+	case 3: // FuncType
+		todo(n)
+	case 4: // InterfaceType
+		todo(n)
+	case 5: // MapType
+		todo(n)
+	case 6: // SliceType
+		stop = n.SliceType.check(ctx, stack, node, iota)
+		n.Type = n.SliceType.Type
+	case 7: // StructType
+		todo(n)
+	default:
+		panic("internal error")
+	}
+	return stop
 }
 
 // ------------------------------------------------------------ UnaryExpression
 
-func (n *UnaryExpression) check(ctx *Context, stack []Declaration, node Node) (stop bool) {
+func (n *UnaryExpression) check(ctx *Context, stack []Declaration, node Node, iota Value) (stop bool) {
 	if n == nil {
 		return false
 	}
 
-	if n.UnaryExpression.check(ctx, stack, node) ||
-		n.PrimaryExpression.check(ctx, stack, node) {
+	if n.UnaryExpression.check(ctx, stack, node, iota) ||
+		n.PrimaryExpression.check(ctx, stack, node, iota) {
 		return true
+	}
+
+	var v Value
+	if n.Case != 7 { // PrimaryExpression
+		v = n.UnaryExpression.Value
+		if v == nil {
+			return false
+		}
 	}
 
 	switch n.Case {
 	case 0: // '!' UnaryExpression
-		todo(n) //TODO
+		todo(n)
 	case 1: // '&' UnaryExpression
-		todo(n) //TODO
+		switch v.Kind() {
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
 	case 2: // '*' UnaryExpression
-		todo(n) //TODO
+		switch v.Kind() {
+		case TypeValue:
+			n.Value = newTypeValue(newPtrType(ctx, v.Type()))
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
 	case 3: // '+' UnaryExpression
-		todo(n) //TODO
+		todo(n)
 	case 4: // '-' UnaryExpression
-		if v := n.UnaryExpression.Value; v != nil {
-			n.Value = v.UnaryMinus(ctx, n.UnaryExpression)
+		switch v.Kind() {
+		case ConstValue:
+			n.Value = v.Neg(ctx, n.UnaryExpression)
+		default:
+			//dbg("", v.Kind())
+			todo(n)
 		}
 	case 5: // '^' UnaryExpression
-		todo(n) //TODO
+		switch v.Kind() {
+		case ConstValue:
+			n.Value = v.Cpl(ctx, n.UnaryExpression)
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
 	case 6: // "<-" UnaryExpression
-		todo(n) //TODO
+		todo(n)
 	case 7: // PrimaryExpression
 		n.Value = n.PrimaryExpression.Value
 	default:

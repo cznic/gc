@@ -4,9 +4,9 @@ package gc
 
 import "fmt"
 
-const _ValueKind_name = "ConstValueNilValueRuntimeValueTypeValue"
+const _ValueKind_name = "ConstValueNilValuePackageValueRuntimeValueTypeValue"
 
-var _ValueKind_index = [...]uint8{0, 10, 18, 30, 39}
+var _ValueKind_index = [...]uint8{0, 10, 18, 30, 42, 51}
 
 func (i ValueKind) String() string {
 	i -= 1

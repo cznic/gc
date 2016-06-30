@@ -233,8 +233,9 @@ ArgumentList:
 	Argument
 |       ArgumentList ',' Argument
 
-//yy:field	guard	gate
 //yy:field	Type	Type
+//yy:field	guard	gate
+//yy:field	items	int64
 ArrayType:
 	'[' "..." ']' Typ
 |       '[' Expression ']' Typ
@@ -388,9 +389,16 @@ CompLitType:
 |       SliceType
 |       StructType
 
+//yy:field	Type	Type
+//yy:field	items	int64
 CompLitValue:
 	'{' '}'
 |       '{' CompLitItemList CommaOpt '}'
+	{
+		for l := lhs.CompLitItemList; l != nil; l = l.CompLitItemList {
+			lhs.items++
+		}
+	}
 
 ConstDecl:
 	"const" '(' ')'
@@ -503,7 +511,7 @@ FuncDecl:
 					lx.err(o, "func init must have no arguments and no return values")
 				}
 			}
-			p.Scope.declare(lx, newFuncDeclaration(nm, nil, sig, false))
+			p.Scope.declare(lx, newFuncDeclaration(nm, nil, sig, false, lx.pkg.unsafe))
 			break
 		}
 
@@ -521,9 +529,9 @@ FuncDecl:
 				d = newTypeDeclaration(lx, rx, nil)
 				p.forwardTypes.declare(lx, d)
 			}
-			d.(*TypeDeclaration).declare(lx, newFuncDeclaration(nm, r, sig, false))
+			d.(*TypeDeclaration).declare(lx, newFuncDeclaration(nm, r, sig, false, lx.pkg.unsafe))
 		case *TypeDeclaration:
-			x.declare(lx, newFuncDeclaration(nm, r, sig, false))
+			x.declare(lx, newFuncDeclaration(nm, r, sig, false, lx.pkg.unsafe))
 		default:
 			lx.err(rx, "%s is not a type", rx.S())
 		}
@@ -597,9 +605,10 @@ ImportList:
 	/* empty */
 |       ImportList ImportDecl ';'
 
+//yy:field	Type	Type
 //yy:field	guard	gate
 //yy:field	methods	*Scope
-//yy:field	Type	Type
+//yy:field	pkgPath	int
 InterfaceType:
 	"interface" LBrace '}'
 |       "interface" LBrace
@@ -611,9 +620,12 @@ InterfaceType:
 	InterfaceMethodDeclList SemicolonOpt '}'
 	{
 		lhs.methods = lx.scope
+		lhs.pkgPath = lx.pkg.importPath
 		lx.popScope()
 	}
 
+//yy:field	fileScope	*Scope
+//yy:field	resolutionScope	*Scope	// Where to search for case 1: QualifiedIdent.
 InterfaceMethodDecl:
 	IDENTIFIER
 	{
@@ -624,12 +636,14 @@ InterfaceMethodDecl:
 	Signature
 	{
 		lhs.Signature.post(lx)
-		s := lx.resolutionScope
 		lx.popScope()
-		lx.resolutionScope = s
-		lx.scope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true))
+		lx.scope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true, false))
 	}
 |       QualifiedIdent
+	{
+		lhs.fileScope = lx.fileScope
+		lhs.resolutionScope = lx.resolutionScope
+	}
 
 InterfaceMethodDeclList:
 	InterfaceMethodDecl
@@ -653,9 +667,16 @@ LBraceCompLitItemList:
 	LBraceCompLitItem
 |       LBraceCompLitItemList ',' LBraceCompLitItem
 
+//yy:field	items	int64
+//yy:field	Type	Type
 LBraceCompLitValue:
 	LBrace '}'
 |       LBrace LBraceCompLitItemList CommaOpt '}'
+	{
+		for l := lhs.LBraceCompLitItemList; l != nil; l = l.LBraceCompLitItemList {
+			lhs.items++
+		}
+	}
 
 //yy:field	guard	gate
 //yy:field	Type	Type
@@ -868,9 +889,10 @@ StructFieldDeclList:
 	StructFieldDecl
 |       StructFieldDeclList ';' StructFieldDecl
 
+//yy:field	Type	Type
 //yy:field	fields	*Scope
 //yy:field	guard	gate
-//yy:field	Type	Type
+//yy:field	pkgPath	int
 StructType:
 	"struct" LBrace '}'
 |       "struct" LBrace
@@ -881,6 +903,7 @@ StructType:
 	StructFieldDeclList SemicolonOpt '}'
 	{
 		lhs.fields = lx.scope
+		lhs.pkgPath = lx.pkg.importPath
 		lx.popScope()
 	}
 
