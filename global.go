@@ -8,4 +8,7 @@ import (
 	"github.com/cznic/xc"
 )
 
-var dict = xc.Dict
+var (
+	dict     = xc.Dict
+	zeroNode xc.Token
+)

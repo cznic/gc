@@ -233,9 +233,10 @@ ArgumentList:
 	Argument
 |       ArgumentList ',' Argument
 
-//yy:field	Type	Type
-//yy:field	guard	gate
-//yy:field	items	int64
+//yy:field	Type		Type
+//yy:field	guard		gate
+//yy:field	items		int64
+//yy:field	itemsSet	bool
 ArrayType:
 	'[' "..." ']' Typ
 |       '[' Expression ']' Typ
@@ -889,10 +890,10 @@ StructFieldDeclList:
 	StructFieldDecl
 |       StructFieldDeclList ';' StructFieldDecl
 
-//yy:field	Type	Type
-//yy:field	fields	*Scope
-//yy:field	guard	gate
-//yy:field	pkgPath	int
+//yy:field	Type		Type
+//yy:field	fields		*Scope
+//yy:field	guard		gate
+//yy:field	pkgPath		int
 StructType:
 	"struct" LBrace '}'
 |       "struct" LBrace
@@ -903,6 +904,9 @@ StructType:
 	StructFieldDeclList SemicolonOpt '}'
 	{
 		lhs.fields = lx.scope
+		for _, v := range lhs.fields.Bindings {
+			v.(*FieldDeclaration).parent = lhs
+		}
 		lhs.pkgPath = lx.pkg.importPath
 		lx.popScope()
 	}

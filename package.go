@@ -90,7 +90,7 @@ func (p *Package) load() error {
 		c.err(d, "undefined %s", v)
 	}
 
-	p.Scope.check(c)
+	p.Scope.check(&context{Context: c})
 	return nil
 }
 

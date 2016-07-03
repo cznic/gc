@@ -311,7 +311,7 @@ func (c *Context) declareBuiltins() error {
 	c.intType = b[dict.SID("int")].(*TypeDeclaration)
 	c.stringType = b[dict.SID("string")].(*TypeDeclaration)
 	c.uintptrType = b[dict.SID("uintptr")].(*TypeDeclaration)
-	c.voidType = newTupleType(c, nil)
+	c.voidType = newTupleType(&context{Context: c}, nil)
 
 	p := c.newPackage("", "")
 	p.Scope = c.universe
@@ -562,6 +562,15 @@ func (c *Context) untypedArithmeticBinOpType(a, b Type) Type {
 	}
 }
 
+func (c *Context) valueAssignmentFail(n Node, t Type, v Value) {
+	switch v.Kind() {
+	case ConstValue:
+		c.constAssignmentFail(n, t, v.Const())
+	default:
+		c.err(n, "cannot use type %s as type %s in assignment", v.Type(), t)
+	}
+}
+
 func (c *Context) constAssignmentFail(n Node, t Type, d Const) {
 	if d.Untyped() && d.Type().ConvertibleTo(t) &&
 		!(d.Type().Kind() == String && t.Kind() == Slice && (t.Elem().Kind() == Uint8 || t.Elem().Kind() == Int32)) {
@@ -579,6 +588,11 @@ func (c *Context) constConversionFail(n Node, t Type, d Const) {
 	case !d.Type().ConvertibleTo(t):
 		c.err(n, "cannot convert type %s to %s", d.Type(), t)
 	case d.Type().FloatingPointType() && t.IntegerType() && !d.Integral():
+		if k := d.Type().Kind(); k == Complex64 || k == Complex128 {
+			todo(n, true) // ... truncated to real
+			break
+		}
+
 		c.err(n, "constant %s truncated to integer", d)
 	default:
 		c.err(n, "constant %s overflows %s", d, t)
@@ -609,16 +623,12 @@ func (c *Context) arithmeticBinOpShape(a, b Const, n Node) (Type, bool, Const, C
 			if d := a.mustConvert(n, t); d != nil {
 				return t, false, d, b.convert(t)
 			}
-
-			c.constConversionFail(n, t, a)
 		}
 	case b.Untyped(): // !a.Untyped() && b.Untyped()
 		t := a.Type()
 		if d := b.mustConvert(n, t); d != nil {
 			return t, false, a.convert(t), d
 		}
-
-		c.constConversionFail(n, t, b)
 	default: // !a.Untyped() && !b.Untyped()
 		t := a.Type()
 		if b.Type() != t {

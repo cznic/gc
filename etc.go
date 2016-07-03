@@ -240,7 +240,7 @@ func stringLiteralValue(lx *lexer, t xc.Token) stringValue {
 
 func isSurrogate(r rune) bool { return r >= unicodeSurrogateFirst && r <= unicodeSurrogateLast }
 
-func uintptrConstValueFromUint64(ctx *Context, n uint64) Value {
+func uintptrConstValueFromUint64(ctx *context, n uint64) Value {
 	switch {
 	case n > math.MaxInt64:
 		return newConstValue(newIntConst(0, big.NewInt(0).SetUint64(n), ctx.uintptrType, false))

@@ -100,6 +100,7 @@ type ArrayType struct {
 	Type       Type
 	guard      gate
 	items      int64
+	itemsSet   bool
 	Case       int
 	Expression *Expression
 	Token      xc.Token

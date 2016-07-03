@@ -1,5 +1,9 @@
 // errorcheck
 
+// Copyright 2009 The GC Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 // Based on proposal by Ian Lance Taylor available at
 //
 //  https://github.com/golang/proposal/blob/master/design/15292-generics.md

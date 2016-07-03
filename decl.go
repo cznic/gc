@@ -16,6 +16,7 @@ import (
 
 var (
 	_ Declaration = (*ConstDeclaration)(nil)
+	_ Declaration = (*FieldDeclaration)(nil)
 	_ Declaration = (*FuncDeclaration)(nil)
 	_ Declaration = (*ImportDeclaration)(nil)
 	_ Declaration = (*LabelDeclaration)(nil)
@@ -42,7 +43,7 @@ type Declaration interface {
 	Node
 	Name() int // Name ID.
 	ScopeStart() token.Pos
-	check(ctx *Context, stack []Declaration, node Node, iota Value, opt func() bool) (stop bool)
+	check(ctx *context) (stop bool)
 	//TODO Exported() bool
 }
 
@@ -212,14 +213,14 @@ func (s *Scope) lookup2(t xc.Token, fileScope *Scope) (d Declaration, _ *Scope) 
 	return nil, nil
 }
 
-func (s *Scope) mustLookup(ctx *Context, t xc.Token, fileScope *Scope) (d Declaration) {
+func (s *Scope) mustLookup(ctx *context, t xc.Token, fileScope *Scope) (d Declaration) {
 	if d = s.lookup(t, fileScope); d == nil {
 		ctx.err(t, "undefined: %s", t.S())
 	}
 	return d
 }
 
-func (s *Scope) mustLookupLocalTLDType(ctx *Context, t xc.Token) *TypeDeclaration {
+func (s *Scope) mustLookupLocalTLDType(ctx *context, t xc.Token) *TypeDeclaration {
 	d, s := s.lookup2(t, nil)
 	if s.Kind != PackageScope {
 		return nil
@@ -249,24 +250,23 @@ func (s *Scope) lookupQI(qi *QualifiedIdent, fileScope *Scope) (d Declaration) {
 	}
 }
 
-func (s *Scope) mustLookupQI(ctx *Context, qi *QualifiedIdent, fileScope *Scope) (d Declaration) {
+func (s *Scope) mustLookupQI(ctx *context, qi *QualifiedIdent, fileScope *Scope) (d Declaration) {
 	if d = s.lookupQI(qi, fileScope); d == nil {
 		ctx.err(qi, "undefined: %s", qi.str())
 	}
 	return d
 }
 
-func (s *Scope) mustLookupType(ctx *Context, qi *QualifiedIdent, fileScope *Scope) *TypeDeclaration {
+func (s *Scope) mustLookupType(ctx *context, qi *QualifiedIdent, fileScope *Scope) *TypeDeclaration {
 	d := s.mustLookupQI(ctx, qi, fileScope)
 	t, ok := d.(*TypeDeclaration)
 	if d != nil && !ok {
-		//dbg("%s: %s %s (%s)", position(qi.Pos()), qi.str(), s.Kind, s.Parent.Kind)
 		ctx.err(qi, "%s is not a type", qi.str())
 	}
 	return t
 }
 
-func (s *Scope) check(ctx *Context) (stop bool) {
+func (s *Scope) check(ctx *context) (stop bool) {
 	if s.Kind == PackageScope {
 		a := make(declarations, 0, len(s.Bindings)+len(s.Unbound))
 		for _, d := range s.Bindings {
@@ -275,7 +275,7 @@ func (s *Scope) check(ctx *Context) (stop bool) {
 		a = append(a, s.Unbound...)
 		sort.Sort(a)
 		for _, d := range a {
-			if d.check(ctx, nil, nil, nil, nil) {
+			if d.check(ctx) {
 				return true
 			}
 		}
@@ -319,25 +319,28 @@ func newConstDeclaration(nm xc.Token, typ0 *Typ, expr *Expression, iota int64, s
 	}
 }
 
-func (n *ConstDeclaration) check(ctx *Context, stack []Declaration, node Node, _ Value, opt func() bool) (stop bool) {
-	stack = append(stack, n)
-	done, stop := n.guard.check(ctx, stack, node, opt)
+func (n *ConstDeclaration) check(ctx *context) (stop bool) {
+	done, stop := n.guard.check(ctx, n)
 	if done || stop {
 		return stop
 	}
 
-	defer n.guard.done()
+	defer n.guard.done(ctx)
 
 	if n.expr == nil {
 		return false
 	}
 
-	if n.expr.check(ctx, stack, nil, newConstValue(newIntConst(n.iota, nil, ctx.intType, true))) {
+	iota := ctx.iota
+	ctx.iota = newConstValue(newIntConst(n.iota, nil, ctx.intType, true))
+	if n.expr.check(ctx) {
+		ctx.iota = iota
 		return true
 	}
 
+	ctx.iota = iota
 	if typ0 := n.typ0; typ0 != nil {
-		if typ0.check(ctx, stack, nil, nil) {
+		if typ0.check(ctx) {
 			return true
 		}
 
@@ -355,15 +358,13 @@ func (n *ConstDeclaration) check(ctx *Context, stack []Declaration, node Node, _
 
 		v := n.expr.Value
 		if v == nil {
-			todo(n, true)
-			return false
+			return ctx.err(n.expr, "const initializer is not a constant")
 		}
 
 		switch v.Kind() {
 		case ConstValue:
-			n.Value = v.Convert(t)
-			if n.Value == nil {
-				todo(n, true)
+			if c := ctx.mustConvertConst(n.expr, t, v.Const()); c != nil {
+				n.Value = newConstValue(c)
 			}
 		case NilValue:
 			todo(n, true)
@@ -409,6 +410,7 @@ type FieldDeclaration struct {
 	isAnonymousPtr  bool
 	isExported      bool
 	name            int
+	parent          *StructType
 	pos             token.Pos
 	qi              *QualifiedIdent
 	resolutionScope *Scope // QualifiedIdent
@@ -431,25 +433,25 @@ func newFieldDeclaration(nm xc.Token, typ0 *Typ, isAnonymousPtr bool, qi *Qualif
 	}
 }
 
-func (n *FieldDeclaration) check(ctx *Context, stack []Declaration, node Node, iota Value, opt func() bool) (stop bool) {
-	done, stop := n.guard.check(ctx, stack, node, opt)
+func (n *FieldDeclaration) check(ctx *context) (stop bool) {
+	done, stop := n.guard.check(ctx, nil)
 	if done || stop {
 		return stop
 	}
 
-	defer n.guard.done()
+	defer n.guard.done(nil)
 
 	switch {
 	case n.isAnonymous:
 		if t := n.resolutionScope.mustLookupType(ctx, n.qi, n.fileScope); t != nil {
-			if t.check(ctx, stack, node, iota, opt) {
+			if t.check(ctx) {
 				return true
 			}
 
 			n.Type = t
 		}
 	default:
-		if n.typ0.check(ctx, stack, node, iota) {
+		if n.typ0.check(ctx) {
 			return true
 		}
 
@@ -492,17 +494,20 @@ func newFuncDeclaration(nm xc.Token, rx *ReceiverOpt, sig *Signature, ifaceMetho
 	}
 }
 
-func (n *FuncDeclaration) check(ctx *Context, stack []Declaration, node Node, iota Value, opt func() bool) (stop bool) {
-	stack = nil
-	done, stop := n.guard.check(ctx, stack, node, opt)
+func (n *FuncDeclaration) check(ctx *context) (stop bool) {
+	stack := ctx.stack
+	ctx.stack = nil
+
+	defer func() { ctx.stack = stack }()
+
+	done, stop := n.guard.check(ctx, nil)
 	if done || stop {
 		return stop
 	}
 
-	defer n.guard.done()
+	defer n.guard.done(nil)
 
-	//dbg("", position(n.Pos()))
-	if n.rx.check(ctx, stack, node) || n.sig.check(ctx, stack, node, iota) {
+	if n.rx.check(ctx) || n.sig.check(ctx) {
 		return true
 	}
 
@@ -572,7 +577,7 @@ func newImportDeclaration(p *Package, nm int, pos token.Pos, once *xc.Once) *Imp
 	}
 }
 
-func (n *ImportDeclaration) check(*Context, []Declaration, Node, Value, func() bool) (stop bool) {
+func (n *ImportDeclaration) check(*context) (stop bool) {
 	return false
 }
 
@@ -596,7 +601,7 @@ func newLabelDeclaration(tok xc.Token) *LabelDeclaration {
 	}
 }
 
-func (n *LabelDeclaration) check(*Context, []Declaration, Node, Value, func() bool) bool {
+func (n *LabelDeclaration) check(*context) bool {
 	panic("internal error")
 }
 
@@ -630,15 +635,15 @@ func newParamaterDeclaration(nm xc.Token, typ0 *Typ, isVariadic bool, scopeStart
 	}
 }
 
-func (n *ParameterDeclaration) check(ctx *Context, stack []Declaration, node Node, iota Value, opt func() bool) (stop bool) {
-	done, stop := n.guard.check(ctx, stack, node, opt)
+func (n *ParameterDeclaration) check(ctx *context) (stop bool) {
+	done, stop := n.guard.check(ctx, nil)
 	if done || stop {
 		return stop
 	}
 
-	defer n.guard.done()
+	defer n.guard.done(nil)
 
-	stop = n.typ0.check(ctx, stack, node, iota)
+	stop = n.typ0.check(ctx)
 	n.Type = n.typ0.Type
 	return stop
 }
@@ -691,24 +696,25 @@ func newTypeDeclaration(lx *lexer, nm xc.Token, typ0 *Typ) *TypeDeclaration {
 	return t
 }
 
-func (n *TypeDeclaration) check(ctx *Context, stack []Declaration, node Node, iota Value, opt func() bool) (stop bool) {
+func (n *TypeDeclaration) check(ctx *context) (stop bool) {
 	if t0 := n.typ0; t0 != nil && t0.Case == 9 { // StructType
-		node = t0.StructType.Token2
+		n0 := ctx.node
+		ctx.node = t0.StructType.Token2
+		defer func() { ctx.node = n0 }()
 	}
-	stack = append(stack, n)
-	done, stop := n.guard.check(ctx, stack, node, opt)
+	done, stop := n.guard.check(ctx, n)
 	if done || stop {
 		return stop
 	}
 
-	defer n.guard.done()
+	defer n.guard.done(ctx)
 
 	t0 := n.typ0
 	if t0 == nil {
 		return false
 	}
 
-	if t0.check(ctx, stack, node, iota) {
+	if t0.check(ctx) {
 		return true
 	}
 
@@ -727,10 +733,8 @@ func (n *TypeDeclaration) check(ctx *Context, stack []Declaration, node Node, io
 	n.align = t.Align()
 	n.fieldAlign = t.FieldAlign()
 	n.size = t.Size()
-	switch {
-	case k == Interface:
-		n.typeBase.methods = t.UnderlyingType().(*interfaceType).methods
-	case n.methods != nil:
+	t = n
+	if n.methods != nil {
 		s := n.methods
 		a := make(declarations, 0, len(s.Bindings)+len(s.Unbound))
 		for _, d := range s.Bindings {
@@ -740,28 +744,70 @@ func (n *TypeDeclaration) check(ctx *Context, stack []Declaration, node Node, io
 			a = append(a, d)
 		}
 		sort.Sort(a)
-		var mta []Method
-		var index int
-		for _, m := range a {
-			if m.check(ctx, stack, node, iota, opt) {
-				return true
-			}
-
-			if m.Name() != idUnderscore {
-				var pth int
-				fd := m.(*FuncDeclaration)
-				if !fd.isExported {
-					pth = n.pkgPath
+		switch {
+		case t.Kind() == Ptr:
+			for _, m := range a {
+				if ctx.err(m, "invalid receiver type %s (%s is a pointer type)", t, t) {
+					return true
 				}
-				mt := Method{m.Name(), pth, fd.Type, index}
-				index++
-				mta = append(mta, mt)
 			}
+		default:
+			var mta []Method
+			var index int
+			for _, m := range a {
+				if m.check(ctx) {
+					return true
+				}
+
+				if m.Name() != idUnderscore {
+					var pth int
+					fd := m.(*FuncDeclaration)
+					if !fd.isExported {
+						pth = n.pkgPath
+					}
+					mt := Method{m.Name(), pth, fd.Type, index, false}
+					index++
+					mta = append(mta, mt)
+				}
+			}
+			n.typeBase.methods = mta
 		}
-		n.typeBase.methods = mta
 	}
 	if n.pkg.unsafe && n.Name() == idPointer {
 		n.kind = UnsafePointer
+	}
+
+	u := t.UnderlyingType()
+	if u.NumMethod() == 0 || t.Kind() == Ptr {
+		return false
+	}
+
+	m := map[int]struct{}{}
+	for i := 0; i < n.NumMethod(); i++ {
+		m[n.Method(i).Name] = struct{}{}
+	}
+	for i := 0; i < u.NumMethod(); i++ {
+		mt := u.Method(i)
+		if _, ok := m[mt.Name]; ok {
+			continue
+		}
+
+		m[mt.Name] = struct{}{}
+		var mt2 Method
+		switch {
+		case u.Kind() == Interface:
+			if t.Kind() != Interface {
+				todo(n) // Merge method of the underlying type, must synthesize new method w/ receiver.
+				break
+			}
+
+			fallthrough
+		default:
+			mt2 = *mt
+			mt2.merged = true
+		}
+		mt2.Index = len(n.typeBase.methods)
+		n.typeBase.methods = append(n.typeBase.methods, mt2)
 	}
 	return false
 }
@@ -794,26 +840,66 @@ func (n *TypeDeclaration) declare(lx *lexer, d Declaration) {
 }
 
 // ChanDir implements Type.
-func (n *TypeDeclaration) ChanDir() ChanDir { return n.typ.ChanDir() }
+func (n *TypeDeclaration) ChanDir() ChanDir {
+	if n.typ == nil {
+		panic("ChanDir of an inappropriate type")
+	}
+
+	return n.typ.ChanDir()
+}
 
 // Elem implements Type.
-func (n *TypeDeclaration) Elem() Type { return n.typ.Elem() }
+func (n *TypeDeclaration) Elem() Type {
+	if n.typ == nil {
+		panic("Elem of an inappropriate type")
+	}
+
+	return n.typ.Elem()
+}
 
 // Elements implement Type.
-func (n *TypeDeclaration) Elements() []Type { return n.typ.Elements() }
+func (n *TypeDeclaration) Elements() []Type {
+	if n.typ == nil {
+		panic("Elements of an inappropriate type")
+	}
+
+	return n.typ.Elements()
+}
 
 // Field implements Type.
-func (n *TypeDeclaration) Field(i int) *StructField { return n.typ.Field(i) }
+func (n *TypeDeclaration) Field(i int) *StructField {
+	if n.typ == nil {
+		panic("Field of an inappropriate type")
+	}
+
+	return n.typ.Field(i)
+}
 
 // FieldByIndex implements Type.
-func (n *TypeDeclaration) FieldByIndex(index []int) StructField { return n.typ.FieldByIndex(index) }
+func (n *TypeDeclaration) FieldByIndex(index []int) StructField {
+	if n.typ == nil {
+		panic("FieldByIndex of an inappropriate type")
+	}
+
+	return n.typ.FieldByIndex(index)
+}
 
 // FieldByName implements Type.
 // field was not found. The result pointee is read only.
-func (n *TypeDeclaration) FieldByName(name int) *StructField { return n.typ.FieldByName(name) }
+func (n *TypeDeclaration) FieldByName(name int) *StructField {
+	if n.typ == nil {
+		panic("FieldByName of an inappropriate type")
+	}
+
+	return n.typ.FieldByName(name)
+}
 
 // FieldByNameFunc implements Type.
 func (n *TypeDeclaration) FieldByNameFunc(match func(int) bool) *StructField {
+	if n.typ == nil {
+		panic("FieldByNameFunc of an inappropriate type")
+	}
+
 	return n.typ.FieldByNameFunc(match)
 }
 
@@ -821,28 +907,76 @@ func (n *TypeDeclaration) FieldByNameFunc(match func(int) bool) *StructField {
 func (n *TypeDeclaration) Identical(u Type) bool { return n == u }
 
 // In implements Type.
-func (n *TypeDeclaration) In(i int) Type { return n.typ.In(i) }
+func (n *TypeDeclaration) In(i int) Type {
+	if n.typ == nil {
+		panic("In of an inappropriate type")
+	}
+
+	return n.typ.In(i)
+}
 
 // IsVariadic implements Type.
-func (n *TypeDeclaration) IsVariadic() bool { return n.typ.IsVariadic() }
+func (n *TypeDeclaration) IsVariadic() bool {
+	if n.typ == nil {
+		panic("IsVariadic of an inappropriate type")
+	}
+
+	return n.typ.IsVariadic()
+}
 
 // Key implements Type.
-func (n *TypeDeclaration) Key() Type { return n.typ.Key() }
+func (n *TypeDeclaration) Key() Type {
+	if n.typ == nil {
+		panic("Key of an inappropriate type")
+	}
+
+	return n.typ.Key()
+}
 
 // Len implements Type.
-func (n *TypeDeclaration) Len() int64 { return n.typ.Len() }
+func (n *TypeDeclaration) Len() int64 {
+	if n.typ == nil {
+		panic("Len of an inappropriate type")
+	}
+
+	return n.typ.Len()
+}
 
 // NumField implements Type.
-func (n *TypeDeclaration) NumField() int { return n.typ.NumField() }
+func (n *TypeDeclaration) NumField() int {
+	if n.typ == nil {
+		panic("NumField of an inappropriate type")
+	}
+
+	return n.typ.NumField()
+}
 
 // NumIn implements Type.
-func (n *TypeDeclaration) NumIn() int { return n.typ.NumIn() }
+func (n *TypeDeclaration) NumIn() int {
+	if n.typ == nil {
+		panic("NumIn of an inappropriate type")
+	}
+
+	return n.typ.NumIn()
+}
 
 // NumOut implements Type.
-func (n *TypeDeclaration) NumOut() int { return n.typ.NumOut() }
+func (n *TypeDeclaration) NumOut() int {
+	if n.typ == nil {
+		panic("NumOut of an inappropriate type")
+	}
+
+	return n.typ.NumOut()
+}
 
 // Out implements Type.
-func (n *TypeDeclaration) Out(i int) Type { return n.typ.Out(i) }
+func (n *TypeDeclaration) Out(i int) Type {
+	if n.typ == nil {
+		panic("Out of an inappropriate type")
+	}
+
+	return n.typ.Out(i)
+}
 
 func (n *TypeDeclaration) str(w *bytes.Buffer) {
 	if b := n.qualifier; b != 0 {
@@ -877,16 +1011,15 @@ func newVarDeclaration(tupleIndex int, nm xc.Token, typ0 *Typ, expr *Expression,
 	}
 }
 
-func (n *VarDeclaration) check(ctx *Context, stack []Declaration, node Node, iota Value, opt func() bool) (stop bool) {
-	stack = append(stack, n)
-	done, stop := n.guard.check(ctx, stack, node, opt)
+func (n *VarDeclaration) check(ctx *context) (stop bool) {
+	done, stop := n.guard.check(ctx, n)
 	if done || stop {
 		return stop
 	}
 
-	defer n.guard.done()
+	defer n.guard.done(ctx)
 
-	if n.expr.check(ctx, stack, node, iota) || n.typ0.check(ctx, stack, node, iota) {
+	if n.expr.check(ctx) || n.typ0.check(ctx) {
 		return true
 	}
 
@@ -907,6 +1040,10 @@ func (n *VarDeclaration) check(ctx *Context, stack []Declaration, node Node, iot
 			c := v.Const()
 			if !c.AssignableTo(n.Type) {
 				ctx.constAssignmentFail(n.expr, n.Type, c)
+			}
+		case RuntimeValue:
+			if !v.Type().AssignableTo(n.Type) {
+				ctx.valueAssignmentFail(n.expr, n.Type, v)
 			}
 		default:
 			//dbg("", v.Kind())
@@ -1100,17 +1237,24 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 
 type gate int
 
-func (g *gate) check(ctx *Context, stack []Declaration, node Node, opt func() bool) (done, stop bool) {
+func (g *gate) check(ctx *context, d Declaration) (done, stop bool) {
 	switch *g {
 	case gateReady:
+		if d != nil {
+			ctx.stack = append(ctx.stack, d)
+		}
 		*g = gateOpen
 		return false, false
 	case gateOpen:
+		stack := ctx.stack
+		if d != nil {
+			stack = append(ctx.stack, d)
+		}
 		if len(stack) == 0 {
 			return true, false
 		}
 
-		d := stack[len(stack)-1]
+		d = stack[len(stack)-1]
 		var a []Declaration
 		for _, v := range stack[:len(stack)-1] {
 			if v == d {
@@ -1122,10 +1266,12 @@ func (g *gate) check(ctx *Context, stack []Declaration, node Node, opt func() bo
 		}
 
 		*g = gateClosed
-		if opt != nil {
-			return true, opt()
+		if f := ctx.errf; f != nil {
+			ctx.errf = nil
+			return true, f()
 		}
 
+		node := ctx.node
 		if node == nil {
 			node = d
 		}
@@ -1161,4 +1307,19 @@ func (g *gate) check(ctx *Context, stack []Declaration, node Node, opt func() bo
 	panic("internal error")
 }
 
-func (g *gate) done() { *g = gateClosed }
+func (g *gate) done(c *context) {
+	if c != nil {
+		c.pop()
+	}
+	*g = gateClosed
+}
+
+type context struct {
+	*Context
+	stack []Declaration
+	node  Node
+	iota  Value
+	errf  func() bool
+}
+
+func (c *context) pop() { c.stack = c.stack[:len(c.stack)-1] }

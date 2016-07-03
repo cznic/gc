@@ -9,8 +9,6 @@ import (
 	"math"
 	"math/big"
 	"unicode"
-
-	"github.com/cznic/xc"
 )
 
 var (
@@ -81,6 +79,8 @@ type ValueKind int
 // the kind of value before calling kind-specific methods.  Calling a method
 // inappropriate to the kind of value causes a run-time panic.
 type Value interface {
+	nonNegativeInteger() bool
+
 	// Add implements the binary addition operation and returns the new
 	// Value, or nil if the operation is invalid. Invalid operations are
 	// reported as errors at node position.
@@ -146,6 +146,11 @@ type Value interface {
 	// as errors at node position.
 	Neg(ctx *Context, node Node) Value
 
+	// Or implements the binary bitwise or operation and returns the new
+	// Value, or nil if the operation is invalid. Invalid operations are
+	// reported as errors at node position.
+	Or(node Node, op Value) Value
+
 	// Package returns the package a PackageValue refers to. It panic if
 	// the value Kind is not PackageValue.
 	Package() *Package
@@ -161,11 +166,26 @@ type Value interface {
 	// reported as errors at node position.
 	Rsh(node Node, op Value) Value
 
-	// StructField returns a *StructField and the fields cumulative offset
-	// if the value represents a struct field or (nil, 0) otherwise.  It
-	// panics if the value's Kind is not RuntimeValue. The result pointee,
-	// if any, is read only.
-	StructField() (*StructField, uint64)
+	// Selector returns the root value of a selector and its paths or (nil,
+	// nil, nil) of the value does not represent a selector. It panics if
+	// value's Kind is not RuntimeValue.
+	//
+	// path0 represents the original selector path, path represents the
+	// full selector path. For example, in
+	//
+	//	type T struct {
+	//		U
+	//	}
+	//
+	//	type U struct {
+	//		f int
+	//	}
+	//
+	//	var v U
+	//	var w = v.f
+	//
+	//	path0 is [f] and path is [U, f].
+	Selector() (root Value, path0, path []Selector)
 
 	// Sub implements the binary subtraction operation and returns the new
 	// Value, or nil if the operation is invalid. Invalid operations are
@@ -179,14 +199,14 @@ type Value interface {
 
 type valueBase struct{ kind ValueKind }
 
-func (v *valueBase) Addressable() bool                   { panic("Addressable of inappropriate value") }
-func (v *valueBase) AssignableTo(Type) bool              { panic("AssignableTo of inappropriate value") }
-func (v *valueBase) Const() Const                        { panic("Const of inappropriate value") }
-func (v *valueBase) Convert(Type) Value                  { panic("internal error") }
-func (v *valueBase) Kind() ValueKind                     { return v.kind }
-func (v *valueBase) Package() *Package                   { panic("Package of inappropriate value") }
-func (v *valueBase) StructField() (*StructField, uint64) { panic("StructField of inappropriate value") }
-func (v *valueBase) Type() Type                          { return nil }
+func (v *valueBase) Addressable() bool        { panic("Addressable of inappropriate value") }
+func (v *valueBase) AssignableTo(Type) bool   { panic("AssignableTo of inappropriate value") }
+func (v *valueBase) Const() Const             { panic("Const of inappropriate value") }
+func (v *valueBase) Convert(Type) Value       { panic("internal error") }
+func (v *valueBase) Kind() ValueKind          { return v.kind }
+func (v *valueBase) nonNegativeInteger() bool { return false }
+func (v *valueBase) Package() *Package        { panic("Package of inappropriate value") }
+func (v *valueBase) Type() Type               { return nil }
 
 func (v *valueBase) Add(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary +")
@@ -228,6 +248,11 @@ func (v *valueBase) Neg(ctx *Context, n Node) Value {
 	return nil
 }
 
+func (v *valueBase) Or(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary |")
+	return nil
+}
+
 func (v *valueBase) PredeclaredFunction() Declaration {
 	panic("PredeclaredFunction of inappropriate value")
 }
@@ -235,6 +260,10 @@ func (v *valueBase) PredeclaredFunction() Declaration {
 func (v *valueBase) Rsh(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary >>")
 	return nil
+}
+
+func (v *valueBase) Selector() (Value, []Selector, []Selector) {
+	panic("Selector of inappropriate value")
 }
 
 func (v *valueBase) Sub(n Node, op Value) Value {
@@ -262,6 +291,8 @@ func (v *constValue) Lsh(n Node, op Value) Value     { return v.c.Lsh(n, op) }
 func (v *constValue) Mod(n Node, op Value) Value     { return v.c.Mod(n, op) }
 func (v *constValue) Mul(n Node, op Value) Value     { return v.c.Mul(n, op) }
 func (v *constValue) Neg(ctx *Context, n Node) Value { return v.c.Neg(ctx, n) }
+func (v *constValue) nonNegativeInteger() bool       { return v.c.nonNegativeInteger() }
+func (v *constValue) Or(n Node, op Value) Value      { return v.c.Or(n, op) }
 func (v *constValue) Rsh(n Node, op Value) Value     { return v.c.Rsh(n, op) }
 func (v *constValue) String() string                 { return v.c.String() }
 func (v *constValue) Sub(n Node, op Value) Value     { return v.c.Sub(n, op) }
@@ -305,12 +336,14 @@ func (v *packageValue) Package() *Package { return v.pkg }
 // --------------------------------------------------------------- runtimeValue
 
 type runtimeValue struct {
-	valueBase
-	d           Declaration
-	field       *StructField
-	offset      uint64
-	typ         Type
 	addressable bool
+	// d is used for predeclared functions and for fields.
+	d     Declaration
+	path0 []Selector
+	path  []Selector
+	root  Value
+	typ   Type
+	valueBase
 }
 
 func newRuntimeValue(typ Type) *runtimeValue {
@@ -336,21 +369,22 @@ func newPredeclaredFunctionValue(d Declaration) *runtimeValue {
 	}
 }
 
-func newStructFieldalue(f *StructField, offset uint64) *runtimeValue {
+func newSelectorValue(t Type, root Value, path0, path []Selector) *runtimeValue {
 	return &runtimeValue{
 		addressable: true,
-		field:       f,
-		offset:      offset,
-		typ:         f.Type,
+		path0:       path0,
+		path:        path,
+		root:        root,
+		typ:         t,
 		valueBase:   valueBase{RuntimeValue},
 	}
 }
 
-func (v *runtimeValue) Addressable() bool                   { return v.addressable }
-func (v *runtimeValue) AssignableTo(t Type) bool            { return v.Type().AssignableTo(t) }
-func (v *runtimeValue) PredeclaredFunction() Declaration    { return v.d }
-func (v *runtimeValue) StructField() (*StructField, uint64) { return v.field, v.offset }
-func (v *runtimeValue) Type() Type                          { return v.typ }
+func (v *runtimeValue) Addressable() bool                         { return v.addressable }
+func (v *runtimeValue) AssignableTo(t Type) bool                  { return v.Type().AssignableTo(t) }
+func (v *runtimeValue) PredeclaredFunction() Declaration          { return v.d }
+func (v *runtimeValue) Selector() (Value, []Selector, []Selector) { return v.root, v.path0, v.path }
+func (v *runtimeValue) Type() Type                                { return v.typ }
 
 func (v *runtimeValue) Add(n Node, op Value) Value {
 	todo(n)
@@ -408,6 +442,11 @@ func (v *runtimeValue) Neg(ctx *Context, n Node) Value {
 	}
 }
 
+func (v *runtimeValue) Or(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
 func (v *runtimeValue) Rsh(n Node, op Value) Value {
 	todo(n)
 	return nil
@@ -453,8 +492,10 @@ type Const interface {
 	mod(n Node, t Type, untyped bool, op Const) Const
 	mul(n Node, t Type, untyped bool, op Const) Const
 	mustConvert(Node, Type) Const // Result is untyped.
-	normalize() Const             // Keeps exact value or returns nil on overflow.
-	representable(Type) Const     // Can be inexact for floats.
+	nonNegativeInteger() bool
+	normalize() Const // Keeps exact value or returns nil on overflow.
+	or(n Node, t Type, untyped bool, op Const) Const
+	representable(Type) Const // Can be inexact for floats.
 	sub(n Node, t Type, untyped bool, op Const) Const
 
 	// Add implements the binary addition operation and returns the new
@@ -515,6 +556,11 @@ type Const interface {
 	// as errors at node position if ctx is not nil.
 	Neg(ctx *Context, node Node) Value
 
+	// Or implements the binary bitwise or operation and returns the new
+	// Value, or nil if the operation is invalid. Invalid operations are
+	// reported as errors at node position.
+	Or(node Node, op Value) Value
+
 	// Numeric reports whether the constant's Kind is one of RuneConst,
 	// IntConst, FloatingPointConst or ComplexConst.
 	Numeric() bool
@@ -556,7 +602,9 @@ func (c *constBase) Kind() ConstKind                   { return c.kind }
 func (c *constBase) mod(Node, Type, bool, Const) Const { panic("internal error") }
 func (c *constBase) mul(Node, Type, bool, Const) Const { panic("internal error") }
 func (c *constBase) mustConvert(Node, Type) Const      { panic("internal error") }
+func (c *constBase) nonNegativeInteger() bool          { return false }
 func (c *constBase) normalize() Const                  { panic("internal error") }
+func (c *constBase) or(Node, Type, bool, Const) Const  { panic("internal error") }
 func (c *constBase) representable(Type) Const          { panic("internal error") }
 func (c *constBase) String() string                    { panic("internal error") }
 func (c *constBase) sub(Node, Type, bool, Const) Const { panic("internal error") }
@@ -902,6 +950,11 @@ func (c *constBase) Neg(ctx *Context, n Node) Value {
 	return nil
 }
 
+func (c *constBase) Or(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary |")
+	return nil
+}
+
 func (c *constBase) Rsh(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary >>")
 	return nil
@@ -974,6 +1027,10 @@ func (c *complexConst) Convert(t Type) Value {
 	return nil
 }
 
+func (c *complexConst) nonNegativeInteger() bool {
+	return c.representable(c.Type().context().intType) != nil
+}
+
 func (c *complexConst) normalize() Const {
 	if v := c.bigVal; v != nil {
 		if re, ok := v.re.Float64(); ok == big.Exact {
@@ -1023,7 +1080,7 @@ func (c *complexConst) String() string {
 }
 
 func (c *complexConst) convert(t Type) Const {
-	todo(xc.Token{}) //TODO
+	todo(zeroNode) //TODO
 	return nil
 }
 
@@ -1099,6 +1156,10 @@ func (c *floatConst) Convert(t Type) Value {
 	return nil
 }
 
+func (c *floatConst) nonNegativeInteger() bool {
+	return c.representable(c.Type().context().intType) != nil
+}
+
 func (c *floatConst) normalize() Const {
 	if v := c.bigVal; v != nil {
 		if f, ok := v.Float64(); ok == big.Exact {
@@ -1168,7 +1229,7 @@ func (c *floatConst) convert(t Type) Const {
 
 		return newFloatConst(0, big.NewFloat(0).SetPrec(ctx.floatConstPrec).SetFloat64(c.val), ctx.float64Type, true)
 	case t.ComplexType():
-		todo(xc.Token{})
+		todo(zeroNode)
 	default:
 		panic("internal error")
 	}
@@ -1362,6 +1423,10 @@ func (c *intConst) Convert(t Type) Value {
 	return nil
 }
 
+func (c *intConst) nonNegativeInteger() bool {
+	return c.representable(c.Type().context().intType) != nil
+}
+
 func (c *intConst) normalize() Const {
 	if v := c.bigVal; v != nil {
 		if uint64(v.BitLen()) > uint64(c.Type().context().intConstBits) {
@@ -1378,6 +1443,33 @@ func (c *intConst) normalize() Const {
 	}
 
 	return c.representable(c.Type())
+}
+
+func (c *intConst) or(n Node, t Type, untyped bool, op Const) Const {
+	ctx := t.context()
+	var d big.Int
+	d.Or(c.bigVal, op.(*intConst).bigVal)
+	if untyped {
+		t = nil
+	}
+	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
+}
+
+func (c *intConst) Or(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.or(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
 }
 
 func (c *intConst) representable(t Type) Const {
@@ -1433,7 +1525,7 @@ func (c *intConst) convert(t Type) Const {
 
 		return newFloatConst(0, big.NewFloat(0).SetPrec(ctx.floatConstPrec).SetInt64(c.val), ctx.intType, true)
 	case t.ComplexType():
-		todo(xc.Token{})
+		todo(zeroNode)
 	default:
 		panic("internal error")
 	}

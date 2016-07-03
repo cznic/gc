@@ -23,6 +23,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/cznic/sortutil"
 	"github.com/cznic/xc"
 )
 
@@ -418,72 +419,81 @@ func errorCheckResults(t *testing.T, checks []xc.Token, err error, fname string,
 		panic("internal error")
 	}
 
+	if err != nil {
+		err.(scanner.ErrorList).Sort()
+	}
 	if *oRE != "" {
 		for _, v := range checks {
-			t.Logf("%s: %q", xc.FileSet.PositionFor(v.Pos(), false), dict.S(v.Val))
+			t.Logf("%s: %s", xc.FileSet.PositionFor(v.Pos(), false), dict.S(v.Val))
 		}
 		if err != nil {
 			t.Logf("FAIL\n%s", errStr(err))
 		}
 	}
-	m := map[*scanner.Error]struct{}{}
+	got := map[int][]*scanner.Error{}
+	var gota []int
 	if err != nil {
 		err := err.(scanner.ErrorList)
-		err.RemoveMultiples()
 		for _, v := range err {
 			p := filepath.ToSlash(v.Pos.Filename)
 			if !filepath.IsAbs(p) {
-				m[v] = struct{}{}
+				line := v.Pos.Line
+				got[line] = append(got[line], v)
+				gota = append(gota, line)
 			}
 		}
 	}
-	n := map[xc.Token]struct{}{}
+	gota = gota[:sortutil.Dedupe(sort.IntSlice(gota))]
+
+	expect := map[int]xc.Token{}
 	for _, v := range checks {
-		n[v] = struct{}{}
+		expect[xc.FileSet.PositionFor(v.Pos(), false).Line] = v
 	}
+
 	var a scanner.ErrorList
-	fail := false
-	for k := range m {
-		kpos := k.Pos
-		for l := range n {
-			lpos := xc.FileSet.PositionFor(l.Pos(), false)
-			if kpos.Line != lpos.Line || kpos.Filename != lpos.Filename {
-				continue
+	var fail bool
+outer:
+	for _, line := range gota {
+		matched := false
+		var g0, g *scanner.Error
+		var e xc.Token
+	inner:
+		for _, g = range got[line] {
+			if g0 == nil {
+				g0 = g
+			}
+			var ok bool
+			if e, ok = expect[line]; !ok {
+				a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: extra error] %s", g.Msg)})
+				fail = true
+				continue outer
 			}
 
-			matched := false
-			for _, v := range errCheckPatterns.FindAllSubmatch(l.S(), -1) {
+			for _, v := range errCheckPatterns.FindAllSubmatch(e.S(), -1) {
 				re := v[1]
-				ok, err := regexp.MatchString(string(re), k.Error())
+				ok, err := regexp.MatchString(string(re), g.Error())
 				if err != nil {
 					t.Fatal(err)
 				}
 
 				if ok {
+					a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[PASS errorcheck] %s: %s", e.S(), qmsg(g.Msg))})
 					matched = true
-					break
+					break inner
 				}
 			}
-			switch {
-			case matched:
-				a = append(a, &scanner.Error{Pos: k.Pos, Msg: fmt.Sprintf("[PASS errorcheck] %s: %s", l.S(), qmsg(k.Msg))})
-			default:
-				fail = true
-				a = append(a, &scanner.Error{Pos: k.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: error does not match] %s: %s", l.S(), k.Msg)})
-			}
-
-			delete(m, k)
-			delete(n, l)
 		}
+		if !matched {
+			a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: error does not match] %s: %s", e.S(), g0.Msg)})
+			fail = true
+		}
+		delete(expect, line)
 	}
-	if !fail && len(m) == 0 && len(n) == 0 {
+	if !fail && len(expect) == 0 {
 		t.Logf("[PASS errorcheck] %v\n", fname)
 	}
-	for k := range m {
-		a = append(a, &scanner.Error{Pos: k.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: extra error] %q", k.Msg)})
-	}
-	for l := range n {
-		a = append(a, &scanner.Error{Pos: position(l.Pos()), Msg: fmt.Sprintf("[FAIL errorcheck: missing error] %s", l.S())})
+	for _, e := range expect {
+		a = append(a, &scanner.Error{Pos: position(e.Pos()), Msg: fmt.Sprintf("[FAIL errorcheck: missing error] %s", e.S())})
 	}
 	a.Sort()
 	for _, v := range a {

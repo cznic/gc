@@ -4173,6 +4173,9 @@ yynewstate:
 			}
 			yyVAL.node = lhs
 			lhs.fields = lx.scope
+			for _, v := range lhs.fields.Bindings {
+				v.(*FieldDeclaration).parent = lhs
+			}
 			lhs.pkgPath = lx.pkg.importPath
 			lx.popScope()
 		}

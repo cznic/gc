@@ -27,6 +27,9 @@ import (
 )
 
 var (
+	_ Selector = (*Method)(nil)
+	_ Selector = (*StructField)(nil)
+
 	_ Type = (*TypeDeclaration)(nil)
 	_ Type = (*arrayType)(nil)
 	_ Type = (*chanType)(nil)
@@ -38,6 +41,11 @@ var (
 	_ Type = (*sliceType)(nil)
 	_ Type = (*structType)(nil)
 )
+
+// Selector is either a *StructField or a *Method. The pointee is read only.
+type Selector interface {
+	typ() Type
+}
 
 // Values of type ChanDir.
 const (
@@ -98,10 +106,11 @@ type Type interface {
 
 	base() *typeBase
 	context() *Context
-	str(*bytes.Buffer)
 	field(int) Type
+	isNamed() bool
 	numField() int
 	setOffset(int, uint64)
+	str(*bytes.Buffer)
 
 	// Align returns the alignment in bytes of a value of this type when
 	// allocated in memory.
@@ -323,9 +332,12 @@ type Method struct {
 	Name    int
 	PkgPath int
 
-	Type  Type // Method type.
-	Index int  // Index for Type.Method.
+	Type   Type // Method type.
+	Index  int  // Index for Type.Method.
+	merged bool
 }
+
+func (m *Method) typ() Type { return m.Type }
 
 // A StructField describes a single field in a struct.
 type StructField struct {
@@ -344,6 +356,8 @@ type StructField struct {
 	Index     []int  // Index sequence for Type.FieldByIndex.
 	Anonymous bool   // Is an embedded field.
 }
+
+func (s *StructField) typ() Type { return s.Type }
 
 type typeBase struct {
 	align      int
@@ -607,6 +621,14 @@ func (t *typeBase) Implements(u Type) bool {
 		panic("non-interface argument passed to Implements")
 	}
 
+	var checkNonPtrRx bool
+	switch {
+	case t.isNamed() && t.Kind() != Interface:
+		checkNonPtrRx = true
+	case t.Kind() == Ptr && t.Elem().isNamed():
+		t = t.Elem().base()
+	}
+
 	nu := u.NumMethod()
 	if nu == 0 {
 		return true // Fast path: Every type implements interface{}.
@@ -617,14 +639,18 @@ func (t *typeBase) Implements(u Type) bool {
 		return false
 	}
 
-	skip := 0
+	var off int
 	if t.Kind() != Interface {
-		skip = 1 // Receiver.
+		off = 1
 	}
 	for i := 0; i < nu; i++ {
 		mu := u.Method(i)
 		mt := t.MethodByName(mu.Name)
 		if mt == nil || mt.PkgPath != mu.PkgPath {
+			return false
+		}
+
+		if checkNonPtrRx && mt.Type.In(0).Kind() == Ptr {
 			return false
 		}
 
@@ -634,12 +660,12 @@ func (t *typeBase) Implements(u Type) bool {
 		tu := mu.Type
 		iu := tu.NumIn()
 		ou := tu.NumOut()
-		if it-skip != iu || ot != ou || tt.IsVariadic() != tu.IsVariadic() {
+		if it-off != iu || ot != ou || tt.IsVariadic() != tu.IsVariadic() {
 			return false
 		}
 
 		for j := 0; j < iu; j++ {
-			if !tt.In(j + skip).Identical(tu.In(j)) {
+			if !tt.In(j + off).Identical(tu.In(j)) {
 				return false
 			}
 		}
@@ -660,6 +686,11 @@ func (t *typeBase) IntegerType() bool {
 		return true
 	}
 	return false
+}
+
+func (t *typeBase) isNamed() bool {
+	_, ok := t.typ.(*TypeDeclaration)
+	return ok
 }
 
 func (t *typeBase) Method(i int) *Method {
@@ -725,13 +756,14 @@ func (t *typeBase) String() string {
 type arrayType struct {
 	typeBase
 	elem Type
+	ddd  bool
 	len  int64
 }
 
-func newArrayType(ctx *Context, elem Type, len int64) *arrayType {
-	t := &arrayType{elem: elem, len: len}
+func newArrayType(ctx *context, elem Type, len int64, ddd bool) *arrayType {
+	t := &arrayType{elem: elem, len: len, ddd: ddd}
 	t.align = elem.Align()
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = elem.FieldAlign()
 	t.kind = Array
 	t.size = elem.Size() * uint64(len)
@@ -748,7 +780,12 @@ func (t *arrayType) Identical(u Type) bool {
 
 func (t *arrayType) str(w *bytes.Buffer) {
 	w.WriteByte('[')
-	fmt.Fprintf(w, "%v", t.Len())
+	switch {
+	case t.ddd:
+		w.WriteString("...")
+	default:
+		fmt.Fprintf(w, "%v", t.Len())
+	}
 	w.WriteByte(']')
 	safeTypeStr(t.Elem(), w)
 }
@@ -761,10 +798,10 @@ type chanType struct {
 	elem Type
 }
 
-func newChanType(ctx *Context, dir ChanDir, elem Type) *chanType {
+func newChanType(ctx *context, dir ChanDir, elem Type) *chanType {
 	t := &chanType{dir: dir, elem: elem}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Chan
 	t.size = uint64(ctx.model.PtrBytes)
@@ -804,10 +841,10 @@ type funcType struct {
 	out        []Type
 }
 
-func newFuncType(ctx *Context, name int, in, out []Type, isExported, isVariadic bool) *funcType {
+func newFuncType(ctx *context, name int, in, out []Type, isExported, isVariadic bool) *funcType {
 	t := &funcType{name: name, in: in, out: out, isExported: isExported, isVariadic: isVariadic}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Func
 	t.size = uint64(ctx.model.PtrBytes)
@@ -901,10 +938,10 @@ type interfaceType struct {
 	typeBase
 }
 
-func newInterfaceType(ctx *Context, methods []Method) *interfaceType {
+func newInterfaceType(ctx *context, methods []Method) *interfaceType {
 	t := &interfaceType{}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Interface
 	t.methods = methods
@@ -954,10 +991,10 @@ type mapType struct {
 	key  Type
 }
 
-func newMapType(ctx *Context, key, elem Type) *mapType {
+func newMapType(ctx *context, key, elem Type) *mapType {
 	t := &mapType{elem: elem, key: key}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Map
 	t.size = uint64(ctx.model.PtrBytes)
@@ -986,10 +1023,10 @@ type ptrType struct {
 	elem Type
 }
 
-func newPtrType(ctx *Context, elem Type) *ptrType {
+func newPtrType(ctx *context, elem Type) *ptrType {
 	t := &ptrType{elem: elem}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Ptr
 	t.size = uint64(ctx.model.PtrBytes)
@@ -1012,10 +1049,10 @@ type sliceType struct {
 	elem Type
 }
 
-func newSliceType(ctx *Context, elem Type) *sliceType {
+func newSliceType(ctx *context, elem Type) *sliceType {
 	t := &sliceType{elem: elem}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Slice
 	t.size = uint64(3 * ctx.model.PtrBytes)
@@ -1034,16 +1071,16 @@ func (t *sliceType) str(w *bytes.Buffer) {
 // ----------------------------------------------------------------- structType
 
 type structType struct {
-	typeBase
 	fields []StructField
+	typeBase
 }
 
-func newStructType(ctx *Context, fields []StructField) *structType {
+func newStructType(ctx *context, fields []StructField, methods []Method) *structType {
 	t := &structType{fields: fields}
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.kind = Struct
+	t.methods = methods
 	t.typ = t
-	t.align, t.fieldAlign, t.size = measure(t)
 	return t
 }
 
@@ -1132,9 +1169,9 @@ type tupleType struct {
 	elements []Type
 }
 
-func newTupleType(ctx *Context, elements []Type) *tupleType {
+func newTupleType(ctx *context, elements []Type) *tupleType {
 	t := &tupleType{elements: elements}
-	t.ctx = ctx
+	t.ctx = ctx.Context
 	t.kind = Tuple
 	t.typ = t
 	t.align, t.fieldAlign, t.size = measure(t)
@@ -1205,12 +1242,8 @@ func measure(t Type) (algn, fieldAlign int, size uint64) {
 			continue
 		}
 
-		falign := ft.FieldAlign()
+		falign := mathutil.Max(ft.FieldAlign(), 1)
 		sz := ft.Size()
-		if falign == 0 {
-			panic("internal error")
-		}
-
 		ofs = align(ofs, uint64(falign))
 		t.setOffset(i, ofs)
 		algn = mathutil.Max(algn, falign)
