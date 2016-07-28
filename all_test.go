@@ -71,6 +71,7 @@ func init() {
 	flag.IntVar(&yyDebug, "yydebug", 0, "")
 	flag.BoolVar(&todoPanic, "todo", false, "")      //TODOOK
 	flag.BoolVar(&todoTrace, "tracetodo", false, "") //TODOOK
+	flag.BoolVar(&todoTrace, "todotrace", false, "") //TODOOK
 
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
@@ -273,6 +274,20 @@ func BenchmarkLoad(b *testing.B) {
 	}
 }
 
+func BenchmarkHello(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		LoadPackage(
+			runtime.GOOS,
+			runtime.GOARCH,
+			runtime.GOROOT(),
+			"",
+			filepath.SplitList(os.Getenv("GOPATH")),
+			testTags,
+			[]string{"testdata/hello.go"},
+		)
+	}
+}
+
 func Test(t *testing.T) {
 	f, err := os.Create("test.log")
 	if err != nil {
@@ -464,7 +479,7 @@ outer:
 			}
 			var ok bool
 			if e, ok = expect[line]; !ok {
-				a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: extra error] %s", g.Msg)})
+				a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: extra error] %s", qmsg(g.Msg))})
 				fail = true
 				continue outer
 			}
@@ -484,7 +499,7 @@ outer:
 			}
 		}
 		if !matched {
-			a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: error does not match] %s: %s", e.S(), g0.Msg)})
+			a = append(a, &scanner.Error{Pos: g.Pos, Msg: fmt.Sprintf("[FAIL errorcheck: error does not match] %s: %s", e.S(), qmsg(g0.Msg))})
 			fail = true
 		}
 		delete(expect, line)
@@ -506,11 +521,25 @@ func TestTmp(t *testing.T) {
 	if err != nil {
 		panic("internal error")
 	}
-	c.newPackage("", "").loadString("", `
+	p := c.newPackage("", "")
+	if err := p.loadString("", `
 package foo
 
-var fn3 = func«t»(Vector«t») {}
+var removeNewlinesMapper = func(r rune) rune {
+	if r == '\r' || r == '\n' {
+		return -1
+	}
+	return r
+}
 `,
-	)
-	t.Log(errStr(c.errors()))
+	); err != nil {
+		t.Fatal(errStr(err))
+	}
+
+	p.Scope.check(&context{Context: c, pkg: p})
+	if err := c.errors(); err != nil {
+		t.Fatal(errStr(err))
+	}
+
+	//t.Log(PrettyString(p.Files[0]))
 }

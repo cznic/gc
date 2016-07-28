@@ -19,6 +19,7 @@ import (
 //	|       TypeLiteral  // Case 1
 type Argument struct {
 	Value       Value
+	lenPoisoned bool
 	Case        int
 	Expression  *Expression
 	TypeLiteral *TypeLiteral
@@ -97,16 +98,16 @@ func (n *ArgumentList) Pos() token.Pos {
 //	        '[' "..." ']' Typ
 //	|       '[' Expression ']' Typ  // Case 1
 type ArrayType struct {
-	Type       Type
-	guard      gate
-	items      int64
-	itemsSet   bool
-	Case       int
-	Expression *Expression
-	Token      xc.Token
-	Token2     xc.Token
-	Token3     xc.Token
-	Typ        *Typ
+	Type         Type
+	guard        gate
+	items        int64
+	compLitValue CompositeLiteralValue
+	Case         int
+	Expression   *Expression
+	Token        xc.Token
+	Token2       xc.Token
+	Token3       xc.Token
+	Typ          *Typ
 }
 
 func (n *ArrayType) fragment() interface{} { return n }
@@ -233,6 +234,7 @@ func (n *Body) Pos() token.Pos {
 //	|       '(' ArgumentList CommaOpt ')'        // Case 1
 //	|       '(' ArgumentList "..." CommaOpt ')'  // Case 2
 type Call struct {
+	lenPoisoned  bool
 	ArgumentList *ArgumentList
 	Case         int
 	CommaOpt     *CommaOpt
@@ -437,7 +439,7 @@ func (n *CompLitType) Pos() token.Pos {
 //	|       '{' CompLitItemList CommaOpt '}'  // Case 1
 type CompLitValue struct {
 	Type            Type
-	items           int64
+	guard           gate
 	Case            int
 	CommaOpt        *CommaOpt
 	CompLitItemList *CompLitItemList
@@ -681,6 +683,7 @@ func (n *ElseOpt) Pos() token.Pos {
 //	|       Expression "<-" Expression  // Case 20
 type Expression struct {
 	Value           Value
+	lenPoisoned     bool
 	Case            int
 	Expression      *Expression
 	Expression2     *Expression
@@ -713,6 +716,7 @@ func (n *Expression) Pos() token.Pos {
 //	        Expression
 //	|       ExpressionList ',' Expression  // Case 1
 type ExpressionList struct {
+	list           []*Expression
 	Case           int
 	Expression     *Expression
 	ExpressionList *ExpressionList
@@ -786,7 +790,8 @@ func (n *ExpressionListOpt) Pos() token.Pos {
 //	        /* empty */
 //	|       Expression   // Case 1
 type ExpressionOpt struct {
-	Expression *Expression
+	lenPoisoned bool
+	Expression  *Expression
 }
 
 func (n *ExpressionOpt) fragment() interface{} { return n }
@@ -1325,12 +1330,10 @@ func (n *ImportSpecList) Pos() token.Pos {
 //	        IDENTIFIER Signature
 //	|       QualifiedIdent        // Case 1
 type InterfaceMethodDecl struct {
-	fileScope       *Scope
-	resolutionScope *Scope // Where to search for case 1: QualifiedIdent.
-	Case            int
-	QualifiedIdent  *QualifiedIdent
-	Signature       *Signature
-	Token           xc.Token
+	Case           int
+	QualifiedIdent *QualifiedIdent
+	Signature      *Signature
+	Token          xc.Token
 }
 
 func (n *InterfaceMethodDecl) fragment() interface{} { return n }
@@ -1456,15 +1459,18 @@ func (n *LBrace) Pos() token.Pos {
 //
 //	LBraceCompLitItem:
 //	        Expression
-//	|       Expression ':' Expression          // Case 1
-//	|       Expression ':' LBraceCompLitValue  // Case 2
-//	|       LBraceCompLitValue                 // Case 3
+//	|       Expression ':' Expression                  // Case 1
+//	|       Expression ':' LBraceCompLitValue          // Case 2
+//	|       LBraceCompLitValue                         // Case 3
+//	|       LBraceCompLitValue ':' Expression          // Case 4
+//	|       LBraceCompLitValue ':' LBraceCompLitValue  // Case 5
 type LBraceCompLitItem struct {
-	Case               int
-	Expression         *Expression
-	Expression2        *Expression
-	LBraceCompLitValue *LBraceCompLitValue
-	Token              xc.Token
+	Case                int
+	Expression          *Expression
+	Expression2         *Expression
+	LBraceCompLitValue  *LBraceCompLitValue
+	LBraceCompLitValue2 *LBraceCompLitValue
+	Token               xc.Token
 }
 
 func (n *LBraceCompLitItem) fragment() interface{} { return n }
@@ -1479,7 +1485,7 @@ func (n *LBraceCompLitItem) Pos() token.Pos {
 	switch n.Case {
 	case 0, 1, 2:
 		return n.Expression.Pos()
-	case 3:
+	case 3, 4, 5:
 		return n.LBraceCompLitValue.Pos()
 	default:
 		panic("internal error")
@@ -1540,8 +1546,8 @@ func (n *LBraceCompLitItemList) Pos() token.Pos {
 //	        LBrace '}'
 //	|       LBrace LBraceCompLitItemList CommaOpt '}'  // Case 1
 type LBraceCompLitValue struct {
-	items                 int64
 	Type                  Type
+	guard                 gate
 	Case                  int
 	CommaOpt              *CommaOpt
 	LBrace                *LBrace
@@ -1598,6 +1604,7 @@ func (n *MapType) Pos() token.Pos {
 type Operand struct {
 	Value               Value
 	fileScope           *Scope
+	lenPoisoned         bool
 	resolutionScope     *Scope // Where to search for case 4: IDENTIFIER.
 	BasicLiteral        *BasicLiteral
 	Case                int
@@ -1781,6 +1788,7 @@ func (n *Parameters) Pos() token.Pos {
 //	|       TypeLiteral '(' Expression CommaOpt ')'                                      // Case 10
 type PrimaryExpression struct {
 	Value              Value
+	lenPoisoned        bool
 	Call               *Call
 	Case               int
 	CommaOpt           *CommaOpt
@@ -1851,10 +1859,12 @@ func (n *Prologue) Pos() token.Pos {
 //	        IDENTIFIER
 //	|       IDENTIFIER '.' IDENTIFIER  // Case 1
 type QualifiedIdent struct {
-	Case   int
-	Token  xc.Token
-	Token2 xc.Token
-	Token3 xc.Token
+	fileScope       *Scope
+	resolutionScope *Scope
+	Case            int
+	Token           xc.Token
+	Token2          xc.Token
+	Token3          xc.Token
 }
 
 func (n *QualifiedIdent) fragment() interface{} { return n }
@@ -2238,6 +2248,7 @@ func (n *StatementList) Pos() token.Pos {
 //	|       SimpleStatement             // Case 11
 //	|       SwitchStatement             // Case 12
 type StatementNonDecl struct {
+	resolutionScope   *Scope
 	Case              int
 	Expression        *Expression
 	ExpressionListOpt *ExpressionListOpt
@@ -2721,9 +2732,7 @@ func (n *TopLevelDeclList) Pos() token.Pos {
 //	|       StructType                          // Case 9
 type Typ struct {
 	Type                Type
-	fileScope           *Scope
 	guard               gate
-	resolutionScope     *Scope // Where to search for case 7: QualifiedIdent.
 	ArrayType           *ArrayType
 	Case                int
 	ChanType            *ChanType
@@ -2988,6 +2997,7 @@ func (n *TypeSpecList) Pos() token.Pos {
 //	|       PrimaryExpression     // Case 7
 type UnaryExpression struct {
 	Value             Value
+	lenPoisoned       bool
 	Case              int
 	PrimaryExpression *PrimaryExpression
 	Token             xc.Token

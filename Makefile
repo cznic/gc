@@ -23,13 +23,12 @@ clean:
 cover:
 	t=$(shell tempfile) ; go test -coverprofile $$t && go tool cover -html $$t && unlink $$t
 
-cpu:
-	go test -c -o cpu.test
-	./cpu.test -test.cpuprofile cpu.out
-	go tool pprof -lines cpu.test cpu.out
+cpu: clean
+	go test -run @ -bench . -cpuprofile cpu.out
+	go tool pprof -lines *.test cpu.out
 
 edit:
-	gvim -p Makefile *.l parser.yy log test.log *.go
+	gvim -p Makefile scanner.l parser.yy log test.log all_test.go ast2.go builtin.go context.go decl.go etc.go gc.go lexer.go package.go type.go unsafe.go value.go
 
 editor: parser.go scanner.go
 	gofmt -l -s -w *.go
@@ -47,7 +46,7 @@ later:
 	@grep -n $(grep) MAYBE * || true
 
 mem: clean
-	go test -bench Load -memprofile mem.out
+	go test -run @ -bench Load -memprofile mem.out -memprofilerate 1 -timeout 24h
 	go tool pprof -lines -web -alloc_space *.test mem.out
 
 nuke: clean

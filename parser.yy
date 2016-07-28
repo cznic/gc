@@ -210,10 +210,10 @@ import (
 
 %%
 
-//yy:field	DotImports	[]*ImportDeclaration	// import . "foo"
-//yy:field	UnboundImports	[]*ImportDeclaration	// import _ "foo"
-//yy:field	Scope		*Scope			// import "foo" and import foo "bar"
-//yy:field	Path		string			// The source file path.
+/*yy:field	DotImports	[]*ImportDeclaration	// import . "foo" */
+/*yy:field	UnboundImports	[]*ImportDeclaration	// import _ "foo" */
+/*yy:field	Scope		*Scope			// import "foo" and import foo "bar" */
+/*yy:field	Path		string			// The source file path. */
 File:
 	Prologue TopLevelDeclList
 	{
@@ -224,7 +224,8 @@ File:
 		lx.pkg.Files = append(lx.pkg.Files, lhs)
 	}
 
-//yy:field	Value	Value
+/*yy:field	Value		Value */
+/*yy:field	lenPoisoned	bool */
 Argument:
 	Expression
 |       TypeLiteral
@@ -233,10 +234,10 @@ ArgumentList:
 	Argument
 |       ArgumentList ',' Argument
 
-//yy:field	Type		Type
-//yy:field	guard		gate
-//yy:field	items		int64
-//yy:field	itemsSet	bool
+/*yy:field	Type		Type */
+/*yy:field	guard		gate */
+/*yy:field	items		int64 */
+/*yy:field	compLitValue	CompositeLiteralValue */
 ArrayType:
 	'[' "..." ']' Typ
 |       '[' Expression ']' Typ
@@ -255,8 +256,8 @@ Assignment:
 |       ExpressionList "-="  ExpressionList
 |       ExpressionList "^="  ExpressionList
 
-//yy:field	Value	Value
-//yy:field	stringValue	stringValue
+/*yy:field	Value		Value */
+/*yy:field	stringValue	stringValue */
 BasicLiteral:
 	CHAR_LIT
 	{
@@ -333,10 +334,14 @@ BasicLiteral:
 Block:
 	'{'
 	{
-		if !lx.scope.isMergeScope {
+		if !lx.declarationScope.isMergeScope {
 			lx.pushScope()
 		}
-		lx.scope.isMergeScope = false
+		lx.declarationScope.isMergeScope = false
+		if f := lx.lastFuncDeclaration; f != nil {
+			lx.declarationScope.fnType = &f.Type
+			lx.lastFuncDeclaration = nil
+		}
 	}
 	StatementList '}'
 	{
@@ -353,14 +358,14 @@ Body:
 		lx.popScope()
 	}
 
-
+/*yy:field	lenPoisoned	bool */
 Call:
 	'(' ')'
 |       '(' ArgumentList CommaOpt ')'
 |       '(' ArgumentList "..." CommaOpt ')'
 
-//yy:field	guard	gate
-//yy:field	Type	Type
+/*yy:field	guard	gate */
+/*yy:field	Type	Type */
 ChanType:
 	"chan" Typ
 |       "chan" TXCHAN Typ
@@ -382,24 +387,19 @@ CompLitItemList:
 	CompLitItem
 |       CompLitItemList ',' CompLitItem
 
-//yy:field	guard	gate
-//yy:field	Type	Type
+/*yy:field	guard	gate */
+/*yy:field	Type	Type */
 CompLitType:
 	ArrayType
 |       MapType
 |       SliceType
 |       StructType
 
-//yy:field	Type	Type
-//yy:field	items	int64
+/*yy:field	Type	Type */
+/*yy:field	guard	gate */
 CompLitValue:
 	'{' '}'
 |       '{' CompLitItemList CommaOpt '}'
-	{
-		for l := lhs.CompLitItemList; l != nil; l = l.CompLitItemList {
-			lhs.items++
-		}
-	}
 
 ConstDecl:
 	"const" '(' ')'
@@ -438,7 +438,8 @@ ElseOpt:
 	/* empty */
 |       "else" Block
 
-//yy:field	Value	Value
+/*yy:field	Value		Value */
+/*yy:field	lenPoisoned	bool */
 Expression:
 	UnaryExpression
 |       Expression '%' Expression
@@ -462,10 +463,12 @@ Expression:
 |       Expression ">>" Expression
 |       Expression "<-" Expression
 
+/*yy:field	lenPoisoned	bool */
 ExpressionOpt:
 	/* empty */
 |       Expression
 
+/*yy:field	list	[]*Expression*/
 ExpressionList:
 	Expression
 |       ExpressionList ',' Expression
@@ -488,6 +491,7 @@ ForStatement:
 FuncBodyOpt:
 	/* empty */
 	{
+		lx.lastFuncDeclaration = nil
 		lx.popScope()
 	}
 |        Block
@@ -540,14 +544,14 @@ FuncDecl:
 	FuncBodyOpt
 
 /*yy:example "package a ; var b func()" */
-//yy:field	guard	gate
-//yy:field	Type	Type
+/*yy:field	guard	gate */
+/*yy:field	Type	Type */
 FuncType:
 	"func" Signature
 	{
 		lhs.Signature.post(lx)
 	}
-//yy:example "package a ; var b func « b » ( )"
+/*yy:example "package a ; var b func « b » ( )" */
 |	"func" "«" IdentifierList "»" Signature
 	{
 		lx.err(lhs.Token2, "anonymous functions cannot have generic type parameters")
@@ -606,10 +610,10 @@ ImportList:
 	/* empty */
 |       ImportList ImportDecl ';'
 
-//yy:field	Type	Type
-//yy:field	guard	gate
-//yy:field	methods	*Scope
-//yy:field	pkgPath	int
+/*yy:field	Type	Type */
+/*yy:field	guard	gate */
+/*yy:field	methods	*Scope */
+/*yy:field	pkgPath	int */
 InterfaceType:
 	"interface" LBrace '}'
 |       "interface" LBrace
@@ -620,13 +624,11 @@ InterfaceType:
 	}
 	InterfaceMethodDeclList SemicolonOpt '}'
 	{
-		lhs.methods = lx.scope
+		lhs.methods = lx.declarationScope
 		lhs.pkgPath = lx.pkg.importPath
 		lx.popScope()
 	}
 
-//yy:field	fileScope	*Scope
-//yy:field	resolutionScope	*Scope	// Where to search for case 1: QualifiedIdent.
 InterfaceMethodDecl:
 	IDENTIFIER
 	{
@@ -638,13 +640,9 @@ InterfaceMethodDecl:
 	{
 		lhs.Signature.post(lx)
 		lx.popScope()
-		lx.scope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true, false))
+		lx.declarationScope.declare(lx, newFuncDeclaration(lhs.Token, nil, lhs.Signature, true, false))
 	}
 |       QualifiedIdent
-	{
-		lhs.fileScope = lx.fileScope
-		lhs.resolutionScope = lx.resolutionScope
-	}
 
 InterfaceMethodDeclList:
 	InterfaceMethodDecl
@@ -663,37 +661,36 @@ LBraceCompLitItem:
 |       Expression ':' Expression
 |       Expression ':' LBraceCompLitValue
 |       LBraceCompLitValue
+|       LBraceCompLitValue ':' Expression
+|       LBraceCompLitValue ':' LBraceCompLitValue
 
 LBraceCompLitItemList:
 	LBraceCompLitItem
 |       LBraceCompLitItemList ',' LBraceCompLitItem
 
-//yy:field	items	int64
-//yy:field	Type	Type
+/*yy:field	Type	Type */
+/*yy:field	guard	gate */
 LBraceCompLitValue:
 	LBrace '}'
 |       LBrace LBraceCompLitItemList CommaOpt '}'
-	{
-		for l := lhs.LBraceCompLitItemList; l != nil; l = l.LBraceCompLitItemList {
-			lhs.items++
-		}
-	}
 
-//yy:field	guard	gate
-//yy:field	Type	Type
+/*yy:field	guard	gate */
+/*yy:field	Type	Type */
 MapType:
 	"map" '[' Typ ']' Typ
 
-//yy:field	Value		Value
-//yy:field	fileScope	*Scope
-//yy:field	resolutionScope	*Scope	// Where to search for case 4: IDENTIFIER.
+/*yy:field	Value		Value */
+/*yy:field	fileScope	*Scope */
+/*yy:field	lenPoisoned	bool */
+/*yy:field	resolutionScope	*Scope	// Where to search for case 4: IDENTIFIER. */
 Operand:
 	'(' Expression ')'
 |       '(' TypeLiteral ')'
 |       BasicLiteral
 |       FuncType
 	{
-		lx.scope.isMergeScope = false
+		lx.declarationScope.isMergeScope = false
+		lx.declarationScope.fnType = &$1.(*FuncType).Type
 	}
 	LBrace StatementList '}'
 	{
@@ -720,10 +717,10 @@ PackageClause:
 		lhs.post(lx)
 	}
 
-//yy:field	isParamName	bool
-//yy:field	isVariadic	bool
-//yy:field	nm		xc.Token
-//yy:field	typ		*Typ
+/*yy:field	isParamName	bool */
+/*yy:field	isVariadic	bool */
+/*yy:field	nm		xc.Token */
+/*yy:field	typ		*Typ */
 ParameterDecl:
 	"..." Typ
 |       IDENTIFIER "..." Typ
@@ -734,15 +731,21 @@ ParameterDeclList:
 	ParameterDecl
 |       ParameterDeclList ',' ParameterDecl
 
-//yy:field	list	[]*ParameterDecl
+/*yy:field	list	[]*ParameterDecl */
 Parameters:
 	'(' ')'
 |       '(' ParameterDeclList CommaOpt ')'
 
-//yy:field	Value	Value
+/*yy:field	Value		Value */
+/*yy:field	lenPoisoned	bool */
 PrimaryExpression:
 	Operand
 |       CompLitType LBraceCompLitValue
+	{
+		if a := lhs.CompLitType.ArrayType; a != nil {
+			a.compLitValue = lhs.LBraceCompLitValue
+		}
+	}
 |       PrimaryExpression '.' '(' "type" ')'
 |       PrimaryExpression '.' '(' Typ ')'
 |       PrimaryExpression '.' IDENTIFIER
@@ -751,17 +754,45 @@ PrimaryExpression:
 |       PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ']'
 |       PrimaryExpression Call
 |       PrimaryExpression CompLitValue
+	{
+		if o := lhs.PrimaryExpression.Operand; o != nil {
+			switch o.Case {
+			case
+				0, // '(' Expression ')'
+				1: // '(' TypeLiteral ')'
+				lx.err(lhs, "syntax error: cannot parenthesize type in composite literal")
+			}
+		}
+	}
 |       TypeLiteral '(' Expression CommaOpt ')'
 
 Prologue:
 	PackageClause ImportList
 	{
-		lhs.post(lx)
+		for _, v := range lx.imports {
+			if v.ip == idC {
+				return 0
+			}
+		}
+
+		if lhs.post(lx) {
+			return 0
+		}
 	}
 
+/*yy:field	fileScope	*Scope */
+/*yy:field	resolutionScope	*Scope */
 QualifiedIdent:
 	IDENTIFIER
+	{
+		lhs.fileScope = lx.fileScope
+		lhs.resolutionScope = lx.resolutionScope
+	}
 |       IDENTIFIER '.' IDENTIFIER
+	{
+		lhs.fileScope = lx.fileScope
+		lhs.resolutionScope = lx.resolutionScope
+	}
 
 Range:
 	ExpressionList '=' "range" Expression
@@ -771,10 +802,10 @@ Range:
 	}
 |       "range" Expression
 
-//yy:field	Type		Type
-//yy:field	isPtr		bool
-//yy:field	nm		xc.Token
-//yy:field	resolutionScope	*Scope
+/*yy:field	Type		Type */
+/*yy:field	isPtr		bool */
+/*yy:field	nm		xc.Token */
+/*yy:field	resolutionScope	*Scope */
 ReceiverOpt:
 	/* empty */
 |       Parameters %prec PARAMS
@@ -783,7 +814,7 @@ ReceiverOpt:
 		lhs.post(lx)
 	}
 
-//yy:field	Type	Type
+/*yy:field	Type	Type */
 ResultOpt:
 	/* empty */ %prec NO_RESULT
 |       Parameters
@@ -805,7 +836,7 @@ SemicolonOpt:
 |       ';'
 
 /*yy:example "package a ; var b func ( )" */
-//yy:field	Type	Type
+/*yy:field	Type	Type */
 Signature:
 	Parameters ResultOpt
 
@@ -823,8 +854,8 @@ SimpleStatementOpt:
 	/* empty */
 |       SimpleStatement
 
-//yy:field	guard	gate
-//yy:field	Type	Type
+/*yy:field	guard	gate */
+/*yy:field	Type	Type */
 SliceType:
 	'[' ']' Typ
 
@@ -842,6 +873,7 @@ StatementList:
 	Statement
 |       StatementList ';' Statement
 
+/*yy:field	resolutionScope	*Scope */
 StatementNonDecl:
 	"break" IdentifierOpt
 |       "continue" IdentifierOpt
@@ -852,10 +884,13 @@ StatementNonDecl:
 |       "goto" IDENTIFIER
 |       IDENTIFIER ':' Statement
 	{
-		lx.scope.declare(lx, newLabelDeclaration(lhs.Token))
+		lx.declarationScope.declare(lx, newLabelDeclaration(lhs.Token))
 	}
 |       IfStatement
 |       "return" ExpressionListOpt
+	{
+		lhs.resolutionScope = lx.resolutionScope
+	}
 |       SelectStatement
 |       SimpleStatement
 |       SwitchStatement
@@ -890,20 +925,20 @@ StructFieldDeclList:
 	StructFieldDecl
 |       StructFieldDeclList ';' StructFieldDecl
 
-//yy:field	Type		Type
-//yy:field	fields		*Scope
-//yy:field	guard		gate
-//yy:field	pkgPath		int
+/*yy:field	Type		Type */
+/*yy:field	fields		*Scope */
+/*yy:field	guard		gate */
+/*yy:field	pkgPath		int */
 StructType:
 	"struct" LBrace '}'
 |       "struct" LBrace
 	{
 		lx.pushScope()
-		lx.resolutionScope = lx.scope.Parent
+		lx.resolutionScope = lx.declarationScope.Parent
 	}
 	StructFieldDeclList SemicolonOpt '}'
 	{
-		lhs.fields = lx.scope
+		lhs.fields = lx.declarationScope
 		for _, v := range lhs.fields.Bindings {
 			v.(*FieldDeclaration).parent = lhs
 		}
@@ -965,7 +1000,7 @@ SwitchStatement:
 		lx.popScope() // Implicit "switch" block.
 	}
 
-//yy:field	stringValue	stringValue
+/*yy:field	stringValue	stringValue */
 TagOpt:
 	/* empty */
 |       STRING_LIT
@@ -985,10 +1020,8 @@ TopLevelDeclList:
 	/* empty */
 |       TopLevelDeclList TopLevelDecl ';'
 
-//yy:field	Type		Type
-//yy:field	fileScope	*Scope
-//yy:field	guard		gate
-//yy:field	resolutionScope	*Scope	// Where to search for case 7: QualifiedIdent.
+/*yy:field	Type		Type */
+/*yy:field	guard		gate */
 Typ:
 	'(' Typ ')'
 |       '*' Typ
@@ -1002,10 +1035,6 @@ Typ:
 |       InterfaceType
 |       MapType
 |       QualifiedIdent GenericArgumentsOpt
-	{
-		lhs.fileScope = lx.fileScope
-		lhs.resolutionScope = lx.resolutionScope
-	}
 |       SliceType
 |       StructType
 
@@ -1018,8 +1047,8 @@ TypeList:
 	Typ
 |	TypeList ',' Typ
 
-//yy:field	guard	gate
-//yy:field	Type	Type
+/*yy:field	guard	gate */
+/*yy:field	Type	Type */
 TypeLiteral:
 	'*' TypeLiteral
 |       ArrayType
@@ -1038,12 +1067,12 @@ TypeSpec:
 	IDENTIFIER GenericParametersOpt Typ
 	{
 	 	nm := lhs.Token
-		if lx.scope.Kind == PackageScope {
+		if lx.declarationScope.Kind == PackageScope {
 			p := lx.pkg
 			if d := p.forwardTypes[nm.Val]; d != nil {
 				delete(p.forwardTypes, nm.Val)
 				d.(*TypeDeclaration).typ0 = lhs.Typ
-				lx.scope.declare(lx, d)
+				lx.declarationScope.declare(lx, d)
 				break
 			}
 		}
@@ -1052,14 +1081,15 @@ TypeSpec:
 		if t := lhs.Typ; t.Case == 5 { // InterfaceType
 			d.methods = t.InterfaceType.methods
 		}
-		lx.scope.declare(lx, d)
+		lx.declarationScope.declare(lx, d)
 	}
 
 TypeSpecList:
 	TypeSpec
 |       TypeSpecList ';' TypeSpec
 
-//yy:field	Value	Value
+/*yy:field	Value		Value */
+/*yy:field	lenPoisoned	bool */
 UnaryExpression:
 	'!' UnaryExpression
 |       '&' UnaryExpression

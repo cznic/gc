@@ -84,6 +84,7 @@ const (
 	Struct
 	UnsafePointer
 	Tuple
+	UntypedBool
 	maxKind
 )
 
@@ -107,9 +108,11 @@ type Type interface {
 	base() *typeBase
 	context() *Context
 	field(int) Type
+	implementsFailed(*Context, Node, string, Type) bool
 	isNamed() bool
 	numField() int
 	setOffset(int, uint64)
+	signatureString(int) string
 	str(*bytes.Buffer)
 
 	// Align returns the alignment in bytes of a value of this type when
@@ -215,6 +218,9 @@ type Type interface {
 	// including Uintptr.
 	UnsignedIntegerType() bool
 
+	// Numeric reports whether the this type is a number.
+	Numeric() bool
+
 	// --------------------------------------------------------------------
 	// Methods applicable only to some types, depending on Kind.
 	// The methods allowed for each kind are:
@@ -222,7 +228,7 @@ type Type interface {
 	//	Int*, Uint*, Float*, Complex*: Bits
 	//	Array: Elem, Len
 	//	Chan: ChanDir, Elem
-	//	Func: In, NumIn, Out, NumOut, IsVariadic.
+	//	Func: In, NumIn, Out, NumOut, IsVariadic, Result.
 	//	Map: Key, Elem
 	//	Ptr: Elem
 	//	Slice: Elem
@@ -319,6 +325,10 @@ type Type interface {
 	// panics if the type's Kind is not Func.  It panics if i is not in the
 	// range [0, NumOut()).
 	Out(i int) Type
+
+	// Result returns the function result type. It panics if the type's
+	// Kind is not Func.
+	Result() Type
 }
 
 // Method represents a single method.
@@ -382,6 +392,7 @@ func (t *typeBase) FieldByIndex([]int) StructField    { panic("FieldByIndex of n
 func (t *typeBase) FieldByName(name int) *StructField { panic("FieldByName of non-struct type") }
 func (t *typeBase) Identical(Type) bool               { panic("internal error") }
 func (t *typeBase) In(i int) Type                     { panic("In of a non-func type") }
+func (t *typeBase) isNamed() bool                     { return t.pkgPath != 0 }
 func (t *typeBase) IsVariadic() bool                  { panic("IsVariadic of non-func type") }
 func (t *typeBase) Key() Type                         { panic("Key of non-map type") }
 func (t *typeBase) Kind() Kind                        { return t.kind }
@@ -391,10 +402,12 @@ func (t *typeBase) numField() int                     { panic("internal error") 
 func (t *typeBase) NumField() int                     { panic("NumField of non-struct type") }
 func (t *typeBase) NumIn() int                        { panic("NumIn of non-func type") }
 func (t *typeBase) NumMethod() int                    { return len(t.methods) }
-func (t *typeBase) NumOut() int                       { panic("NumIn¨Out of non-func type") }
+func (t *typeBase) NumOut() int                       { panic("NumOut of non-func type") }
 func (t *typeBase) Out(i int) Type                    { panic("Out of a non-func type") }
 func (t *typeBase) PkgPath() int                      { return t.pkgPath }
+func (t *typeBase) Result() Type                      { panic("Result of a non-func type") }
 func (t *typeBase) setOffset(int, uint64)             { panic("internal error") }
+func (t *typeBase) signatureString(int) string        { panic("internal error") }
 func (t *typeBase) Size() uint64                      { return t.size }
 func (t *typeBase) str(*bytes.Buffer)                 { panic("internal error") }
 
@@ -406,6 +419,11 @@ func (t *typeBase) AssignableTo(u Type) bool {
 
 	// · x's type is identical to U.
 	if v.Identical(u) {
+		return true
+	}
+
+	// · Untyped bool is assignable to any bool type.
+	if t.Kind() == UntypedBool && u.Kind() == Bool {
 		return true
 	}
 
@@ -466,7 +484,7 @@ func (t *typeBase) Comparable() bool {
 
 	// · Boolean values are comparable. Two boolean values are equal if
 	// they are either both true or both false.
-	if k == Bool {
+	if k == Bool || k == UntypedBool {
 		return true
 	}
 
@@ -595,6 +613,10 @@ func (t *typeBase) ConvertibleTo(u Type) bool {
 		return true
 	}
 
+	if u.Kind() == UnsafePointer && (t.Kind() == Ptr || t.Kind() == Uintptr) {
+		return true
+	}
+
 	return false
 }
 
@@ -613,7 +635,79 @@ func (t *typeBase) FieldByNameFunc(match func(int) bool) *StructField {
 
 func (t *typeBase) FloatingPointType() bool {
 	k := t.Kind()
-	return k == Float32 || k == Float64 || k == Complex64 || k == Complex128
+	return k == Float32 || k == Float64
+}
+
+func (t *typeBase) implementsFailed(ctx *Context, n Node, msg string, u Type) (stop bool) {
+	if u.Kind() != Interface {
+		panic("internal error")
+	}
+
+	s := fmt.Sprintf(msg, t, u)
+
+	var checkNonPtrRx bool
+	switch {
+	case t.isNamed() && t.Kind() != Interface:
+		checkNonPtrRx = true
+	case t.Kind() == Ptr && t.Elem().isNamed():
+		t = t.Elem().base()
+	}
+
+	nu := u.NumMethod()
+	if nu == 0 {
+		panic("internal error")
+	}
+
+	var off int
+	if t.Kind() != Interface {
+		off = 1
+	}
+	for i := 0; i < nu; i++ {
+		mu := u.Method(i)
+		mt := t.MethodByName(mu.Name)
+		if mt == nil || mt.PkgPath != mu.PkgPath {
+			return ctx.err(n, "%s\n\t%s does not implement %s (missing %s method)", s, t, u, dict.S(mu.Name))
+		}
+
+		if checkNonPtrRx && mt.Type.In(0).Kind() == Ptr {
+			todo(n, true)
+			return false
+		}
+
+		tt := mt.Type
+		it := tt.NumIn()
+		ot := tt.NumOut()
+		tu := mu.Type
+		iu := tu.NumIn()
+		ou := tu.NumOut()
+		if it-off != iu || ot != ou || tt.IsVariadic() != tu.IsVariadic() {
+			nm := dict.S(mu.Name)
+			return ctx.err(
+				n,
+				`%s
+	%s does not implement %s (wrong type for %s method)
+		have %s%s
+		want %s%s`,
+				s, t, u, nm,
+				nm, tt.signatureString(1),
+				nm, tu.signatureString(0),
+			)
+		}
+
+		for j := 0; j < iu; j++ {
+			if !tt.In(j + off).Identical(tu.In(j)) {
+				todo(n, true)
+				return false
+			}
+		}
+		for j := 0; j < ou; j++ {
+			if !tt.Out(j).Identical(tu.Out(j)) {
+				todo(n, true)
+				return false
+			}
+		}
+	}
+	panic("internal error")
 }
 
 func (t *typeBase) Implements(u Type) bool {
@@ -688,11 +782,6 @@ func (t *typeBase) IntegerType() bool {
 	return false
 }
 
-func (t *typeBase) isNamed() bool {
-	_, ok := t.typ.(*TypeDeclaration)
-	return ok
-}
-
 func (t *typeBase) Method(i int) *Method {
 	if i < 0 || i >= len(t.methods) {
 		panic("Method: index out of range")
@@ -708,6 +797,11 @@ func (t *typeBase) MethodByName(nm int) *Method {
 		}
 	}
 	return nil
+}
+
+func (t *typeBase) Numeric() bool {
+	u := t.typ
+	return u.IntegerType() || u.FloatingPointType() || u.ComplexType()
 }
 
 func (t *typeBase) Ordered() bool {
@@ -756,12 +850,11 @@ func (t *typeBase) String() string {
 type arrayType struct {
 	typeBase
 	elem Type
-	ddd  bool
 	len  int64
 }
 
-func newArrayType(ctx *context, elem Type, len int64, ddd bool) *arrayType {
-	t := &arrayType{elem: elem, len: len, ddd: ddd}
+func newArrayType(ctx *context, elem Type, len int64) *arrayType {
+	t := &arrayType{elem: elem, len: len}
 	t.align = elem.Align()
 	t.ctx = ctx.Context
 	t.fieldAlign = elem.FieldAlign()
@@ -781,7 +874,7 @@ func (t *arrayType) Identical(u Type) bool {
 func (t *arrayType) str(w *bytes.Buffer) {
 	w.WriteByte('[')
 	switch {
-	case t.ddd:
+	case t.len < 0:
 		w.WriteString("...")
 	default:
 		fmt.Fprintf(w, "%v", t.Len())
@@ -833,16 +926,16 @@ func (t *chanType) str(w *bytes.Buffer) {
 // ------------------------------------------------------------------- funcType
 
 type funcType struct {
-	typeBase
 	in         []Type
 	isExported bool
 	isVariadic bool
 	name       int // For methods only.
-	out        []Type
+	result     Type
+	typeBase
 }
 
-func newFuncType(ctx *context, name int, in, out []Type, isExported, isVariadic bool) *funcType {
-	t := &funcType{name: name, in: in, out: out, isExported: isExported, isVariadic: isVariadic}
+func newFuncType(ctx *context, name int, in []Type, result Type, isExported, isVariadic bool) *funcType {
+	t := &funcType{name: name, in: in, result: result, isExported: isExported, isVariadic: isVariadic}
 	t.align = ctx.model.PtrBytes
 	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
@@ -854,7 +947,7 @@ func newFuncType(ctx *context, name int, in, out []Type, isExported, isVariadic 
 
 func (t *funcType) IsVariadic() bool { return t.isVariadic }
 func (t *funcType) NumIn() int       { return len(t.in) }
-func (t *funcType) NumOut() int      { return len(t.out) }
+func (t *funcType) Result() Type     { return t.result }
 
 func (t *funcType) Identical(u Type) bool {
 	if u.Kind() != Func {
@@ -892,44 +985,55 @@ func (t *funcType) In(i int) Type {
 	return t.in[i]
 }
 
+func (t *funcType) NumOut() int {
+	switch {
+	case t.result == nil:
+		return 0
+	case t.result.Kind() == Tuple:
+		return len(t.Result().Elements())
+	default:
+		return 1
+	}
+}
+
 func (t *funcType) Out(i int) Type {
-	if i < 0 || i >= len(t.out) {
+	if i < 0 || i >= t.NumOut() {
 		panic("Out: index out of range")
 	}
 
-	return t.out[i]
+	switch {
+	case t.result.Kind() == Tuple:
+		return t.Result().Elements()[i]
+	default:
+		return t.result
+	}
 }
 
 func (t *funcType) str(w *bytes.Buffer) {
 	w.WriteString("func")
-	t.signatureStr(w)
+	t.signatureStr(0, w)
 }
 
-func (t *funcType) signatureStr(w *bytes.Buffer) {
+func (t *funcType) signatureStr(skip int, w *bytes.Buffer) {
 	w.WriteByte('(')
-	for i, v := range t.in {
+	in := t.in[skip:]
+	for i, v := range in {
 		safeTypeStr(v, w)
-		if i != len(t.in)-1 {
+		if i != len(in)-1 {
 			w.WriteString(", ")
 		}
 	}
 	w.WriteByte(')')
-	switch len(t.out) {
-	case 0:
-		// nop
-	case 1:
+	if t.NumOut() != 0 {
 		w.WriteByte(' ')
-		safeTypeStr(t.out[0], w)
-	default:
-		w.WriteString(" (")
-		for i, v := range t.out {
-			safeTypeStr(v, w)
-			if i != len(t.out)-1 {
-				w.WriteString(", ")
-			}
-		}
-		w.WriteByte(')')
+		safeTypeStr(t.result, w)
 	}
+}
+
+func (t *funcType) signatureString(skip int) string {
+	var buf bytes.Buffer
+	t.signatureStr(skip, &buf)
+	return buf.String()
 }
 
 // -------------------------------------------------------------- interfaceType
@@ -975,7 +1079,7 @@ func (t *interfaceType) str(w *bytes.Buffer) {
 	w.WriteString("interface{")
 	for i, v := range t.methods {
 		w.Write(dict.S(v.Name))
-		v.Type.(*funcType).signatureStr(w)
+		v.Type.(*funcType).signatureStr(0, w)
 		if i != len(t.methods)-1 {
 			w.WriteString("; ")
 		}

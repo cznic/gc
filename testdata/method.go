@@ -16,7 +16,7 @@ var (
 	_ func()  = nil
 	_ func(t) = nil
 
-	_ func()  = t.m // ERROR "TODO"
+	_ func()  = t.m // ERROR "cannot use type func\(foo.t\) as type func\(\) in assignment"
 	_ func(t) = t.m // ok
 
 	_ *func() = &f // ERROR "cannot take address"
@@ -27,5 +27,5 @@ var (
 	_ func(t) = (&t{}).m // ERROR "TODO"
 	_ func()  = (&t{}).m // ok
 
-	_ string = 42 // ERROR "TODO"
+	_ string = 42 // ERROR "cannot use 42 \(type int\) as type string in assignment"
 )

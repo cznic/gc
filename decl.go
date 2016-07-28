@@ -86,6 +86,9 @@ func (b *Bindings) declare(lx *lexer, d Declaration) {
 	ex := m[nm]
 	if ex == nil {
 		m[nm] = d
+		if x, ok := d.(*FuncDeclaration); ok {
+			lx.lastFuncDeclaration = x
+		}
 		return
 	}
 
@@ -113,6 +116,7 @@ type Scope struct {
 	Labels       Bindings
 	Parent       *Scope
 	Unbound      []Declaration // Declarations named _.
+	fnType       *Type
 	isFnScope    bool
 	isMergeScope bool
 }
@@ -267,18 +271,18 @@ func (s *Scope) mustLookupType(ctx *context, qi *QualifiedIdent, fileScope *Scop
 }
 
 func (s *Scope) check(ctx *context) (stop bool) {
+	a := make(declarations, 0, len(s.Bindings)+len(s.Unbound))
+	for _, d := range s.Bindings {
+		a = append(a, d)
+	}
+	a = append(a, s.Unbound...)
+	sort.Sort(a)
+	for _, d := range a {
+		if d.check(ctx) {
+			return true
+		}
+	}
 	if s.Kind == PackageScope {
-		a := make(declarations, 0, len(s.Bindings)+len(s.Unbound))
-		for _, d := range s.Bindings {
-			a = append(a, d)
-		}
-		a = append(a, s.Unbound...)
-		sort.Sort(a)
-		for _, d := range a {
-			if d.check(ctx) {
-				return true
-			}
-		}
 		for _, d := range a {
 			x, ok := d.(*FuncDeclaration)
 			if !ok {
@@ -443,13 +447,8 @@ func (n *FieldDeclaration) check(ctx *context) (stop bool) {
 
 	switch {
 	case n.isAnonymous:
-		if t := n.resolutionScope.mustLookupType(ctx, n.qi, n.fileScope); t != nil {
-			if t.check(ctx) {
-				return true
-			}
-
-			n.Type = t
-		}
+		n.Type, stop = n.qi.checkTypeName(ctx)
+		return stop
 	default:
 		if n.typ0.check(ctx) {
 			return true
@@ -511,7 +510,7 @@ func (n *FuncDeclaration) check(ctx *context) (stop bool) {
 		return true
 	}
 
-	var in, out []Type
+	var in []Type
 	if n.rx != nil {
 		in = append(in, n.rx.Type)
 	}
@@ -537,15 +536,7 @@ func (n *FuncDeclaration) check(ctx *context) (stop bool) {
 			panic("internal error")
 		}
 	}
-	switch t := n.sig.Type; {
-	case t == nil:
-		// nop
-	case t.Kind() == Tuple:
-		out = t.Elements()
-	default:
-		out = []Type{t}
-	}
-	n.Type = newFuncType(ctx, n.Name(), in, out, n.isExported, isVariadic)
+	n.Type = newFuncType(ctx, n.Name(), in, n.sig.Type, n.isExported, isVariadic)
 	return false
 }
 
@@ -563,17 +554,19 @@ func (n *FuncDeclaration) ScopeStart() token.Pos { return n.Pos() }
 // Otherwise the name in the package clause (package foo) is used.
 type ImportDeclaration struct {
 	Package *Package
+	bl      *BasicLiteral
+	ip      int
 	name    int
 	once    *xc.Once
 	pos     token.Pos
 }
 
-func newImportDeclaration(p *Package, nm int, pos token.Pos, once *xc.Once) *ImportDeclaration {
+func newImportDeclaration(nm int, pos token.Pos, bl *BasicLiteral, ip int) *ImportDeclaration {
 	return &ImportDeclaration{
-		Package: p,
-		name:    nm,
-		once:    once,
-		pos:     pos,
+		bl:   bl,
+		ip:   ip,
+		name: nm,
+		pos:  pos,
 	}
 }
 
@@ -697,17 +690,18 @@ func newTypeDeclaration(lx *lexer, nm xc.Token, typ0 *Typ) *TypeDeclaration {
 }
 
 func (n *TypeDeclaration) check(ctx *context) (stop bool) {
-	if t0 := n.typ0; t0 != nil && t0.Case == 9 { // StructType
-		n0 := ctx.node
-		ctx.node = t0.StructType.Token2
-		defer func() { ctx.node = n0 }()
-	}
 	done, stop := n.guard.check(ctx, n)
 	if done || stop {
 		return stop
 	}
 
 	defer n.guard.done(ctx)
+
+	if t0 := n.typ0; t0 != nil && t0.Case == 9 { // StructType
+		n0 := ctx.node
+		ctx.node = t0.StructType.Token2
+		defer func() { ctx.node = n0 }()
+	}
 
 	t0 := n.typ0
 	if t0 == nil {
@@ -960,6 +954,20 @@ func (n *TypeDeclaration) NumIn() int {
 	return n.typ.NumIn()
 }
 
+// Numeric implements Type.
+func (n *TypeDeclaration) Numeric() bool {
+	if n.typ == nil {
+		switch n.Kind() {
+		case Int8, Int16, Int32, Int64, Int, Uint8, Uint16, Uint32, Uint64, Uint, Float32, Float64, Complex64, Complex128, Uintptr:
+			return true
+		}
+
+		return false
+	}
+
+	return n.typ.Numeric()
+}
+
 // NumOut implements Type.
 func (n *TypeDeclaration) NumOut() int {
 	if n.typ == nil {
@@ -1041,6 +1049,8 @@ func (n *VarDeclaration) check(ctx *context) (stop bool) {
 			if !c.AssignableTo(n.Type) {
 				ctx.constAssignmentFail(n.expr, n.Type, c)
 			}
+		case NilValue:
+			ctx.mustAssignNil(n.expr, n.Type)
 		case RuntimeValue:
 			if !v.Type().AssignableTo(n.Type) {
 				ctx.valueAssignmentFail(n.expr, n.Type, v)
@@ -1059,7 +1069,11 @@ func (n *VarDeclaration) check(ctx *context) (stop bool) {
 		case ConstValue:
 			switch c := v.Const(); {
 			case c.Untyped():
-				if t := c.Type(); ctx.mustConvertConst(n, t, c) != nil {
+				t := c.Type()
+				if t.Kind() == UntypedBool {
+					t = ctx.boolType
+				}
+				if ctx.mustConvertConst(n, t, c) != nil {
 					n.Type = t
 				}
 			default:
@@ -1169,7 +1183,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 		}
 
 		for _, v := range names {
-			lx.scope.declare(lx, newVarDeclaration(-1, v, typ0, nil, scopeStart))
+			lx.declarationScope.declare(lx, newVarDeclaration(-1, v, typ0, nil, scopeStart))
 		}
 	case 1:
 		// One initializer.
@@ -1182,7 +1196,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 			}
 
 			switch {
-			case lx.scope.Bindings[v.Val] != nil:
+			case lx.declarationScope.Bindings[v.Val] != nil:
 				if op == ":=" {
 					continue
 				}
@@ -1191,7 +1205,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 					hasNew = true
 				}
 			}
-			lx.scope.declare(lx, newVarDeclaration(i, v, typ0, exprs[0], scopeStart))
+			lx.declarationScope.declare(lx, newVarDeclaration(i, v, typ0, exprs[0], scopeStart))
 		}
 	default:
 		// Initializer list.
@@ -1214,7 +1228,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 			}
 
 			switch {
-			case lx.scope.Bindings[v.Val] != nil:
+			case lx.declarationScope.Bindings[v.Val] != nil:
 				if op == ":=" {
 					continue
 				}
@@ -1223,7 +1237,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 					hasNew = true
 				}
 			}
-			lx.scope.declare(lx, newVarDeclaration(-1, v, typ0, e, scopeStart))
+			lx.declarationScope.declare(lx, newVarDeclaration(-1, v, typ0, e, scopeStart))
 		}
 		if len(exprs) > len(names) {
 			lx.err(exprs[len(names)], "extra initializer(s) on right side of %s", op)
@@ -1287,7 +1301,7 @@ func (g *gate) check(ctx *context, d Declaration) (done, stop bool) {
 		case *TypeDeclaration:
 			return true, ctx.err(node, "invalid recursive type %s", dict.S(d.Name()))
 		case *VarDeclaration:
-			todo(d, true) //TODO
+			todo(d)
 			return true, false
 		default:
 			panic("internal error")
@@ -1320,6 +1334,7 @@ type context struct {
 	node  Node
 	iota  Value
 	errf  func() bool
+	pkg   *Package
 }
 
 func (c *context) pop() { c.stack = c.stack[:len(c.stack)-1] }

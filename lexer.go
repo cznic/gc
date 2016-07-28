@@ -66,6 +66,7 @@ type lexer struct {
 	build                bool // Whether build tags, if any, satisfied.
 	closed               bool // Error limit reached.
 	constExpr            *ExpressionList
+	declarationScope     *Scope
 	dotImports           []*ImportDeclaration
 	fileScope            *Scope
 	firstConstSpec       bool
@@ -73,6 +74,7 @@ type lexer struct {
 	holdState            int      // Lexer state machine ({TX,RX}CHAN).
 	imports              []*ImportDeclaration
 	iota                 int64
+	lastFuncDeclaration  *FuncDeclaration
 	lbr                  bool   // Lexer state machine (BODY).
 	lbrStack             []bool // Lexer state machine (BODY).
 	lbrace               int    // Lexer state machine (BODY).
@@ -84,7 +86,6 @@ type lexer struct {
 	resolutionScope      *Scope
 	resolutionScopeStack []*Scope
 	scanCharPrev         rune // Lexer state machine (semicolon insertion).
-	scope                *Scope
 	seenPackage          bool // Lexer state machine (check PACKAGE is first).
 	switchDecl           []xc.Token
 	unboundImports       []*ImportDeclaration
@@ -98,13 +99,13 @@ func newLexer(nm string, sz int, r io.RuneReader, pkg *Package) (*lexer, error) 
 	}
 
 	lx := &lexer{
-		Context:         ctx,
-		build:           true,
-		fileScope:       newScope(FileScope, pkg.Scope),
-		name:            nm,
-		pkg:             pkg,
-		resolutionScope: pkg.Scope,
-		scope:           pkg.Scope,
+		Context:          ctx,
+		build:            true,
+		fileScope:        newScope(FileScope, pkg.Scope),
+		name:             nm,
+		pkg:              pkg,
+		resolutionScope:  pkg.Scope,
+		declarationScope: pkg.Scope,
 	}
 	lx0, err := lex.New(
 		xc.FileSet.AddFile(nm, -1, sz),
@@ -138,24 +139,24 @@ func (lx *lexer) errPos(pos token.Pos, format string, arg ...interface{}) {
 
 func (lx *lexer) pushScope() *Scope {
 	lx.resolutionScopeStack = append(lx.resolutionScopeStack, lx.resolutionScope)
-	old := lx.scope
-	lx.scope = newScope(BlockScope, old)
-	lx.resolutionScope = lx.scope
-	return lx.scope
+	old := lx.declarationScope
+	lx.declarationScope = newScope(BlockScope, old)
+	lx.resolutionScope = lx.declarationScope
+	return lx.declarationScope
 }
 
 func (lx *lexer) popScope() *Scope {
-	old := lx.scope
+	old := lx.declarationScope
 	if old.Kind == PackageScope {
 		lx.err(lx.lookahead, "cannot pop scope")
 		return old
 	}
 
-	lx.scope = old.Parent
+	lx.declarationScope = old.Parent
 	n := len(lx.resolutionScopeStack)
 	lx.resolutionScope = lx.resolutionScopeStack[n-1]
 	lx.resolutionScopeStack = lx.resolutionScopeStack[:n-1]
-	return lx.scope
+	return lx.declarationScope
 }
 
 func (lx *lexer) checkComment() {
@@ -477,11 +478,11 @@ again:
 		lx.firstConstSpec = true
 		lx.iota = 0
 	case FUNC:
-		rs := lx.resolutionScope
+		//TODO- rs := lx.resolutionScope
 		s := lx.pushScope()
 		s.isFnScope = true
 		s.isMergeScope = true
-		lx.resolutionScope = rs
+		//TODO- lx.resolutionScope = rs
 	case IF, FOR, SWITCH: // Implicit blocks.
 		lx.pushScope()
 	case CASE, DEFAULT: // Implicit blocks.
@@ -491,7 +492,7 @@ again:
 			t = lx.switchDecl[n-1]
 		}
 		if t.IsValid() {
-			lx.scope.declare(lx, newVarDeclaration(-1, t, nil, nil, lx.lookahead.Pos())) //TODO
+			lx.declarationScope.declare(lx, newVarDeclaration(-1, t, nil, nil, lx.lookahead.Pos())) //TODO
 		}
 	}
 	lx.lexPrev = r

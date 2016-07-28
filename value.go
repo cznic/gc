@@ -61,11 +61,11 @@ type ConstKind int
 // Values of type ValueKind.
 const (
 	_            ValueKind = iota
-	ConstValue             // Value known at compile time.
+	ConstValue             // Value known at compile time. Constant values have a type.
 	NilValue               // Typeless zero value.
-	PackageValue           // Value is an imported package qualifier.
-	RuntimeValue           // Value known at run time.
-	TypeValue              // Value represents a type.
+	PackageValue           // Value represents an imported package qualifier.
+	RuntimeValue           // Value known only at run time. Runtime values have a type.
+	TypeValue              // Value represents a type. Type values are a type.
 )
 
 // ValueKind is a the specific kind of a Value. The zero ValueKind is not a
@@ -79,21 +79,31 @@ type ValueKind int
 // the kind of value before calling kind-specific methods.  Calling a method
 // inappropriate to the kind of value causes a run-time panic.
 type Value interface {
+	add(node Node, op Value) Value
+	and(node Node, op Value) Value
+	andNot(node Node, op Value) Value
+	boolAnd(node Node, op Value) Value
+	boolOr(node Node, op Value) Value
+	cpl(ctx *Context, node Node) Value
+	div(node Node, op Value) Value
+	eq(node Node, op Value) Value
+	ge(node Node, op Value) Value
+	gt(node Node, op Value) Value
+	lsh(node Node, op Value) Value
+	lt(node Node, op Value) Value
+	mod(node Node, op Value) Value
+	mul(node Node, op Value) Value
+	neg(ctx *Context, node Node) Value
+	neq(node Node, op Value) Value
 	nonNegativeInteger() bool
-
-	// Add implements the binary addition operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Add(node Node, op Value) Value
+	or(node Node, op Value) Value
+	rsh(node Node, op Value) Value
+	sub(node Node, op Value) Value
+	xor(node Node, op Value) Value
 
 	// Addressable reports whether a value is addressable. It panics if
 	// value's Kind is not RuntimeValue.
 	Addressable() bool
-
-	// And implements the binary bitwise and operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	And(node Node, op Value) Value
 
 	// AssignableTo reports whether this value is assignable to type t.
 	// It panics if value's Kind is not NilValue, RuntimeValue, TypeValue
@@ -113,58 +123,11 @@ type Value interface {
 	// See https://golang.org/ref/spec#Conversions
 	Convert(t Type) Value
 
-	// Cpl implements the unary bitwise complement operation and returns
-	// the new Value, or nil if the operation is invalid. Invalid
-	// operations are reported as errors at node position.
-	Cpl(ctx *Context, node Node) Value
-
-	// Div implements the binary divide operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Div(node Node, op Value) Value
-
 	// Kind returns the specific kind of this value.
 	Kind() ValueKind
 
-	// Lsh implements the binary left shift operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Lsh(node Node, op Value) Value
-
-	// Mod implements the binary modulo operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Mod(node Node, op Value) Value
-
-	// Mul implements the binary multiply operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Mul(node Node, op Value) Value
-
-	// Neg implements the unary negate operation and returns the new Value,
-	// or nil if the operation is invalid. Invalid operations are reported
-	// as errors at node position.
-	Neg(ctx *Context, node Node) Value
-
-	// Or implements the binary bitwise or operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Or(node Node, op Value) Value
-
-	// Package returns the package a PackageValue refers to. It panic if
-	// the value Kind is not PackageValue.
-	Package() *Package
-
-	// PredeclaredFunction returns a declaration of a predeclared function
-	// or nil if the value does not represent a predeclared function. It
-	// panics if value's Kind is not RuntimeValue or if the value's type is
-	// not a function.
-	PredeclaredFunction() Declaration
-
-	// Rsh implements the binary right shift operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Rsh(node Node, op Value) Value
+	// Declaration returns the declaration a value refers to, if any.
+	Declaration() Declaration
 
 	// Selector returns the root value of a selector and its paths or (nil,
 	// nil, nil) of the value does not represent a selector. It panics if
@@ -187,11 +150,6 @@ type Value interface {
 	//	path0 is [f] and path is [U, f].
 	Selector() (root Value, path0, path []Selector)
 
-	// Sub implements the binary subtraction operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Sub(node Node, op Value) Value
-
 	// Type returns the type of this value or nil if the value's type
 	// cannot be determined due to errors or if the value is a NilValue.
 	Type() Type
@@ -203,61 +161,97 @@ func (v *valueBase) Addressable() bool        { panic("Addressable of inappropri
 func (v *valueBase) AssignableTo(Type) bool   { panic("AssignableTo of inappropriate value") }
 func (v *valueBase) Const() Const             { panic("Const of inappropriate value") }
 func (v *valueBase) Convert(Type) Value       { panic("internal error") }
+func (v *valueBase) Declaration() Declaration { return nil }
 func (v *valueBase) Kind() ValueKind          { return v.kind }
 func (v *valueBase) nonNegativeInteger() bool { return false }
-func (v *valueBase) Package() *Package        { panic("Package of inappropriate value") }
 func (v *valueBase) Type() Type               { return nil }
 
-func (v *valueBase) Add(n Node, op Value) Value {
+func (v *valueBase) add(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary +")
 	return nil
 }
 
-func (v *valueBase) And(n Node, op Value) Value {
+func (v *valueBase) and(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary &")
 	return nil
 }
 
-func (v *valueBase) Cpl(ctx *Context, n Node) Value {
+func (v *valueBase) andNot(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary &^")
+	return nil
+}
+
+func (v *valueBase) boolAnd(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary &&")
+	return nil
+}
+
+func (v *valueBase) boolOr(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary ||")
+	return nil
+}
+
+func (v *valueBase) cpl(ctx *Context, n Node) Value {
 	ctx.err(n, "invalid operand for unary ^")
 	return nil
 }
 
-func (v *valueBase) Div(n Node, op Value) Value {
+func (v *valueBase) div(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary /")
 	return nil
 }
 
-func (v *valueBase) Lsh(n Node, op Value) Value {
+func (v *valueBase) eq(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary ==")
+	return nil
+}
+
+func (v *valueBase) lt(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary <")
+	return nil
+}
+
+func (v *valueBase) ge(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary >=")
+	return nil
+}
+
+func (v *valueBase) gt(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary >")
+	return nil
+}
+
+func (v *valueBase) lsh(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary <<")
 	return nil
 }
 
-func (v *valueBase) Mod(n Node, op Value) Value {
+func (v *valueBase) mod(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary %")
 	return nil
 }
 
-func (v *valueBase) Mul(n Node, op Value) Value {
+func (v *valueBase) mul(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary *")
 	return nil
 }
 
-func (v *valueBase) Neg(ctx *Context, n Node) Value {
+func (v *valueBase) neg(ctx *Context, n Node) Value {
 	ctx.err(n, "invalid operand for unary -")
 	return nil
 }
 
-func (v *valueBase) Or(n Node, op Value) Value {
+func (v *valueBase) neq(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary !=")
+	return nil
+}
+
+func (v *valueBase) or(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary |")
 	return nil
 }
 
-func (v *valueBase) PredeclaredFunction() Declaration {
-	panic("PredeclaredFunction of inappropriate value")
-}
-
-func (v *valueBase) Rsh(n Node, op Value) Value {
+func (v *valueBase) rsh(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary >>")
 	return nil
 }
@@ -266,8 +260,13 @@ func (v *valueBase) Selector() (Value, []Selector, []Selector) {
 	panic("Selector of inappropriate value")
 }
 
-func (v *valueBase) Sub(n Node, op Value) Value {
+func (v *valueBase) sub(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary -")
+	return nil
+}
+
+func (v *valueBase) xor(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary ^")
 	return nil
 }
 
@@ -280,23 +279,32 @@ type constValue struct {
 
 func newConstValue(c Const) *constValue { return &constValue{c, valueBase{ConstValue}} }
 
-func (v *constValue) Add(n Node, op Value) Value     { return v.c.Add(n, op) }
-func (v *constValue) And(n Node, op Value) Value     { return v.c.And(n, op) }
+func (v *constValue) add(n Node, op Value) Value     { return v.c.add(n, op) }
+func (v *constValue) and(n Node, op Value) Value     { return v.c.and(n, op) }
+func (v *constValue) andNot(n Node, op Value) Value  { return v.c.andNot(n, op) }
 func (v *constValue) AssignableTo(t Type) bool       { return v.c.AssignableTo(t) }
+func (v *constValue) boolAnd(n Node, op Value) Value { return v.c.boolAnd(n, op) }
+func (v *constValue) boolOr(n Node, op Value) Value  { return v.c.boolOr(n, op) }
 func (v *constValue) Const() Const                   { return v.c }
 func (v *constValue) Convert(u Type) Value           { return v.c.Convert(u) }
-func (v *constValue) Cpl(ctx *Context, n Node) Value { return v.c.Cpl(ctx, n) }
-func (v *constValue) Div(n Node, op Value) Value     { return v.c.Div(n, op) }
-func (v *constValue) Lsh(n Node, op Value) Value     { return v.c.Lsh(n, op) }
-func (v *constValue) Mod(n Node, op Value) Value     { return v.c.Mod(n, op) }
-func (v *constValue) Mul(n Node, op Value) Value     { return v.c.Mul(n, op) }
-func (v *constValue) Neg(ctx *Context, n Node) Value { return v.c.Neg(ctx, n) }
+func (v *constValue) cpl(ctx *Context, n Node) Value { return v.c.cpl(ctx, n) }
+func (v *constValue) div(n Node, op Value) Value     { return v.c.div(n, op) }
+func (v *constValue) eq(n Node, op Value) Value      { return v.c.eq(n, op) }
+func (v *constValue) ge(n Node, op Value) Value      { return v.c.ge(n, op) }
+func (v *constValue) gt(n Node, op Value) Value      { return v.c.gt(n, op) }
+func (v *constValue) lsh(n Node, op Value) Value     { return v.c.lsh(n, op) }
+func (v *constValue) lt(n Node, op Value) Value      { return v.c.lt(n, op) }
+func (v *constValue) mod(n Node, op Value) Value     { return v.c.mod(n, op) }
+func (v *constValue) mul(n Node, op Value) Value     { return v.c.mul(n, op) }
+func (v *constValue) neg(ctx *Context, n Node) Value { return v.c.neg(ctx, n) }
+func (v *constValue) neq(n Node, op Value) Value     { return v.c.neq(n, op) }
 func (v *constValue) nonNegativeInteger() bool       { return v.c.nonNegativeInteger() }
-func (v *constValue) Or(n Node, op Value) Value      { return v.c.Or(n, op) }
-func (v *constValue) Rsh(n Node, op Value) Value     { return v.c.Rsh(n, op) }
+func (v *constValue) or(n Node, op Value) Value      { return v.c.or(n, op) }
+func (v *constValue) rsh(n Node, op Value) Value     { return v.c.rsh(n, op) }
 func (v *constValue) String() string                 { return v.c.String() }
-func (v *constValue) Sub(n Node, op Value) Value     { return v.c.Sub(n, op) }
+func (v *constValue) sub(n Node, op Value) Value     { return v.c.sub(n, op) }
 func (v *constValue) Type() Type                     { return v.c.Type() }
+func (v *constValue) xor(n Node, op Value) Value     { return v.c.xor(n, op) }
 
 // ------------------------------------------------------------------- nilValue
 
@@ -325,35 +333,44 @@ func (v *nilValue) Convert(u Type) Value {
 // --------------------------------------------------------------- packageValue
 
 type packageValue struct {
-	pkg *Package
+	d Declaration
 	valueBase
 }
 
-func newPackageValue(pkg *Package) *packageValue { return &packageValue{pkg, valueBase{PackageValue}} }
+func newPackageValue(d Declaration) *packageValue { return &packageValue{d, valueBase{PackageValue}} }
 
-func (v *packageValue) Package() *Package { return v.pkg }
+func (v *packageValue) Declaration() Declaration { return v.d }
 
 // --------------------------------------------------------------- runtimeValue
 
 type runtimeValue struct {
 	addressable bool
-	// d is used for predeclared functions and for fields.
-	d     Declaration
-	path0 []Selector
-	path  []Selector
-	root  Value
-	typ   Type
+	d           Declaration
+	path0       []Selector
+	path        []Selector
+	root        Value
+	typ         Type
 	valueBase
+
+	//TODO shrink runtimeValue size by introducing a payload field.
 }
 
-func newRuntimeValue(typ Type) *runtimeValue {
+func newRuntimeValue(typ Type) Value {
+	if typ == nil {
+		return nil
+	}
+
 	return &runtimeValue{
 		typ:       typ,
 		valueBase: valueBase{RuntimeValue},
 	}
 }
 
-func newAddressableValue(typ Type) *runtimeValue {
+func newAddressableValue(typ Type) Value {
+	if typ == nil {
+		return nil
+	}
+
 	return &runtimeValue{
 		addressable: true,
 		typ:         typ,
@@ -361,15 +378,23 @@ func newAddressableValue(typ Type) *runtimeValue {
 	}
 }
 
-func newPredeclaredFunctionValue(d Declaration) *runtimeValue {
+func newDeclarationValue(d Declaration, t Type) Value {
+	if d == nil || t == nil {
+		return nil
+	}
+
 	return &runtimeValue{
 		d:         d,
-		typ:       d.(*FuncDeclaration).Type,
+		typ:       t,
 		valueBase: valueBase{RuntimeValue},
 	}
 }
 
-func newSelectorValue(t Type, root Value, path0, path []Selector) *runtimeValue {
+func newSelectorValue(t Type, root Value, path0, path []Selector) Value {
+	if t == nil {
+		return nil
+	}
+
 	return &runtimeValue{
 		addressable: true,
 		path0:       path0,
@@ -382,29 +407,75 @@ func newSelectorValue(t Type, root Value, path0, path []Selector) *runtimeValue 
 
 func (v *runtimeValue) Addressable() bool                         { return v.addressable }
 func (v *runtimeValue) AssignableTo(t Type) bool                  { return v.Type().AssignableTo(t) }
-func (v *runtimeValue) PredeclaredFunction() Declaration          { return v.d }
+func (v *runtimeValue) Declaration() Declaration                  { return v.d }
 func (v *runtimeValue) Selector() (Value, []Selector, []Selector) { return v.root, v.path0, v.path }
 func (v *runtimeValue) Type() Type                                { return v.typ }
 
-func (v *runtimeValue) Add(n Node, op Value) Value {
+func (v *runtimeValue) add(n Node, op Value) Value {
+	switch op.Kind() {
+	case ConstValue:
+		if !op.Const().AssignableTo(v.Type()) {
+			v.Type().context().err(n, "invalid operation: mismatched types %s and %s", v.Type(), op.Type())
+			return nil
+		}
+
+		return v
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (v *runtimeValue) and(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) And(n Node, op Value) Value {
+func (v *runtimeValue) andNot(n Node, op Value) Value {
 	todo(n)
+	return nil
+}
+
+func (v *runtimeValue) boolAnd(n Node, op Value) Value {
+	if t := v.Type().context().booleanBinOpShape(v.Type(), op.Type(), n); t != nil {
+		return newRuntimeValue(t)
+	}
+
+	v.Type().context().err(n, "invalid operation: && (mismatched types %s and %s)", v.Type(), op.Type())
+	return nil
+}
+
+func (v *runtimeValue) boolOr(n Node, op Value) Value {
+	if t := v.Type().context().booleanBinOpShape(v.Type(), op.Type(), n); t != nil {
+		return newRuntimeValue(t)
+	}
+
+	v.Type().context().err(n, "invalid operation: || (mismatched types %s and %s)", v.Type(), op.Type())
 	return nil
 }
 
 func (v *runtimeValue) Convert(u Type) Value {
-	if t := v.Type(); t != nil && t.ConvertibleTo(u) {
-		return newRuntimeValue(u)
+	t := v.Type()
+	switch {
+	case t.Kind() == UnsafePointer:
+		if k := u.Kind(); k == Ptr || k == Uintptr {
+			return newRuntimeValue(u)
+		}
+	case u.Kind() == UnsafePointer:
+		if t.Kind() == Ptr || t.Kind() == Uintptr {
+			return newRuntimeValue(u)
+		}
+	default:
+		if t != nil && t.ConvertibleTo(u) {
+			return newRuntimeValue(u)
+		}
 	}
 
 	return nil
 }
 
-func (v *runtimeValue) Cpl(ctx *Context, n Node) Value {
+func (v *runtimeValue) cpl(ctx *Context, n Node) Value {
 	switch t := v.Type(); {
 	case t.IntegerType():
 		return v
@@ -413,46 +484,167 @@ func (v *runtimeValue) Cpl(ctx *Context, n Node) Value {
 	}
 }
 
-func (v *runtimeValue) Div(n Node, op Value) Value {
+func (v *runtimeValue) div(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) Lsh(n Node, op Value) Value {
+func (v *runtimeValue) eq(n Node, op Value) Value {
+	ctx := v.Type().context()
+	ot := op.Type()
+	switch op.Kind() {
+	case ConstValue, RuntimeValue:
+		if !v.AssignableTo(ot) && !ot.AssignableTo(v.Type()) {
+			ctx.err(n, "invalid operation: == (mismatched types %s and %s)", v.Type(), ot)
+			break
+		}
+
+		if !v.Type().Comparable() {
+			ctx.err(n, "invalid operation: == (operator == not defined on %s)", v.Type())
+			break
+		}
+
+		if !ot.Comparable() {
+			ctx.err(n, "invalid operation: == (operator == not defined on %s)", ot)
+			break
+		}
+
+		return newRuntimeValue(v.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (v *runtimeValue) lt(n Node, op Value) Value {
+	ot := op.Type()
+	switch op.Kind() {
+	case ConstValue, RuntimeValue:
+		if !v.AssignableTo(ot) && !ot.AssignableTo(v.Type()) {
+			todo(n, true) // type mismatch
+			break
+		}
+
+		if !v.Type().Ordered() {
+			todo(n, true) // not ordered
+			break
+		}
+
+		if !ot.Ordered() {
+			todo(n, true) // not ordered
+			break
+		}
+
+		return newRuntimeValue(v.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (v *runtimeValue) ge(n Node, op Value) Value {
+	ctx := v.Type().context()
+	ot := op.Type()
+	switch op.Kind() {
+	case ConstValue, RuntimeValue:
+		if !v.AssignableTo(ot) && !ot.AssignableTo(v.Type()) {
+			ctx.err(n, "invalid operation: >= (mismatched types %s and %s)", v.Type(), ot)
+			break
+		}
+
+		if !v.Type().Ordered() {
+			ctx.err(n, "invalid operation: >= (operator >= not defined on %s)", v.Type())
+			break
+		}
+
+		if !ot.Ordered() {
+			ctx.err(n, "invalid operation: >= (operator >= not defined on %s)", ot)
+			break
+		}
+
+		return newRuntimeValue(v.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (v *runtimeValue) gt(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) Mod(n Node, op Value) Value {
+func (v *runtimeValue) lsh(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) Mul(n Node, op Value) Value {
+func (v *runtimeValue) mod(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) Neg(ctx *Context, n Node) Value {
+func (v *runtimeValue) mul(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (v *runtimeValue) neg(ctx *Context, n Node) Value {
 	switch t := v.Type(); {
 	case t.IntegerType(), t.FloatingPointType(), t.ComplexType():
 		return v
 	default:
-		return v.valueBase.Neg(ctx, n)
+		return v.valueBase.neg(ctx, n)
 	}
 }
 
-func (v *runtimeValue) Or(n Node, op Value) Value {
+func (v *runtimeValue) neq(n Node, op Value) Value {
+	ctx := v.Type().context()
+	ot := op.Type()
+	switch op.Kind() {
+	case ConstValue, RuntimeValue:
+		if !v.AssignableTo(ot) && !op.Type().AssignableTo(v.Type()) {
+			ctx.err(n, "invalid operation: != (mismatched types %s and %s)", v.Type(), ot)
+			break
+		}
+
+		if !v.Type().Comparable() {
+			ctx.err(n, "invalid operation: != (operator != not defined on %s)", v.Type())
+			break
+		}
+
+		if !ot.Comparable() {
+			ctx.err(n, "invalid operation: != (operator != not defined on %s)", ot)
+			break
+		}
+
+		return newRuntimeValue(v.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (v *runtimeValue) or(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) Rsh(n Node, op Value) Value {
+func (v *runtimeValue) rsh(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (v *runtimeValue) Sub(n Node, op Value) Value {
+func (v *runtimeValue) sub(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (v *runtimeValue) xor(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
@@ -464,7 +656,13 @@ type typeValue struct {
 	valueBase
 }
 
-func newTypeValue(t Type) *typeValue { return &typeValue{t, valueBase{TypeValue}} }
+func newTypeValue(t Type) Value {
+	if t == nil {
+		return nil
+	}
+
+	return &typeValue{t, valueBase{TypeValue}}
+}
 
 func (v *typeValue) AssignableTo(t Type) bool { return v.Type().AssignableTo(t) }
 func (v *typeValue) String() string           { return v.t.String() }
@@ -478,6 +676,12 @@ func (v *typeValue) Convert(u Type) Value {
 	return nil
 }
 
+type mapKey struct {
+	b bool
+	i int64
+	c complex128
+}
+
 // Const is the representatopn of a constant Go expression.
 //
 // Not all methods apply to all kinds of constants.  Restrictions, if any, are
@@ -485,28 +689,47 @@ func (v *typeValue) Convert(u Type) Value {
 // the kind of constant before calling kind-specific methods.  Calling a method
 // inappropriate to the kind of constant causes a run-time panic.
 type Const interface {
-	add(n Node, t Type, untyped bool, op Const) Const
-	and(n Node, t Type, untyped bool, op Const) Const
+	add(node Node, op Value) Value
+	add0(n Node, t Type, untyped bool, op Const) Const
+	and(node Node, op Value) Value
+	and0(n Node, t Type, untyped bool, op Const) Const
+	andNot(node Node, op Value) Value
+	andNot0(n Node, t Type, untyped bool, op Const) Const
+	boolAnd(node Node, op Value) Value
+	boolOr(node Node, op Value) Value
 	convert(Type) Const // Result is untyped.
-	div(n Node, t Type, untyped bool, op Const) Const
-	mod(n Node, t Type, untyped bool, op Const) Const
-	mul(n Node, t Type, untyped bool, op Const) Const
+	cpl(ctx *Context, node Node) Value
+	div(n Node, op Value) Value
+	div0(n Node, t Type, untyped bool, op Const) Const
+	eq(node Node, op Value) Value
+	eq0(n Node, t Type, untyped bool, op Const) Const
+	ge(node Node, op Value) Value
+	ge0(n Node, t Type, untyped bool, op Const) Const
+	gt(node Node, op Value) Value
+	gt0(n Node, t Type, untyped bool, op Const) Const
+	int() int64
+	lsh(node Node, op Value) Value
+	lt(node Node, op Value) Value
+	lt0(n Node, t Type, untyped bool, op Const) Const
+	mapKey() mapKey
+	mod(node Node, op Value) Value
+	mod0(n Node, t Type, untyped bool, op Const) Const
+	mul(n Node, op Value) Value
+	mul0(n Node, t Type, untyped bool, op Const) Const
 	mustConvert(Node, Type) Const // Result is untyped.
+	neg(ctx *Context, node Node) Value
+	neq(node Node, op Value) Value
+	neq0(n Node, t Type, untyped bool, op Const) Const
 	nonNegativeInteger() bool
 	normalize() Const // Keeps exact value or returns nil on overflow.
-	or(n Node, t Type, untyped bool, op Const) Const
+	or(node Node, op Value) Value
+	or0(n Node, t Type, untyped bool, op Const) Const
 	representable(Type) Const // Can be inexact for floats.
-	sub(n Node, t Type, untyped bool, op Const) Const
-
-	// Add implements the binary addition operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Add(node Node, op Value) Value
-
-	// And implements the binary bitwise and operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	And(node Node, op Value) Value
+	rsh(node Node, op Value) Value
+	sub(node Node, op Value) Value
+	sub0(n Node, t Type, untyped bool, op Const) Const
+	xor(node Node, op Value) Value
+	xor0(n Node, t Type, untyped bool, op Const) Const
 
 	// AssignableTo reports whether this constant is assignable to type t.
 	//
@@ -519,16 +742,6 @@ type Const interface {
 	// See https://golang.org/ref/spec#Conversions
 	Convert(t Type) Value
 
-	// Cpl implements the unary bitwise complement operation and returns
-	// the new Value, or nil if the operation is invalid. Invalid
-	// operations are reported as errors at node position.
-	Cpl(ctx *Context, node Node) Value
-
-	// Div implements the binary divide operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Div(n Node, op Value) Value
-
 	// Integral reports whether the constant's value is ∈ Z. It panics if
 	// the constant is not numeric.
 	Integral() bool
@@ -536,47 +749,12 @@ type Const interface {
 	// Kind returns the specific kind of the constant.
 	Kind() ConstKind
 
-	// Lsh implements the binary left shift operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Lsh(node Node, op Value) Value
-
-	// Mod implements the binary modulo operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Mod(node Node, op Value) Value
-
-	// Mul implements the binary multiply operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Mul(n Node, op Value) Value
-
-	// Neg implements the unary negate operation and returns the new Const,
-	// or nil if the operation is invalid. Invalid operations are reported
-	// as errors at node position if ctx is not nil.
-	Neg(ctx *Context, node Node) Value
-
-	// Or implements the binary bitwise or operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Or(node Node, op Value) Value
-
 	// Numeric reports whether the constant's Kind is one of RuneConst,
 	// IntConst, FloatingPointConst or ComplexConst.
 	Numeric() bool
 
-	// Rsh implements the binary right shift operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Rsh(node Node, op Value) Value
-
 	// String returns a string representation of the constant's value.
 	String() string
-
-	// Sub implements the binary subtraction operation and returns the new
-	// Value, or nil if the operation is invalid. Invalid operations are
-	// reported as errors at node position.
-	Sub(node Node, op Value) Value
 
 	// Type returns the constant's type.
 	Type() Type
@@ -591,25 +769,34 @@ type constBase struct {
 	untyped bool
 }
 
-func (c *constBase) add(Node, Type, bool, Const) Const { panic("internal error") }
-func (c *constBase) and(Node, Type, bool, Const) Const { panic("internal error") }
-func (c *constBase) AssignableTo(Type) bool            { panic("internal error") }
-func (c *constBase) convert(Type) Const                { panic("internal error") }
-func (c *constBase) Convert(Type) Value                { panic("internal error") }
-func (c *constBase) div(Node, Type, bool, Const) Const { panic("internal error") }
-func (c *constBase) Integral() bool                    { panic("internal error") }
-func (c *constBase) Kind() ConstKind                   { return c.kind }
-func (c *constBase) mod(Node, Type, bool, Const) Const { panic("internal error") }
-func (c *constBase) mul(Node, Type, bool, Const) Const { panic("internal error") }
-func (c *constBase) mustConvert(Node, Type) Const      { panic("internal error") }
-func (c *constBase) nonNegativeInteger() bool          { return false }
-func (c *constBase) normalize() Const                  { panic("internal error") }
-func (c *constBase) or(Node, Type, bool, Const) Const  { panic("internal error") }
-func (c *constBase) representable(Type) Const          { panic("internal error") }
-func (c *constBase) String() string                    { panic("internal error") }
-func (c *constBase) sub(Node, Type, bool, Const) Const { panic("internal error") }
-func (c *constBase) Type() Type                        { return c.typ }
-func (c *constBase) Untyped() bool                     { return c.untyped }
+func (c *constBase) add0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) and0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) andNot0(Node, Type, bool, Const) Const { panic("internal error") }
+func (c *constBase) AssignableTo(Type) bool                { panic("internal error") }
+func (c *constBase) convert(Type) Const                    { panic("internal error") }
+func (c *constBase) Convert(Type) Value                    { panic("internal error") }
+func (c *constBase) div0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) eq0(Node, Type, bool, Const) Const     { panic("internal error") }
+func (c *constBase) ge0(Node, Type, bool, Const) Const     { panic("internal error") }
+func (c *constBase) gt0(Node, Type, bool, Const) Const     { panic("internal error") }
+func (c *constBase) int() int64                            { panic("internal error") }
+func (c *constBase) Integral() bool                        { panic("internal error") }
+func (c *constBase) Kind() ConstKind                       { return c.kind }
+func (c *constBase) lt0(Node, Type, bool, Const) Const     { panic("internal error") }
+func (c *constBase) mapKey() mapKey                        { panic("internal error") }
+func (c *constBase) mod0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) mul0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) mustConvert(Node, Type) Const          { panic("internal error") }
+func (c *constBase) neq0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) nonNegativeInteger() bool              { return false }
+func (c *constBase) normalize() Const                      { panic("internal error") }
+func (c *constBase) or0(Node, Type, bool, Const) Const     { panic("internal error") }
+func (c *constBase) representable(Type) Const              { panic("internal error") }
+func (c *constBase) String() string                        { panic("internal error") }
+func (c *constBase) sub0(Node, Type, bool, Const) Const    { panic("internal error") }
+func (c *constBase) Type() Type                            { return c.typ }
+func (c *constBase) Untyped() bool                         { return c.untyped }
+func (c *constBase) xor0(Node, Type, bool, Const) Const    { panic("internal error") }
 
 func (c *constBase) mustConvertConst(n Node, d Const, t Type) Const {
 	e := d.convert(t)
@@ -728,6 +915,7 @@ func (c *constBase) representableFloatFromFloat(v float64, t Type) Const {
 	case Float64:
 		return newFloatConst(v, nil, t, false)
 	default:
+		//dbg("", t.Kind())
 		panic("internal error")
 	}
 	return nil
@@ -910,58 +1098,103 @@ func (c *constBase) representableIntFromInt(v int64, t Type) Const {
 	return nil
 }
 
-func (c *constBase) Add(n Node, op Value) Value {
+func (c *constBase) add(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary +")
 	return nil
 }
 
-func (c *constBase) And(n Node, op Value) Value {
+func (c *constBase) and(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary &")
 	return nil
 }
 
-func (c *constBase) Cpl(ctx *Context, n Node) Value {
+func (c *constBase) andNot(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary &^")
+	return nil
+}
+
+func (c *constBase) boolAnd(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary &&")
+	return nil
+}
+
+func (c *constBase) boolOr(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary ||")
+	return nil
+}
+
+func (c *constBase) cpl(ctx *Context, n Node) Value {
 	ctx.err(n, "invalid operand for unary ^")
 	return nil
 }
 
-func (c *constBase) Div(n Node, op Value) Value {
+func (c *constBase) div(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary /")
 	return nil
 }
 
-func (c *constBase) Lsh(n Node, op Value) Value {
+func (c *constBase) eq(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary ==")
+	return nil
+}
+
+func (c *constBase) lt(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary <")
+	return nil
+}
+
+func (c *constBase) ge(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary >=")
+	return nil
+}
+
+func (c *constBase) gt(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary >")
+	return nil
+}
+
+func (c *constBase) lsh(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary *")
 	return nil
 }
 
-func (c *constBase) Mod(n Node, op Value) Value {
+func (c *constBase) mod(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary %")
 	return nil
 }
 
-func (c *constBase) Mul(n Node, op Value) Value {
+func (c *constBase) mul(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary *")
 	return nil
 }
 
-func (c *constBase) Neg(ctx *Context, n Node) Value {
+func (c *constBase) neg(ctx *Context, n Node) Value {
 	ctx.err(n, "invalid operand for unary -")
 	return nil
 }
 
-func (c *constBase) Or(n Node, op Value) Value {
+func (c *constBase) neq(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary !=")
+	return nil
+}
+
+func (c *constBase) or(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary |")
 	return nil
 }
 
-func (c *constBase) Rsh(n Node, op Value) Value {
+func (c *constBase) rsh(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary >>")
 	return nil
 }
 
-func (c *constBase) Sub(n Node, op Value) Value {
+func (c *constBase) sub(n Node, op Value) Value {
 	op.Type().context().err(n, "invalid operand for binary -")
+	return nil
+}
+
+func (c *constBase) xor(n Node, op Value) Value {
+	op.Type().context().err(n, "invalid operand for binary ^")
 	return nil
 }
 
@@ -977,7 +1210,64 @@ func newBoolConst(val bool, typ Type, untyped bool) *boolConst {
 }
 
 func (c *boolConst) AssignableTo(t Type) bool { return c.assignableTo(c, t) }
+func (c *boolConst) mapKey() mapKey           { return mapKey{b: c.val} }
 func (c *boolConst) normalize() Const         { return c }
+
+func (c *boolConst) boolAnd(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.constBooleanBinOpShape(c, op.Const(), n)
+		if t == nil {
+			break
+		}
+
+		return newConstValue(newBoolConst(a.(*boolConst).val && b.(*boolConst).val, t, untyped))
+	case RuntimeValue:
+		if t := ctx.booleanBinOpShape(c.Type(), op.Type(), n); t != nil {
+			return newRuntimeValue(t)
+		}
+
+		ctx.err(n, "invalid operation: && (mismatched types %s and %s)", c.Type(), op.Type())
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *boolConst) boolOr(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.constBooleanBinOpShape(c, op.Const(), n)
+		if t == nil {
+			break
+		}
+
+		return newConstValue(newBoolConst(a.(*boolConst).val || b.(*boolConst).val, t, untyped))
+	case RuntimeValue:
+		if t := ctx.booleanBinOpShape(c.Type(), op.Type(), n); t != nil {
+			return newRuntimeValue(t)
+		}
+
+		ctx.err(n, "invalid operation: || (mismatched types %s and %s)", c.Type(), op.Type())
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *boolConst) eq(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *boolConst) neq(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
 
 func (c *boolConst) representable(t Type) Const {
 	if t.Kind() == Bool {
@@ -997,6 +1287,14 @@ func (c *boolConst) Convert(t Type) Value {
 
 func (c *boolConst) String() string { return fmt.Sprint(c.val) }
 
+func (c *boolConst) Type() Type {
+	if c.untyped {
+		return c.typ.context().untypedBoolType
+	}
+
+	return c.typ
+}
+
 // --------------------------------------------------------------- complexConst
 
 type complexConst struct {
@@ -1012,18 +1310,36 @@ func newComplexConst(val complex128, bigVal *bigComplex, typ Type, untyped bool)
 func (c *complexConst) AssignableTo(t Type) bool         { return c.assignableTo(c, t) }
 func (c *complexConst) mustConvert(n Node, t Type) Const { return c.mustConvertConst(n, c, t) }
 
-func (c *complexConst) Add(n Node, op Value) Value {
+func (c *complexConst) add(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *complexConst) eq(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
 func (c *complexConst) Convert(t Type) Value {
-	if c.Type().ConvertibleTo(t) {
-		if d := c.representable(t); d != nil {
-			return newConstValue(d)
-		}
+	if d := c.representable(t); d != nil {
+		return newConstValue(d)
 	}
 
+	return nil
+}
+
+func (c *complexConst) mapKey() mapKey {
+	if c.bigVal != nil {
+		re, _ := c.bigVal.re.Float64()
+		im, _ := c.bigVal.im.Float64()
+		return mapKey{c: complex(re, im)}
+	}
+
+	return mapKey{c: c.val}
+}
+
+func (c *complexConst) neq(n Node, op Value) Value {
+	todo(n)
 	return nil
 }
 
@@ -1084,32 +1400,32 @@ func (c *complexConst) convert(t Type) Const {
 	return nil
 }
 
-func (c *complexConst) div(n Node, t Type, untyped bool, op Const) Const {
+func (c *complexConst) div0(n Node, t Type, untyped bool, op Const) Const {
 	todo(n)
 	return nil
 }
 
-func (c *complexConst) Div(n Node, op Value) Value {
+func (c *complexConst) div(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (c *complexConst) mul(n Node, t Type, untyped bool, op Const) Const {
+func (c *complexConst) mul0(n Node, t Type, untyped bool, op Const) Const {
 	todo(n)
 	return nil
 }
 
-func (c *complexConst) Mul(n Node, op Value) Value {
+func (c *complexConst) mul(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (c *complexConst) Neg(ctx *Context, n Node) Value {
+func (c *complexConst) neg(ctx *Context, n Node) Value {
 	todo(n)
 	return nil
 }
 
-func (c *complexConst) Sub(n Node, op Value) Value {
+func (c *complexConst) sub(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
@@ -1141,19 +1457,26 @@ func newFloatConst(val float64, bigVal *big.Float, typ Type, untyped bool) *floa
 func (c *floatConst) AssignableTo(t Type) bool         { return c.assignableTo(c, t) }
 func (c *floatConst) mustConvert(n Node, t Type) Const { return c.mustConvertConst(n, c, t) }
 
-func (c *floatConst) Add(n Node, op Value) Value {
+func (c *floatConst) add(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
 func (c *floatConst) Convert(t Type) Value {
-	if c.Type().ConvertibleTo(t) {
-		if d := c.representable(t); d != nil {
-			return newConstValue(d)
-		}
+	if d := c.representable(t); d != nil {
+		return newConstValue(d)
 	}
 
 	return nil
+}
+
+func (c *floatConst) mapKey() mapKey {
+	if c.bigVal != nil {
+		f, _ := c.bigVal.Float64()
+		return mapKey{c: complex(f, 0)}
+	}
+
+	return mapKey{c: complex(c.val, 0)}
 }
 
 func (c *floatConst) nonNegativeInteger() bool {
@@ -1236,7 +1559,7 @@ func (c *floatConst) convert(t Type) Const {
 	return nil
 }
 
-func (c *floatConst) div(n Node, t Type, untyped bool, op Const) Const {
+func (c *floatConst) div0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	d := op.(*floatConst).bigVal
 	if d.Sign() == 0 {
@@ -1252,13 +1575,13 @@ func (c *floatConst) div(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newFloatConst(0, &e, ctx.float64Type, true))
 }
 
-func (c *floatConst) Div(n Node, op Value) Value {
+func (c *floatConst) div(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.div(n, t, untyped, b); d != nil {
+			if d := a.div0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1269,12 +1592,42 @@ func (c *floatConst) Div(n Node, op Value) Value {
 	return nil
 }
 
-func (c *floatConst) mod(n Node, t Type, untyped bool, op Const) Const {
+func (c *floatConst) eq(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *floatConst) lt(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *floatConst) lsh(n Node, op Value) Value {
+	ctx := c.Type().context()
+	if i := c.convert(ctx.intType); i != nil {
+		return i.lsh(n, op)
+	}
+
+	ctx.err(n, "invalid operand for binary <<")
+	return nil
+}
+
+func (c *floatConst) ge(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *floatConst) gt(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *floatConst) mod0(n Node, t Type, untyped bool, op Const) Const {
 	t.context().err(n, "illegal constant expression: floating-point %% operation")
 	return nil
 }
 
-func (c *floatConst) mul(n Node, t Type, untyped bool, op Const) Const {
+func (c *floatConst) mul0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	var d big.Float
 	d.Mul(c.bigVal, op.(*floatConst).bigVal)
@@ -1284,23 +1637,18 @@ func (c *floatConst) mul(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newFloatConst(0, &d, ctx.float64Type, true))
 }
 
-func (c *floatConst) Lsh(n Node, op Value) Value {
-	ctx := c.Type().context()
-	if i := c.convert(ctx.intType); i != nil {
-		return i.Lsh(n, op)
-	}
-
-	ctx.err(n, "invalid operand for binary <<")
+func (c *floatConst) neq(n Node, op Value) Value {
+	todo(n)
 	return nil
 }
 
-func (c *floatConst) Mul(n Node, op Value) Value {
+func (c *floatConst) mul(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.mul(n, t, untyped, b); d != nil {
+			if d := a.mul0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1311,7 +1659,7 @@ func (c *floatConst) Mul(n Node, op Value) Value {
 	return nil
 }
 
-func (c *floatConst) Neg(ctx *Context, n Node) Value {
+func (c *floatConst) neg(ctx *Context, n Node) Value {
 	if c.bigVal != nil {
 		var d big.Float
 		return newConstValue(newFloatConst(0, d.Neg(c.bigVal), c.Type(), c.Untyped()))
@@ -1320,12 +1668,12 @@ func (c *floatConst) Neg(ctx *Context, n Node) Value {
 	return newConstValue(newFloatConst(-c.val, nil, c.Type(), c.Untyped()))
 }
 
-func (c *floatConst) Rsh(n Node, op Value) Value {
+func (c *floatConst) rsh(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
 
-func (c *floatConst) Sub(n Node, op Value) Value {
+func (c *floatConst) sub(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
@@ -1352,9 +1700,10 @@ func newIntConst(val int64, bigVal *big.Int, typ Type, untyped bool) *intConst {
 
 func (c *intConst) AssignableTo(t Type) bool         { return c.assignableTo(c, t) }
 func (c *intConst) Integral() bool                   { return true }
+func (c *intConst) int() int64                       { return c.val }
 func (c *intConst) mustConvert(n Node, t Type) Const { return c.mustConvertConst(n, c, t) }
 
-func (c *intConst) add(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) add0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	var d big.Int
 	d.Add(c.bigVal, op.(*intConst).bigVal)
@@ -1364,13 +1713,13 @@ func (c *intConst) add(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
 }
 
-func (c *intConst) Add(n Node, op Value) Value {
+func (c *intConst) add(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.add(n, t, untyped, b); d != nil {
+			if d := a.add0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1381,7 +1730,7 @@ func (c *intConst) Add(n Node, op Value) Value {
 	return nil
 }
 
-func (c *intConst) and(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) and0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	var d big.Int
 	d.And(c.bigVal, op.(*intConst).bigVal)
@@ -1391,13 +1740,40 @@ func (c *intConst) and(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
 }
 
-func (c *intConst) And(n Node, op Value) Value {
+func (c *intConst) and(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.and(n, t, untyped, b); d != nil {
+			if d := a.and0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *intConst) andNot0(n Node, t Type, untyped bool, op Const) Const {
+	ctx := t.context()
+	var d big.Int
+	d.AndNot(c.bigVal, op.(*intConst).bigVal)
+	if untyped {
+		t = nil
+	}
+	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
+}
+
+func (c *intConst) andNot(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.andNot0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1409,17 +1785,167 @@ func (c *intConst) And(n Node, op Value) Value {
 }
 
 func (c *intConst) Convert(t Type) Value {
-	if c.Type().ConvertibleTo(t) {
-		switch t.Kind() {
-		case String:
-			return newRuntimeValue(t)
-		default:
-			if d := c.representable(t); d != nil {
-				return newConstValue(d)
-			}
+	switch t.Kind() {
+	case String:
+		return newRuntimeValue(t)
+	default:
+		if d := c.representable(t); d != nil {
+			return newConstValue(d)
 		}
 	}
 
+	return nil
+}
+
+func (c *intConst) mapKey() mapKey {
+	if c.bigVal != nil {
+		return mapKey{i: c.bigVal.Int64()}
+	}
+
+	return mapKey{i: c.val}
+}
+
+func (c *intConst) eq0(n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(c.bigVal.Cmp(op.(*intConst).bigVal) == 0, t.context().boolType, true)
+}
+
+func (c *intConst) eq(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.eq0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	case RuntimeValue:
+		ot := op.Type()
+		if !c.AssignableTo(ot) && !ot.AssignableTo(c.Type()) {
+			ctx.err(n, "invalid operation: == (mismatched types %s and %s)", c.Type(), ot)
+			break
+		}
+
+		if !ot.Comparable() {
+			ctx.err(n, "invalid operation: == (operator == not defined on %s)", ot)
+			break
+		}
+
+		return newRuntimeValue(c.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *intConst) lt0(n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(c.bigVal.Cmp(op.(*intConst).bigVal) < 0, t.context().boolType, true)
+}
+
+func (c *intConst) lt(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.lt0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *intConst) ge0(n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(c.bigVal.Cmp(op.(*intConst).bigVal) >= 0, t.context().boolType, true)
+}
+
+func (c *intConst) ge(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.gt0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	case RuntimeValue:
+		ot := op.Type()
+		if !c.AssignableTo(ot) && !ot.AssignableTo(c.Type()) {
+			ctx.err(n, "invalid operation: >= (mismatched types %s and %s)", c.Type(), ot)
+			break
+		}
+
+		if !ot.Ordered() {
+			ctx.err(n, "invalid operation: >= (operator >= not defined on %s)", ot)
+			break
+		}
+
+		return newRuntimeValue(c.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *intConst) gt0(n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(c.bigVal.Cmp(op.(*intConst).bigVal) > 0, t.context().boolType, true)
+}
+
+func (c *intConst) gt(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.gt0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *intConst) neq0(n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(c.bigVal.Cmp(op.(*intConst).bigVal) != 0, t.context().boolType, true)
+}
+
+func (c *intConst) neq(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.eq0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	case RuntimeValue:
+		ot := op.Type()
+		if !c.AssignableTo(ot) && !op.Type().AssignableTo(c.Type()) {
+			ctx.err(n, "invalid operation: != (mismatched types %s and %s)", c.Type(), ot)
+			break
+		}
+
+		if !ot.Comparable() {
+			ctx.err(n, "invalid operation: != (operator != not defined on %s)", ot)
+			break
+		}
+
+		return newRuntimeValue(c.Type().context().untypedBoolType)
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
 	return nil
 }
 
@@ -1445,7 +1971,7 @@ func (c *intConst) normalize() Const {
 	return c.representable(c.Type())
 }
 
-func (c *intConst) or(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) or0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	var d big.Int
 	d.Or(c.bigVal, op.(*intConst).bigVal)
@@ -1455,13 +1981,13 @@ func (c *intConst) or(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
 }
 
-func (c *intConst) Or(n Node, op Value) Value {
+func (c *intConst) or(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.or(n, t, untyped, b); d != nil {
+			if d := a.or0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1492,11 +2018,6 @@ func (c *intConst) representable(t Type) Const {
 		}
 
 		return c.representableFloatFromInt(c.val, t)
-	case t.Kind() == String:
-		if d := c.representable(t.context().int32Type); d != nil {
-			s := string(d.(*intConst).val)
-			return newStringConst(stringID(dict.SID(s)), t, false)
-		}
 	}
 	return nil
 }
@@ -1532,7 +2053,7 @@ func (c *intConst) convert(t Type) Const {
 	return nil
 }
 
-func (c *intConst) Cpl(ctx *Context, n Node) Value {
+func (c *intConst) cpl(ctx *Context, n Node) Value {
 	if c.bigVal != nil {
 		var v big.Int
 		if d := newIntConst(0, v.Sub(v.Neg(c.bigVal), bigInt1), c.Type(), c.Untyped()).normalize(); d != nil {
@@ -1549,7 +2070,7 @@ func (c *intConst) Cpl(ctx *Context, n Node) Value {
 	return nil
 }
 
-func (c *intConst) div(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) div0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	d := op.(*intConst).bigVal
 	if d.Sign() == 0 {
@@ -1565,13 +2086,13 @@ func (c *intConst) div(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newIntConst(0, &e, ctx.intType, true))
 }
 
-func (c *intConst) Div(n Node, op Value) Value {
+func (c *intConst) div(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.div(n, t, untyped, b); d != nil {
+			if d := a.div0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1582,7 +2103,7 @@ func (c *intConst) Div(n Node, op Value) Value {
 	return nil
 }
 
-func (c *intConst) Lsh(n Node, op Value) Value {
+func (c *intConst) lsh(n Node, op Value) Value {
 	ctx := c.Type().context()
 	switch op.Kind() {
 	case ConstValue:
@@ -1643,7 +2164,7 @@ func (c *intConst) Lsh(n Node, op Value) Value {
 	return nil
 }
 
-func (c *intConst) mod(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) mod0(n Node, t Type, untyped bool, op Const) Const {
 	todo(n)
 	return nil
 	//	ctx := t.context()
@@ -1654,20 +2175,20 @@ func (c *intConst) mod(n Node, t Type, untyped bool, op Const) Const {
 	//	}
 	//
 	//	var e big.Int
-	//	e.Div(c.bigVal, d)
+	//	e.div(c.bigVal, d)
 	//	if untyped {
 	//		t = nil
 	//	}
 	//	return ctx.mustConvertConst(n, t, newIntConst(0, &e, ctx.intType, true))
 }
 
-func (c *intConst) Mod(n Node, op Value) Value {
+func (c *intConst) mod(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.mod(n, t, untyped, b); d != nil {
+			if d := a.mod0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1678,7 +2199,7 @@ func (c *intConst) Mod(n Node, op Value) Value {
 	return nil
 }
 
-func (c *intConst) mul(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) mul0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	var d big.Int
 	d.Mul(c.bigVal, op.(*intConst).bigVal)
@@ -1694,13 +2215,13 @@ func (c *intConst) mul(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, e)
 }
 
-func (c *intConst) Mul(n Node, op Value) Value {
+func (c *intConst) mul(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.mul(n, t, untyped, b); d != nil {
+			if d := a.mul0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1711,7 +2232,7 @@ func (c *intConst) Mul(n Node, op Value) Value {
 	return nil
 }
 
-func (c *intConst) Neg(ctx *Context, n Node) Value {
+func (c *intConst) neg(ctx *Context, n Node) Value {
 	if c.bigVal != nil {
 		var v big.Int
 		if d := newIntConst(0, v.Neg(v.Set(c.bigVal)), c.Type(), c.Untyped()).normalize(); d != nil {
@@ -1736,7 +2257,7 @@ func (c *intConst) Neg(ctx *Context, n Node) Value {
 	return nil
 }
 
-func (c *intConst) Rsh(n Node, op Value) Value {
+func (c *intConst) rsh(n Node, op Value) Value {
 	ctx := c.Type().context()
 	switch op.Kind() {
 	case ConstValue:
@@ -1797,7 +2318,7 @@ func (c *intConst) Rsh(n Node, op Value) Value {
 	return nil
 }
 
-func (c *intConst) sub(n Node, t Type, untyped bool, op Const) Const {
+func (c *intConst) sub0(n Node, t Type, untyped bool, op Const) Const {
 	ctx := t.context()
 	var d big.Int
 	d.Sub(c.bigVal, op.(*intConst).bigVal)
@@ -1807,13 +2328,40 @@ func (c *intConst) sub(n Node, t Type, untyped bool, op Const) Const {
 	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
 }
 
-func (c *intConst) Sub(n Node, op Value) Value {
+func (c *intConst) sub(n Node, op Value) Value {
 	ctx := op.Type().context()
 	switch op.Kind() {
 	case ConstValue:
 		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
 		if t != nil {
-			if d := a.sub(n, t, untyped, b); d != nil {
+			if d := a.sub0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *intConst) xor0(n Node, t Type, untyped bool, op Const) Const {
+	ctx := t.context()
+	var d big.Int
+	d.Xor(c.bigVal, op.(*intConst).bigVal)
+	if untyped {
+		t = nil
+	}
+	return ctx.mustConvertConst(n, t, newIntConst(0, &d, ctx.intType, true))
+}
+
+func (c *intConst) xor(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.xor0(n, t, untyped, b); d != nil {
 				return newConstValue(d)
 			}
 		}
@@ -1857,10 +2405,57 @@ func newStringConst(val stringValue, typ Type, untyped bool) *stringConst {
 	return &stringConst{constBase{StringConst, typ, untyped}, val}
 }
 
-func (c *stringConst) AssignableTo(t Type) bool { return c.assignableTo(c, t) }
-func (c *stringConst) normalize() Const         { return c }
+func (c *stringConst) AssignableTo(t Type) bool         { return c.assignableTo(c, t) }
+func (c *stringConst) mapKey() mapKey                   { return mapKey{i: int64(dict.ID(c.val.s()))} }
+func (c *stringConst) normalize() Const                 { return c }
+func (c *stringConst) mustConvert(n Node, t Type) Const { return c.mustConvertConst(n, c, t) }
 
-func (c *stringConst) Add(n Node, op Value) Value {
+func (c *stringConst) add(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *stringConst) convert(t Type) Const {
+	switch t.Kind() {
+	case String:
+		return newStringConst(c.val, t.context().stringType, true)
+	default:
+		panic("internal error")
+	}
+}
+
+func (c *stringConst) eq0(n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(c.val.eq(op.(*stringConst).val), t.context().boolType, true)
+}
+
+func (c *stringConst) eq(n Node, op Value) Value {
+	ctx := op.Type().context()
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.eq0(n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
+	return nil
+}
+
+func (c *stringConst) lt(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *stringConst) ge(n Node, op Value) Value {
+	todo(n)
+	return nil
+}
+
+func (c *stringConst) gt(n Node, op Value) Value {
 	todo(n)
 	return nil
 }
@@ -1906,12 +2501,15 @@ func (c *bigComplex) String() string {
 
 type stringValue interface {
 	cat(v stringValue) stringValue
+	eq(stringValue) bool
+	id() int
 	len() int
 	s() []byte
 }
 
 type stringID int
 
+func (s stringID) id() int   { return int(s) }
 func (s stringID) len() int  { return len(dict.S(int(s))) }
 func (s stringID) s() []byte { return dict.S(int(s)) }
 
@@ -1938,7 +2536,21 @@ func (s stringID) cat(v stringValue) stringValue {
 	}
 }
 
+func (s stringID) eq(v stringValue) bool {
+	switch x := v.(type) {
+	case stringID:
+		return s == x
+	case stringIDs:
+		panic("TODO")
+	default:
+		panic("internal error")
+	}
+}
+
 type stringIDs []stringID
+
+func (s stringIDs) eq(v stringValue) bool { panic("TODO") }
+func (s stringIDs) id() int               { return dict.ID(s.s()) }
 
 func (s stringIDs) cat(v stringValue) stringValue {
 	switch x := v.(type) {

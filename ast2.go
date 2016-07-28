@@ -5,6 +5,7 @@
 package gc
 
 import (
+	"bytes"
 	"fmt"
 	"go/token"
 	"path/filepath"
@@ -12,13 +13,104 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/cznic/internal/buffer"
 	"github.com/cznic/mathutil"
 	"github.com/cznic/xc"
 )
 
+var (
+	_ CompositeLiteralItemList = (*CompLitItemList)(nil)
+	_ CompositeLiteralItemList = (*LBraceCompLitItemList)(nil)
+	_ CompositeLiteralNode     = (*CompLitValue)(nil)
+	_ CompositeLiteralNode     = (*LBraceCompLitValue)(nil)
+	_ CompositeLiteralNode     = compositeLiteralNode{}
+	_ CompositeLiteralValue    = (*CompLitValue)(nil)
+	_ CompositeLiteralValue    = (*LBraceCompLitValue)(nil)
+)
+
+type compositeLiteralNode struct {
+	e *Expression
+}
+
+func (n compositeLiteralNode) CompositeLiteralValue() CompositeLiteralValue { return nil }
+func (n compositeLiteralNode) Expression() *Expression                      { return n.e }
+func (n compositeLiteralNode) Pos() token.Pos                               { return n.e.Pos() }
+
 // Node represents the interface all AST nodes, xc.Token and lex.Char implement.
 type Node interface {
 	Pos() token.Pos
+}
+
+// CompositeLiteralValue represents a composite literal value. Example:
+//
+//	var v = struct{ i int } /* composite literal value follows */ { 42 }
+type CompositeLiteralValue interface {
+	gate() *gate
+	setType(Type)
+
+	// Items returns the composite literal value item list. It will return
+	// nil if the list is empty.
+	Items() CompositeLiteralItemList
+
+	// Value returns the Value of the composite literal value.
+	Value() Value
+
+	Node
+}
+
+// CompositeLiteralItemList represents a list of composite literal items.
+// Example:
+//
+//	var v = []struct{ i int } /* composite literal item list follows */ {{42}, {314}}
+type CompositeLiteralItemList interface {
+	// Key returns the key of the current composite literal item. It
+	// returns nil if the key is not present.
+	//
+	//	var v = []int{
+	//		42,  // Item without a key.
+	//		314: 278, // Key 314.
+	//	}
+	Key() CompositeLiteralNode
+
+	// Value returns the value of the current composite literal item.
+	//
+	//	var v = []int{
+	//		42,  // Value 42.
+	//		314: 278, // Value 278.
+	//	}
+	Val() CompositeLiteralNode
+
+	// Next moves to the next item in the list. It returns nil when there
+	// are no more items in the list.
+	Next() CompositeLiteralItemList
+
+	Node
+}
+
+// CompositeLiteralNode represents the key or value node of a composite literal
+// item.
+type CompositeLiteralNode interface {
+	// CompositeLiteralValue returns the node when it is a composite
+	// literal value, or nil otherwise.  Example:
+	//
+	//	type t struct {
+	//		i int
+	//	}
+	//
+	//	var v = map[t]t{
+	//		{42}: {314}, // Both key and value are composite literal values.
+	//	}
+	CompositeLiteralValue() CompositeLiteralValue
+
+	// Expression returns the node when it is an expression, or nil
+	// otherwise.  Example:
+	//
+	//	var v = map[int]int{
+	//		42: 314, // Both key and value are expressions.
+	//	}
+	Expression() *Expression
+
+	Node
 }
 
 // ------------------------------------------------------------------- Argument
@@ -35,6 +127,7 @@ func (n *Argument) check(ctx *context) (stop bool) {
 		}
 
 		n.Value = n.Expression.Value
+		n.lenPoisoned = n.Expression.lenPoisoned
 	case 1: // TypeLiteral
 		if n.TypeLiteral.check(ctx) {
 			return true
@@ -57,6 +150,16 @@ func (n *Argument) ident() (t xc.Token) {
 	return n.Expression.ident()
 }
 
+// --------------------------------------------------------------- ArgumentList
+
+func (n *ArgumentList) node(i int) Node {
+	for i != 0 {
+		n = n.ArgumentList
+		i--
+	}
+	return n
+}
+
 // ------------------------------------------------------------------ ArrayType
 
 func (n *ArrayType) check(ctx *context) (stop bool) {
@@ -73,9 +176,18 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // '[' "..." ']' Typ
-		stop = n.Typ.check(ctx)
-		if t := n.Typ.Type; t != nil {
-			n.Type = newArrayType(ctx, t, n.items, !n.itemsSet)
+		if n.Typ.check(ctx) {
+			return true
+		}
+
+		t := n.Typ.Type
+		if t == nil {
+			break
+		}
+
+		n.Type = newArrayType(ctx, t, -1)
+		if cv := n.compLitValue; cv != nil {
+			stop = (*CompLitValue)(nil).check(ctx, cv, n.Type)
 		}
 	case 1: // '[' Expression ']' Typ
 		stop = n.Expression.check(ctx) || n.Typ.check(ctx)
@@ -96,7 +208,7 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 				if d := c.Convert(ctx.intType); d != nil {
 					val := d.Const().(*intConst).val
 					if val >= 0 {
-						n.Type = newArrayType(ctx, t, val, false)
+						n.Type = newArrayType(ctx, t, val)
 						break
 					}
 
@@ -119,6 +231,17 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 	return stop
 }
 
+// ---------------------------------------------------------------------- Block
+
+func (n *Block) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	todo(n)
+	return false
+}
+
 // ----------------------------------------------------------------------- Call
 
 func (n *Call) check(ctx *context) (stop bool) {
@@ -130,16 +253,22 @@ func (n *Call) check(ctx *context) (stop bool) {
 		if l.Argument.check(ctx) {
 			return true
 		}
+		n.lenPoisoned = n.lenPoisoned || l.Argument.lenPoisoned
 	}
 	return false
 }
 
-func (n *Call) args() (_ []Value, ddd bool) {
+func (n *Call) args() (_ []Value, lenPoisoned, ddd bool) {
 	var a []Value
+	first := true
 	for l := n.ArgumentList; l != nil; l = l.ArgumentList {
+		if first && l.Argument.Expression != nil {
+			lenPoisoned = l.Argument.Expression.lenPoisoned
+			first = false
+		}
 		a = append(a, l.Argument.Value)
 	}
-	return a, n.Case == 2 // '(' ArgumentList "..." CommaOpt ')'
+	return a, lenPoisoned, n.Case == 2 // '(' ArgumentList "..." CommaOpt ')'
 }
 
 // ------------------------------------------------------------------- ChanType
@@ -176,208 +305,53 @@ func (n *ChanType) check(ctx *context) (stop bool) {
 
 // ------------------------------------------------------------ CompLitItemList
 
-func (n *CompLitItemList) check(ctx *context, t Type) (stop bool) {
-	if t == nil || t.Kind() == Invalid {
-		return false
-	}
-
-	var index, len int64
-	var numField int
-	var et Type
-	tk := t.Kind()
-	switch tk {
-	case Array:
-		len = t.Len()
-		et = t.Elem()
-	case Map:
-		//kt = t.Key()
-		et = t.Elem()
-	case Slice:
-		et = t.Elem()
-	case Struct:
-		numField = t.NumField()
+// Key implements CompositeLiteralItemList.
+func (n *CompLitItemList) Key() CompositeLiteralNode {
+	switch i := n.CompLitItem; i.Case {
+	case
+		0, // CompLitValue
+		3: // Expression
+		return nil
+	case
+		1, // CompLitValue ':' CompLitValue
+		2: // CompLitValue ':' Expression
+		return i.CompLitValue
+	case
+		4, // Expression ':' CompLitValue
+		5: // Expression ':' Expression
+		return compositeLiteralNode{i.Expression}
 	default:
-		ctx.err(n, "invalid type for composite literal: %s", t)
-		return false
+		panic("internal error")
+	}
+}
+
+// Next implements CompositeLiteralItemList.
+func (n *CompLitItemList) Next() CompositeLiteralItemList {
+	if l := n.CompLitItemList; l != nil {
+		return l
 	}
 
-	m := map[int64]struct{}{}
-	_ = et
-	_ = len
-	var keyed, unkeyed bool
-	for ; n != nil; n = n.CompLitItemList {
-		switch i := n.CompLitItem; i.Case {
-		case 0: // CompLitValue
-			switch tk {
-			case Array:
-				todo(i)
-			case Map:
-				todo(i, true)
-			case Slice:
-				todo(i)
-			case Struct:
-				unkeyed = true
-				if keyed {
-					todo(i, true) // mix
-				}
-				todo(i)
-			}
-		case 1: // CompLitValue ':' CompLitValue
-			switch tk {
-			case Array:
-				todo(i, true) // invalid
-			case Map:
-				todo(i)
-			case Slice:
-				todo(i, true) // invalid
-			case Struct:
-				todo(i, true) // invalid
-			}
-		case 2: // CompLitValue ':' Expression
-			switch tk {
-			case Array:
-				todo(i, true) // invalid
-			case Map:
-				todo(i)
-			case Slice:
-				todo(i, true) // invalid
-			case Struct:
-				todo(i, true) // invalid
-			}
-		case 3: // Expression
-			switch tk {
-			case Array:
-				todo(i)
-			case Map:
-				todo(i, true)
-			case Slice:
-				todo(i)
-			case Struct:
-				unkeyed = true
-				if keyed {
-					todo(i, true) // mix
-				}
-				if int(index) >= numField {
-					if ctx.err(i, "too many values in struct initializer") {
-						return true
-					}
+	return nil
+}
 
-					break
-				}
-
-				f := t.Field(int(index))
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
-					todo(i, true)
-				}
-				index++
-			default:
-				panic("internal error")
-			}
-		case 4: // Expression ':' CompLitValue
-			switch tk {
-			case Array:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					todo(i.Expression, true) // index must be non-negative integer constant
-				}
-
-				todo(i)
-			case Map:
-				todo(i)
-			case Slice:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					todo(i.Expression, true) // index must be non-negative integer constant
-				}
-
-				todo(i)
-			case Struct:
-				keyed = true
-				if unkeyed {
-					todo(i, true) // mix
-				}
-				todo(i)
-			}
-		case 5: // Expression ':' Expression
-			switch tk {
-			case Array:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					todo(i.Expression, true) // index must be non-negative integer constant
-				}
-
-				todo(i)
-			case Map:
-				todo(i)
-			case Slice:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					todo(i.Expression, true) // index must be non-negative integer constant
-				}
-
-				todo(i)
-			case Struct:
-				keyed = true
-				if unkeyed {
-					if ctx.err(i.Expression, "mixture of field:value and value initializers") {
-						return true
-					}
-				}
-				fn, ok := i.Expression.isIdentifier()
-				if !ok {
-					if ctx.err(i.Expression, "invalid field name in struct initializer") {
-						return true
-					}
-
-					break
-				}
-
-				if _, ok := m[int64(fn.Val)]; ok {
-					if ctx.err(i.Expression, "duplicate field name in struct literal: %s", fn.S()) {
-						return true
-					}
-
-					break
-				}
-
-				f := t.FieldByName(fn.Val)
-				if f == nil {
-					todo(i.Expression, true) // unknown field
-					break
-				}
-
-				m[int64(fn.Val)] = struct{}{}
-				if i.Expression2.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression2.Value; v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
-					todo(i.Expression2) // assignment fail
-				}
-			default:
-				panic("internal error")
-			}
-		default:
-			panic("internal error")
-		}
+// Val implements CompositeLiteralItemList.
+func (n *CompLitItemList) Val() CompositeLiteralNode {
+	switch i := n.CompLitItem; i.Case {
+	case
+		0, // CompLitValue
+		4: // Expression ':' CompLitValue
+		return i.CompLitValue
+	case 1: // CompLitValue ':' CompLitValue
+		return i.CompLitValue2
+	case
+		2, // CompLitValue ':' Expression
+		3: // Expression
+		return compositeLiteralNode{i.Expression}
+	case 5: // Expression ':' Expression
+		return compositeLiteralNode{i.Expression2}
+	default:
+		panic("internal error")
 	}
-	return false
 }
 
 // ---------------------------------------------------------------- CompLitType
@@ -415,21 +389,348 @@ func (n *CompLitType) check(ctx *context) (stop bool) {
 
 // --------------------------------------------------------------- CompLitValue
 
-func (n *CompLitValue) check(ctx *context, t Type) (stop bool) {
+// CompositeLiteralValue implements CompositeLiteralNode.
+func (n *CompLitValue) CompositeLiteralValue() CompositeLiteralValue { return n }
+
+// Expression implements CompositeLiteralNode.
+func (n *CompLitValue) Expression() *Expression { return nil }
+
+// Items implements CompositeLiteralValue.
+func (n *CompLitValue) Items() CompositeLiteralItemList {
+	if l := n.CompLitItemList; l != nil {
+		return l
+	}
+
+	return nil
+}
+
+// Value implements CompositeLiteralValue.
+func (n *CompLitValue) Value() Value {
+	if n.Type != nil {
+		return newRuntimeValue(n.Type)
+	}
+
+	return nil
+}
+
+func (n *CompLitValue) gate() *gate    { return &n.guard }
+func (n *CompLitValue) setType(t Type) { n.Type = t }
+
+func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop bool) {
+	done, stop := n.gate().check(ctx, nil)
+	if done || stop {
+		return stop
+	}
+
+	defer n.gate().done(nil)
+
 	if n == nil || t == nil || t.Kind() == Invalid {
 		return false
 	}
 
-	n.Type = t
-	switch n.Case {
-	case 0: // '{' '}'
-		// nop
-	case 1: // '{' CompLitItemList CommaOpt '}'
-		stop = n.CompLitItemList.check(ctx, t)
+	var len, index, maxIndex int64
+	var kt, et Type
+	var numField int
+	var keyed, unkeyed bool
+	m := map[mapKey]struct{}{}
+	tk := t.Kind()
+
+	switch tk {
+	case Array:
+		len = t.Len()
+		et = t.Elem()
+		if len < 0 {
+			defer func() {
+				t.(*arrayType).len = maxIndex + 1
+			}()
+		}
+	case Map:
+		kt = t.Key()
+		et = t.Elem()
+	case Slice:
+		et = t.Elem()
+		len = -1
+	case Struct:
+		numField = t.NumField()
 	default:
-		panic("internal error")
+		ctx.err(n, "invalid type for composite literal: %s", t)
+		return false
 	}
-	return stop
+
+	n.setType(t)
+	for l := n.Items(); l != nil; l = l.Next() {
+		var hasKey, cvkValid bool
+		var cvk Value
+		var field *StructField
+		if key := l.Key(); key != nil {
+			hasKey = true
+			switch cv := key.CompositeLiteralValue(); {
+			case cv != nil:
+				switch tk {
+				case Array:
+					todo(cv)
+				case Map:
+					if kt == nil {
+						break
+					}
+
+					if (*CompLitValue)(nil).check(ctx, cv, kt) {
+						return true
+					}
+
+					cvk = cv.Value()
+					cvkValid = true
+				case Slice:
+					todo(cv)
+				case Struct:
+					todo(cv, true)
+				}
+			default:
+				e := key.Expression()
+				switch tk {
+				case Array, Slice:
+					if e == nil {
+						todo(key, true)
+						break
+					}
+
+					if e.check(ctx) {
+						return true
+					}
+
+					v := e.Value
+					if v == nil {
+						break
+					}
+
+					if !v.nonNegativeInteger() {
+						if ctx.err(e, "index must be non-negative integer constant") {
+							return true
+						}
+
+						break
+					}
+
+					i := v.Const().int()
+					if len >= 0 && i >= len {
+						todo(e, true)
+						//if ctx.err(e, "array index %d out of bounds [0:%d]", i, len) {
+						//	return true
+						//}
+
+						break
+					}
+
+					index = i
+					maxIndex = mathutil.MaxInt64(maxIndex, index)
+				case Map:
+					var v Value
+					switch {
+					case cvkValid:
+						v = cvk
+					default:
+						if e == nil {
+							todo(key, true)
+							break
+						}
+
+						if e.check(ctx) {
+							return true
+						}
+
+						v = e.Value
+					}
+					if v == nil {
+						break
+					}
+
+					if !v.AssignableTo(kt) {
+						switch v.Kind() {
+						case ConstValue:
+							if ctx.err(e, "cannot use %s (type %s) as type %s in map key", v.Const(), v.Type(), kt) {
+								return true
+							}
+						default:
+							todo(e, true)
+							// if ctx.err(n, "cannot use value of type %s as type %s in array or slice literal", v.Type(), t) {
+							// 	return true
+							// }
+						}
+						break
+					}
+
+					if v.Kind() != ConstValue {
+						break
+					}
+
+					ck := v.Const()
+					switch {
+					case kt.Kind() == Interface:
+						p := buffer.CGet(64)
+						buf := bytes.NewBuffer((*p)[:0])
+						switch {
+						case ck.Untyped():
+							fmt.Fprintf(buf, "%s", ck)
+						default:
+							fmt.Fprintf(buf, "%s(%s)", ck.Type(), ck)
+						}
+						k := mapKey{i: int64(dict.ID(buf.Bytes()))}
+						buffer.Put(p)
+						if _, ok := m[k]; ok {
+							if ctx.err(e, "duplicate key %s in map literal", dict.S(int(k.i))) {
+								return true
+							}
+						}
+
+						m[k] = struct{}{}
+					default:
+						var k mapKey
+						switch ck.Kind() {
+						case StringConst:
+							k.i = int64(ck.(*stringConst).val.id())
+						default:
+							//dbg("", ck.Kind())
+							todo(e)
+						}
+						switch ck.Kind() {
+						case StringConst: //TODO more types
+							if _, ok := m[k]; ok {
+								if ctx.err(e, "duplicate key %s in map literal", ck) {
+									return true
+								}
+							}
+
+							m[k] = struct{}{}
+						}
+					}
+				case Struct:
+					fn, ok := e.isIdentifier()
+					if !ok {
+						if ctx.err(e, "invalid field name in struct initializer") {
+							return true
+						}
+
+						continue
+					}
+
+					field = t.FieldByName(fn.Val)
+					if field == nil {
+						todo(e, true) // unknown field
+						continue
+					}
+
+					k := mapKey{i: int64(fn.Val)}
+					if _, ok := m[k]; ok {
+						if ctx.err(e, "duplicate field name in struct literal: %s", fn.S()) {
+							return true
+						}
+
+						break
+					}
+
+					m[k] = struct{}{}
+				}
+			}
+		}
+		if val := l.Val(); val != nil {
+			var v Value
+			switch cv := val.CompositeLiteralValue(); {
+			case cv != nil:
+				switch tk {
+				case Array, Slice, Map:
+					if et == nil {
+						break
+					}
+
+					if (*CompLitValue)(nil).check(ctx, cv, et) {
+						return true
+					}
+
+					v = cv.Value()
+				case Struct:
+					if ctx.err(cv, "missing type in composite literal") {
+						return true
+					}
+
+					continue
+				}
+			default:
+				e := val.Expression()
+				if e.check(ctx) {
+					return true
+				}
+
+				v = e.Value
+			}
+			switch tk {
+			case Array:
+				if len >= 0 && index >= len {
+					if ctx.err(val, "array index %d out of bounds [0:%d]", index, len) {
+						return true
+					}
+				}
+				fallthrough
+			case Slice:
+				k := mapKey{i: index}
+				if _, ok := m[k]; ok {
+					todo(val, true) // dup index
+				}
+				m[k] = struct{}{}
+				if v != nil && !v.AssignableTo(et) {
+					if ctx.compositeLiteralValueFail(val, v, et) {
+						return true
+					}
+				}
+				maxIndex = mathutil.MaxInt64(maxIndex, index)
+				index++
+			case Map:
+				if v != nil && !v.AssignableTo(et) {
+					todo(val, true)
+				}
+			case Struct:
+				switch {
+				case hasKey:
+					keyed = true
+					if v != nil && field.Type != nil && !v.AssignableTo(field.Type) {
+						todo(val, true)
+					}
+				default:
+					unkeyed = true
+					if int(index) >= numField {
+						if ctx.err(val, "too many values in struct initializer") {
+							return true
+						}
+
+						break
+					}
+
+					f := t.Field(int(index))
+					if v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
+						todo(val, true) // assign fail
+					}
+					index++
+				}
+				if keyed && unkeyed {
+					if ctx.err(val, "mixture of field:value and value initializers") {
+						return true
+					}
+				}
+
+			}
+		}
+	}
+	return false
+}
+
+// ------------------------------------------------------------------ ConstDecl
+
+func (n *ConstDecl) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	todo(n)
+	return false
 }
 
 // ------------------------------------------------------------------ ConstSpec
@@ -461,7 +762,7 @@ loop:
 			break loop
 		}
 		d := newConstDeclaration(l.ident(), t, e, lx.iota, scopeStart)
-		lx.scope.declare(lx, d)
+		lx.declarationScope.declare(lx, d)
 	}
 	if el != nil {
 		lx.err(el, "extra expression(s) in list")
@@ -493,47 +794,54 @@ func (n *Expression) check(ctx *context) (stop bool) {
 		return false
 	}
 
+	switch {
+	case n.Case == 0: // UnaryExpression
+		n.lenPoisoned = n.UnaryExpression.lenPoisoned
+	default:
+		n.lenPoisoned = n.Expression.lenPoisoned || n.Expression2.lenPoisoned
+	}
+
 	switch n.Case {
 	case 0: // UnaryExpression
 		n.Value = n.UnaryExpression.Value
 	case 1: // Expression '%' Expression
-		n.Value = n.Expression.Value.Mod(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.mod(n.Token, n.Expression2.Value)
 	case 2: // Expression '&' Expression
-		n.Value = n.Expression.Value.And(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.and(n.Token, n.Expression2.Value)
 	case 3: // Expression '*' Expression
-		n.Value = n.Expression.Value.Mul(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.mul(n.Token, n.Expression2.Value)
 	case 4: // Expression '+' Expression
-		n.Value = n.Expression.Value.Add(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.add(n.Token, n.Expression2.Value)
 	case 5: // Expression '-' Expression
-		n.Value = n.Expression.Value.Sub(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.sub(n.Token, n.Expression2.Value)
 	case 6: // Expression '/' Expression
-		n.Value = n.Expression.Value.Div(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.div(n.Token, n.Expression2.Value)
 	case 7: // Expression '<' Expression
-		todo(n)
+		n.Value = n.Expression.Value.lt(n.Token, n.Expression2.Value)
 	case 8: // Expression '>' Expression
-		todo(n)
+		n.Value = n.Expression.Value.gt(n.Token, n.Expression2.Value)
 	case 9: // Expression '^' Expression
-		todo(n)
+		n.Value = n.Expression.Value.xor(n.Token, n.Expression2.Value)
 	case 10: // Expression '|' Expression
-		n.Value = n.Expression.Value.Or(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.or(n.Token, n.Expression2.Value)
 	case 11: // Expression "&&" Expression
-		todo(n)
+		n.Value = n.Expression.Value.boolAnd(n.Token, n.Expression2.Value)
 	case 12: // Expression "&^" Expression
-		todo(n)
+		n.Value = n.Expression.Value.andNot(n.Token, n.Expression2.Value)
 	case 13: // Expression "==" Expression
-		todo(n)
+		n.Value = n.Expression.Value.eq(n.Token, n.Expression2.Value)
 	case 14: // Expression ">=" Expression
-		todo(n)
+		n.Value = n.Expression.Value.ge(n.Token, n.Expression2.Value)
 	case 15: // Expression "<=" Expression
 		todo(n)
 	case 16: // Expression "<<" Expression
-		n.Value = n.Expression.Value.Lsh(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.lsh(n.Token, n.Expression2.Value)
 	case 17: // Expression "!=" Expression
-		todo(n)
+		n.Value = n.Expression.Value.neq(n.Token, n.Expression2.Value)
 	case 18: // Expression "||" Expression
-		todo(n)
+		n.Value = n.Expression.Value.boolOr(n.Token, n.Expression2.Value)
 	case 19: // Expression ">>" Expression
-		n.Value = n.Expression.Value.Rsh(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.rsh(n.Token, n.Expression2.Value)
 	case 20: // Expression "<-" Expression
 		todo(n)
 	default:
@@ -568,6 +876,33 @@ func (n *Expression) ident() (t xc.Token) {
 	return o.Token
 }
 
+// ------------------------------------------------------------- ExpressionList
+
+func (n *ExpressionList) check(ctx *context) (stop bool) {
+	if len(n.list) != 0 {
+		panic("internal error")
+	}
+
+	for ; n != nil; n = n.ExpressionList {
+		if n.Expression.check(ctx) {
+			return true
+		}
+
+		n.list = append(n.list, n.Expression)
+	}
+	return false
+}
+
+// ---------------------------------------------------------- ExpressionListOpt
+
+func (n *ExpressionListOpt) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.ExpressionList.check(ctx)
+}
+
 //--------------------------------------------------------------- ExpressionOpt
 
 func (n *ExpressionOpt) check(ctx *context) (stop bool) {
@@ -576,6 +911,7 @@ func (n *ExpressionOpt) check(ctx *context) (stop bool) {
 	}
 
 	n.Expression.check(ctx)
+	n.lenPoisoned = n.Expression.lenPoisoned
 	todo(n)
 	return false
 }
@@ -598,7 +934,7 @@ func (n *FuncType) check(ctx *context) (stop bool) {
 		return true
 	}
 
-	var in, out []Type
+	var in []Type
 	isVariadic := false
 	for l := n.Signature.Parameters.ParameterDeclList; l != nil; l = l.ParameterDeclList {
 		switch i := l.ParameterDecl; i.Case {
@@ -621,15 +957,7 @@ func (n *FuncType) check(ctx *context) (stop bool) {
 			panic("internal error")
 		}
 	}
-	switch t := n.Signature.Type; {
-	case t != nil && t.Kind() == Tuple:
-		out = t.Elements()
-	case t == nil:
-		// nop
-	default:
-		out = []Type{t}
-	}
-	n.Type = newFuncType(ctx, 0, in, out, false, isVariadic)
+	n.Type = newFuncType(ctx, 0, in, n.Signature.Type, false, isVariadic)
 	return false
 }
 
@@ -720,7 +1048,7 @@ func (n *ImportSpec) post(lx *lexer) {
 	default:
 		panic("internal error")
 	}
-	lx.imports = append(lx.imports, newImportDeclaration(lx.pkg, nm, pos, lx.oncePackage(bl, ip))) // Async load.
+	lx.imports = append(lx.imports, newImportDeclaration(nm, pos, bl, dict.SID(ip)))
 }
 
 // -------------------------------------------------------------- InterfaceType
@@ -754,17 +1082,19 @@ func (n *InterfaceType) check(ctx *context) (stop bool) {
 		for l := n.InterfaceMethodDeclList; l != nil; l = l.InterfaceMethodDeclList {
 			switch id := l.InterfaceMethodDecl; id.Case {
 			case 1: //  QualifiedIdent
-				if d := id.resolutionScope.mustLookupQI(ctx, id.QualifiedIdent, id.fileScope); d != nil {
+				qi := id.QualifiedIdent
+				if d := qi.resolutionScope.mustLookupQI(ctx, qi, qi.fileScope); d != nil {
 					ctx.errf = func() bool {
-						ctx.err(id.QualifiedIdent, "interface type loop involving %s", id.QualifiedIdent.str())
+						ctx.err(qi, "interface type loop involving %s", qi.str())
 						return true
-					}
-					if d.check(ctx) {
-						continue
 					}
 
 					switch x := d.(type) {
 					case *TypeDeclaration:
+						if qi.checkTypeDeclaration(ctx, x) {
+							continue
+						}
+
 						t := Type(x)
 						switch t.Kind() {
 						case Interface:
@@ -784,7 +1114,7 @@ func (n *InterfaceType) check(ctx *context) (stop bool) {
 								}
 							}
 						default:
-							if ctx.err(id, "interface contains embedded non-interface %s", id.QualifiedIdent.str()) {
+							if ctx.err(id, "interface contains embedded non-interface %s", qi.str()) {
 								return true
 							}
 						}
@@ -821,286 +1151,83 @@ func (n *InterfaceType) check(ctx *context) (stop bool) {
 
 // ------------------------------------------------------ LBraceCompLitItemList
 
-func (n *LBraceCompLitItemList) check(ctx *context, t Type) (stop bool) {
-	if n == nil || t == nil || t.Kind() == Invalid {
-		return
-	}
-
-	var index, len int64
-	var numField int
-	var et Type
-	tk := t.Kind()
-	switch tk {
-	case Array:
-		len = t.Len()
-		et = t.Elem()
-	case Map:
-		//kt = t.Key()
-		et = t.Elem()
-	case Slice:
-		et = t.Elem()
-	case Struct:
-		numField = t.NumField()
+// Key implements CompositeLiteralItemList.
+func (n *LBraceCompLitItemList) Key() CompositeLiteralNode {
+	switch i := n.LBraceCompLitItem; i.Case {
+	case
+		0, // Expression
+		3: // LBraceCompLitValue
+		return nil
+	case
+		1, // Expression ':' Expression
+		2: // Expression ':' LBraceCompLitValue
+		return compositeLiteralNode{i.Expression}
+	case
+		4, // LBraceCompLitValue ':' Expression
+		5: // LBraceCompLitValue ':' LBraceCompLitValue
+		return i.LBraceCompLitValue
 	default:
-		ctx.err(n, "invalid type for composite literal: %s", t)
-		return false
+		panic("internal error")
+	}
+}
+
+// Next implements CompositeLiteralItemList.
+func (n *LBraceCompLitItemList) Next() CompositeLiteralItemList {
+	if l := n.LBraceCompLitItemList; l != nil {
+		return l
 	}
 
-	m := map[int64]struct{}{}
-	var keyed, unkeyed bool
-	for ; n != nil; n = n.LBraceCompLitItemList {
-		switch i := n.LBraceCompLitItem; i.Case {
-		case 0: // Expression
-			switch tk {
-			case Array:
-				if index >= len {
-					if ctx.err(i, "array index %d out of bounds [0:%d]", index, len) {
-						return true
-					}
+	return nil
+}
 
-					break
-				}
-
-				if _, ok := m[index]; ok {
-					todo(i, true)
-				}
-
-				m[index] = struct{}{}
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && et != nil && !v.AssignableTo(et) {
-					todo(i, true)
-				}
-				index++
-			case Map:
-				if ctx.err(i, "missing key in map literal") {
-					return true
-				}
-			case Slice:
-				if _, ok := m[index]; ok {
-					todo(i, true)
-				}
-
-				m[index] = struct{}{}
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && et != nil && !v.AssignableTo(et) {
-					if ctx.compositeLiteralValueFail(i, v, et) {
-						return true
-					}
-				}
-				index++
-			case Struct:
-				unkeyed = true
-				if keyed {
-					todo(i, true) // mix
-				}
-				if int(index) >= numField {
-					todo(i, true)
-					break
-				}
-
-				f := t.Field(int(index))
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
-					todo(i, true)
-				}
-				index++
-			default:
-				panic("internal error")
-			}
-		case 1: // Expression ':' Expression
-			switch tk {
-			case Array:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					if ctx.err(i.Expression, "index must be non-negative integer constant") {
-						return true
-					}
-				}
-
-				todo(i)
-			case Map:
-				todo(i)
-			case Slice:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					if ctx.err(i.Expression, "index must be non-negative integer constant") {
-						return true
-					}
-				}
-
-				todo(i)
-			case Struct:
-				keyed = true
-				if unkeyed {
-					todo(i, true) // mix
-				}
-			default:
-				panic("internal error")
-			}
-		case 2: // Expression ':' LBraceCompLitValue
-			switch tk {
-			case Array:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					todo(i.Expression, true) // index must be non-negative integer constant
-				}
-
-				if v := i.Expression.Value; v != nil {
-					switch {
-					case v.Kind() == ConstValue:
-						c := v.Const().Convert(ctx.intType)
-						if c == nil {
-							todo(i, true)
-							break
-						}
-
-						j := c.Const().(*intConst).val //TODO .IntValue()
-						if j < 0 {
-							todo(i, true)
-							break
-						}
-
-						if j >= len {
-							todo(i, true)
-							break
-						}
-
-						index = j
-					default:
-						todo(i, true)
-					}
-				}
-				if et == nil {
-					break
-				}
-
-				et2 := et
-				if et2.Kind() == Ptr && et2.Elem().Kind() == Struct {
-					et2 = et2.Elem()
-				}
-				if i.LBraceCompLitValue.check(ctx, et2) {
-					return true
-				}
-
-				if t := i.LBraceCompLitValue.Type; t != nil && !t.AssignableTo(et2) {
-					todo(i, true)
-				}
-				index++
-			case Map:
-				todo(i)
-			case Slice:
-				if i.Expression.check(ctx) {
-					return true
-				}
-
-				if v := i.Expression.Value; v != nil && !v.nonNegativeInteger() {
-					todo(i.Expression, true) // index must be non-negative integer constant
-				}
-
-				todo(i)
-			case Struct:
-				keyed = true
-				if unkeyed {
-					todo(i, true) // mix
-				}
-				todo(i)
-			default:
-				panic("internal error")
-			}
-		case 3: // LBraceCompLitValue
-			switch tk {
-			case Array:
-				if index >= len {
-					todo(i, true)
-				}
-
-				if _, ok := m[index]; ok {
-					todo(i, true)
-				}
-
-				m[index] = struct{}{}
-				if et == nil {
-					break
-				}
-
-				et2 := et
-				if et2.Kind() == Ptr && et2.Elem().Kind() == Struct {
-					et2 = et2.Elem()
-				}
-				if i.LBraceCompLitValue.check(ctx, et2) {
-					return true
-				}
-
-				index++
-			case Map:
-				todo(i, true)
-			case Slice:
-				if _, ok := m[index]; ok {
-					todo(i, true)
-				}
-
-				m[index] = struct{}{}
-				if et == nil {
-					break
-				}
-
-				et2 := et
-				if et2.Kind() == Ptr && et2.Elem().Kind() == Struct {
-					et2 = et2.Elem()
-				}
-				if i.LBraceCompLitValue.check(ctx, et2) {
-					return true
-				}
-
-				index++
-			case Struct:
-				todo(i, true) // invalid
-			default:
-				panic("internal error")
-			}
-		default:
-			panic("internal error")
-		}
+// Val implements CompositeLiteralItemList.
+func (n *LBraceCompLitItemList) Val() CompositeLiteralNode {
+	switch i := n.LBraceCompLitItem; i.Case {
+	case
+		0, // Expression
+		4: // LBraceCompLitValue ':' Expression
+		return compositeLiteralNode{i.Expression}
+	case 1: // Expression ':' Expression
+		return compositeLiteralNode{i.Expression2}
+	case
+		2, // Expression ':' LBraceCompLitValue
+		3: // LBraceCompLitValue
+		return i.LBraceCompLitValue
+	case 5: // LBraceCompLitValue ':' LBraceCompLitValue
+		return i.LBraceCompLitValue2
+	default:
+		panic("internal error")
 	}
-	return false
 }
 
 // --------------------------------------------------------- LBraceCompLitValue
 
-func (n *LBraceCompLitValue) check(ctx *context, t Type) (stop bool) {
-	if n == nil || t == nil || t.Kind() == Invalid {
-		return false
+// CompositeLiteralValue implements CompositeLiteralNode.
+func (n *LBraceCompLitValue) CompositeLiteralValue() CompositeLiteralValue { return n }
+
+// Expression implements CompositeLiteralNode.
+func (n *LBraceCompLitValue) Expression() *Expression { return nil }
+
+// Items implements CompositeLiteralValue.
+func (n *LBraceCompLitValue) Items() CompositeLiteralItemList {
+	if l := n.LBraceCompLitItemList; l != nil {
+		return l
 	}
 
-	n.Type = t
-	switch n.Case {
-	case 0: // LBrace '}'
-		// nop
-	case 1: // LBrace LBraceCompLitItemList CommaOpt '}'
-		stop = n.LBraceCompLitItemList.check(ctx, t)
-	default:
-		panic("internal error")
-	}
-	return stop
+	return nil
 }
+
+// Value implements CompositeLiteralValue.
+func (n *LBraceCompLitValue) Value() Value {
+	if n.Type != nil {
+		return newRuntimeValue(n.Type)
+	}
+
+	return nil
+}
+
+func (n *LBraceCompLitValue) gate() *gate    { return &n.guard }
+func (n *LBraceCompLitValue) setType(t Type) { n.Type = t }
 
 // -------------------------------------------------------------------- MapType
 
@@ -1136,6 +1263,14 @@ func (n *Operand) isIdentifier() (xc.Token, bool) {
 	return n.Token, n.Case == 4 // IDENTIFIER GenericArgumentsOpt
 }
 
+func (n *Operand) checkDeclaration(ctx *context, d Declaration) (stop bool) {
+	if ctx.isPredeclared(d) && ctx.pkg.ImportPath != "" {
+		return false
+	}
+
+	return d.check(ctx)
+}
+
 func (n *Operand) check(ctx *context) (stop bool) {
 	if n == nil {
 		return false
@@ -1150,12 +1285,19 @@ func (n *Operand) check(ctx *context) (stop bool) {
 	switch n.Case {
 	case 0: // '(' Expression ')'
 		n.Value = n.Expression.Value
+		n.lenPoisoned = n.Expression.lenPoisoned
 	case 1: // '(' TypeLiteral ')'
-		todo(n)
+		if n.TypeLiteral.check(ctx) {
+			return true
+		}
+
+		if t := n.TypeLiteral.Type; t != nil {
+			n.Value = newTypeValue(t)
+		}
 	case 2: // BasicLiteral
 		n.Value = n.BasicLiteral.Value
 	case 3: // FuncType LBrace StatementList '}'
-		todo(n)
+		n.Value = newRuntimeValue(n.FuncType.Type)
 	case 4: // IDENTIFIER GenericArgumentsOpt
 		if n.GenericArgumentsOpt != nil {
 			todo(n)
@@ -1169,14 +1311,16 @@ func (n *Operand) check(ctx *context) (stop bool) {
 		}
 
 		d := n.resolutionScope.mustLookup(ctx, n.Token, n.fileScope)
-		switch isPredeclared := ctx.isPredeclared(d); x := d.(type) {
-		case nil:
-			// nop
-		case *ConstDeclaration:
-			if x.check(ctx) {
-				return true
-			}
+		if d == nil {
+			break
+		}
 
+		if n.checkDeclaration(ctx, d) {
+			return true
+		}
+
+		switch isPredeclared := ctx.isPredeclared(d); x := d.(type) {
+		case *ConstDeclaration:
 			if isPredeclared {
 				switch d.Name() {
 				case idFalse:
@@ -1196,31 +1340,12 @@ func (n *Operand) check(ctx *context) (stop bool) {
 
 			n.Value = x.Value
 		case *FuncDeclaration:
-			if isPredeclared || x.unsafe {
-				n.Value = newPredeclaredFunctionValue(d)
-				break
-			}
-
-			if x.check(ctx) {
-				return true
-			}
-
-			if t := x.Type; t != nil {
-				n.Value = newRuntimeValue(t)
-			}
+			n.Value = newDeclarationValue(d, x.Type)
 		case *ImportDeclaration:
-			n.Value = newPackageValue(x.Package)
+			n.Value = newPackageValue(x)
 		case *TypeDeclaration:
-			if x.check(ctx) {
-				return true
-			}
-
 			n.Value = newTypeValue(x)
 		case *VarDeclaration:
-			if x.check(ctx) {
-				return true
-			}
-
 			if isPredeclared {
 				switch d.Name() {
 				case idNil:
@@ -1293,6 +1418,7 @@ func (n *Parameters) post(lx *lexer) {
 		case 1: // IDENTIFIER "..." Typ
 			hasNamedParams = true
 			pd.nm = pd.Token
+			pd.typ = pd.Typ
 			pd.isVariadic = true
 			typ := pd.Typ
 			if l.ParameterDeclList != nil {
@@ -1308,6 +1434,7 @@ func (n *Parameters) post(lx *lexer) {
 		case 2: // IDENTIFIER Typ
 			hasNamedParams = true
 			pd.nm = pd.Token
+			pd.typ = pd.Typ
 			typ := pd.Typ
 			for j := i - 1; j >= 0 && n.list[j].Case == 3; j-- {
 				pd := n.list[j]
@@ -1335,12 +1462,12 @@ func (n *Parameters) post(lx *lexer) {
 	for _, v := range n.list {
 		nm := v.nm
 		if nm.IsValid() {
-			if lx.scope.Bindings[nm.Val] != nil {
+			if lx.declarationScope.Bindings[nm.Val] != nil {
 				lx.err(v, "duplicate argument %s", nm.S())
 				continue
 			}
 
-			lx.scope.declare(lx, newParamaterDeclaration(nm, v.typ, v.isVariadic, lx.lookahead.Pos()))
+			lx.declarationScope.declare(lx, newParamaterDeclaration(nm, v.typ, v.isVariadic, lx.lookahead.Pos()))
 			continue
 		}
 
@@ -1397,11 +1524,17 @@ func (n *PrimaryExpression) checkConversion(node Node, t Type, arg Value) {
 		}
 	case NilValue:
 		if n.Value = arg.Convert(t); n.Value == nil {
-			todo(n, true)
+			ctx.mustConvertNil(node, t)
 		}
 	case RuntimeValue:
 		if n.Value = arg.Convert(t); n.Value == nil {
-			todo(n, true)
+			switch {
+			case t.Kind() == Interface:
+				arg.Type().implementsFailed(ctx, node, "cannot convert %s to type %s:", t)
+			default:
+				//dbg("", arg.Type(), t)
+				todo(n, true)
+			}
 		}
 	case TypeValue:
 		todo(n)
@@ -1410,12 +1543,12 @@ func (n *PrimaryExpression) checkConversion(node Node, t Type, arg Value) {
 	}
 }
 
-func (n *PrimaryExpression) checkCall(ft Type, skip int) (stop bool) {
+func (n *PrimaryExpression) checkCall(ctx *context, ft Type, skip int) (stop bool) {
 	if ft == nil {
 		return false
 	}
 
-	args, ddd := n.Call.args()
+	args, _, ddd := n.Call.args()
 	switch {
 	case ft.IsVariadic():
 		todo(n)
@@ -1428,19 +1561,12 @@ func (n *PrimaryExpression) checkCall(ft Type, skip int) (stop bool) {
 		}
 		for i, arg := range args {
 			if arg != nil && !arg.AssignableTo(ft.In(i+skip)) {
-				todo(n, true)
+				todo(n)
 			}
 		}
 	}
 
-	switch ft.NumOut() {
-	case 0:
-		todo(n)
-	case 1:
-		n.Value = newRuntimeValue(ft.Out(0))
-	default:
-		todo(n)
-	}
+	n.Value = newRuntimeValue(ft.Result())
 	return false
 }
 
@@ -1451,7 +1577,10 @@ func (n *PrimaryExpression) checkSelector(ctx *context, t Type, nm xc.Token) []S
 		ignoreMethods = t.isNamed()
 		t = t.Elem()
 		switch t.Kind() {
-		case Ptr, Interface:
+		case Interface:
+			ctx.err(nm, "%s undefined (type *%s is pointer to interface, not interface)", nm.S(), t)
+			return nil
+		case Ptr:
 			todo(n, true) // fail
 			return nil
 		}
@@ -1521,6 +1650,15 @@ func (n *PrimaryExpression) checkSelector(ctx *context, t Type, nm xc.Token) []S
 	panic("internal error")
 }
 
+func (n *PrimaryExpression) checkIndexExpr(ctx *context, o *ExpressionOpt) Value {
+	if o == nil {
+		return nil
+	}
+
+	todo(o)
+	return nil
+}
+
 func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 	if n == nil {
 		return false
@@ -1533,80 +1671,115 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 		n.ExpressionOpt3.check(ctx) ||
 		n.Operand.check(ctx) ||
 		n.PrimaryExpression.check(ctx) ||
+		n.Typ.check(ctx) ||
 		n.TypeLiteral.check(ctx) {
 		return true
 	}
 
+	if n.Expression != nil {
+		n.lenPoisoned = n.Expression.lenPoisoned
+	}
+	if n.ExpressionOpt != nil {
+		n.lenPoisoned = n.lenPoisoned || n.ExpressionOpt.lenPoisoned
+	}
+	if n.ExpressionOpt2 != nil {
+		n.lenPoisoned = n.lenPoisoned || n.ExpressionOpt2.lenPoisoned
+	}
+	if n.ExpressionOpt3 != nil {
+		n.lenPoisoned = n.lenPoisoned || n.ExpressionOpt3.lenPoisoned
+	}
 	switch n.Case {
 	case 0: // Operand
 		n.Value = n.Operand.Value
+		n.lenPoisoned = n.Operand.lenPoisoned
 	case 1: // CompLitType LBraceCompLitValue
-		if ct := n.CompLitType; ct.Case == 0 { // ArrayType
-			ct.ArrayType.items = n.LBraceCompLitValue.items
-			ct.ArrayType.itemsSet = true
-		}
 		if n.CompLitType.check(ctx) {
 			return true
 		}
 
 		if t := n.CompLitType.Type; t != nil {
-			if n.LBraceCompLitValue.check(ctx, t) {
+			if (*CompLitValue)(nil).check(ctx, n.LBraceCompLitValue, t) {
 				return true
 			}
 
-			n.Value = newAddressableValue(t)
+			n.Value = newRuntimeValue(t)
 		}
 	case 2: // PrimaryExpression '.' '(' "type" ')'
 		todo(n)
 	case 3: // PrimaryExpression '.' '(' Typ ')'
-		todo(n)
-	case 4: // PrimaryExpression '.' IDENTIFIER
 		v := n.PrimaryExpression.Value
 		if v == nil {
 			break
 		}
 
-		if n.Token2.Val == idUnderscore {
+		nm := n.Token2
+		if nm.Val == idUnderscore {
 			todo(n, true)
 			break
 		}
 
 		switch v.Kind() {
-		case PackageValue:
-			t := n.Token2
-			if !isExported(t.Val) {
-				todo(n, true)
-				break
-			}
-
-			if d := v.Package().Scope.Bindings[t.Val]; d != nil {
-				switch x := d.(type) {
-				case *ConstDeclaration:
-					n.Value = x.Value
-				case *FuncDeclaration:
-					if x.unsafe {
-						n.Value = newPredeclaredFunctionValue(d)
-						break
-					}
-
-					if t := x.Type; t != nil {
-						n.Value = newRuntimeValue(t)
-					}
-				default:
-					//dbg("%s: %T", position(n.Pos()), d)
-					todo(n)
-				}
-				break
-			}
-
-			ctx.err(t, "undefined: %s.%s", v.Package().Name, t.S())
 		case RuntimeValue:
 			t := v.Type()
 			if t == nil {
 				break
 			}
 
-			path := n.checkSelector(ctx, t, n.Token2)
+			if t.Kind() != Interface {
+				todo(n, true) // not an interface
+				break
+			}
+
+			n.Value = newRuntimeValue(n.Typ.Type)
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
+	case 4: // PrimaryExpression '.' IDENTIFIER
+		v := n.PrimaryExpression.Value
+		if v == nil {
+			break
+		}
+
+		nm := n.Token2
+		if nm.Val == idUnderscore {
+			todo(n, true)
+			break
+		}
+
+		switch v.Kind() {
+		case PackageValue:
+			if !isExported(nm.Val) { //TODO use d.IsExported()
+				todo(n, true)
+				break
+			}
+
+			p := v.Declaration().(*ImportDeclaration).Package
+			if d := p.Scope.Bindings[nm.Val]; d != nil {
+				switch x := d.(type) {
+				case *ConstDeclaration:
+					n.Value = x.Value
+				case *FuncDeclaration:
+					n.Value = newDeclarationValue(d, x.Type)
+				case *TypeDeclaration:
+					n.Value = newTypeValue(x)
+				case *VarDeclaration:
+					n.Value = newRuntimeValue(x.Type)
+				default:
+					//dbg("%T", d)
+					todo(n)
+				}
+				break
+			}
+
+			ctx.err(nm, "undefined: %s.%s", p.Name, nm.S())
+		case RuntimeValue:
+			t := v.Type()
+			if t == nil {
+				break
+			}
+
+			path := n.checkSelector(ctx, t, nm)
 			if path == nil {
 				break
 			}
@@ -1617,7 +1790,27 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				root = v
 			}
 			n.Value = newSelectorValue(path[len(path)-1].typ(), root, append(rv.path0, path[len(path)-1]), append(rv.path, path...))
+		case TypeValue:
+			t := v.Type()
+			if t.Kind() == Interface {
+				todo(n, true)
+				break
+			}
+
+			m := t.MethodByName(nm.Val)
+			if m == nil {
+				todo(n)
+				break
+			}
+
+			if t.isNamed() && t.PkgPath() != ctx.pkg.importPath && !isExported(nm.Val) {
+				todo(n, true) // cannot use unexported method
+				break
+			}
+
+			n.Value = newRuntimeValue(m.Type)
 		default:
+			//dbg("", v.Kind())
 			todo(n)
 		}
 	case 5: // PrimaryExpression '[' Expression ']'
@@ -1626,11 +1819,16 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			break
 		}
 
+		pt := a.Type()
+		if pt == nil {
+			break
+		}
+
 		// For a of pointer to array type:
 		//
 		// · a[x] is shorthand for (*a)[x]
-		if a.Type().Kind() == Ptr && a.Type().Elem().Kind() == Array {
-			a = newRuntimeValue(a.Type().Elem())
+		if pt.Kind() == Ptr && pt.Elem().Kind() == Array {
+			a = newRuntimeValue(pt.Elem())
 		}
 
 		x := n.Expression.Value
@@ -1638,6 +1836,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			break
 		}
 
+		var constX Const
 		// If a is not a map:
 		//
 		// · the index x must be of integer type or untyped; it is in
@@ -1645,36 +1844,136 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 		//
 		// · a constant index must be non-negative and representable by
 		//   a value of type int
-		if a.Type().Kind() != Map {
+		if pt.Kind() != Map {
 			if x.Kind() == RuntimeValue && !x.Type().IntegerType() {
-				if ctx.err(n.Expression, "non-integer array index") {
-					return true
+				switch pt.Kind() {
+				case Array:
+					if ctx.err(n.Expression, "non-integer array index") {
+						return true
+					}
+				case Slice:
+					if ctx.err(n.Expression, "non-integer slice index") {
+						return true
+					}
+				case String:
+					if ctx.err(n.Expression, "non-integer string index") {
+						return true
+					}
 				}
 
 				break
 			}
 
 			if x.Kind() == ConstValue {
-				x2 := ctx.mustConvertConst(n.Expression, ctx.intType, x.Const())
-				if x2 == nil {
+				constX = ctx.mustConvertConst(n.Expression, ctx.intType, x.Const())
+				if constX == nil {
 					break
 				}
 
-				if x2 != nil && !x2.nonNegativeInteger() {
-					todo(n.Expression, true)
+				if !constX.nonNegativeInteger() {
+					todo(n.Expression, true) // < 0
 					break
 				}
-
-				todo(n) // Check const array index is in range.
 			}
 		}
 
-		todo(n)
+		switch pt.Kind() {
+		case Array:
+			// For a of array type A:
+			//
+			// · a constant index must be in range
+			//
+			// · if x is out of range at run time, a run-time panic
+			//   occurs
+			//
+			// · a[x] is the array element at index x and the type
+			//   of a[x] is the element type of A
+			if i, j := constX.(*intConst).val, pt.Len(); i >= j {
+				if ctx.err(n.Expression, "invalid array index %d (out of bounds for %d-element array)", i, j) {
+					return true
+				}
+
+				break
+			}
+
+			fallthrough
+		case Slice:
+			n.Value = newRuntimeValue(pt.Elem())
+		case String:
+			todo(n)
+		case Map:
+			kt := pt.Key()
+			if kt == nil {
+				break
+			}
+
+			if !x.AssignableTo(kt) {
+				todo(n, true) // invalid index type
+				break
+			}
+
+			n.Value = newRuntimeValue(pt.Elem())
+		default:
+			todo(n)
+		}
 	case 6: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ':' ExpressionOpt ']'
 		todo(n)
 	case 7: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ']'
-		todo(n)
+		v := n.PrimaryExpression.Value
+		if v == nil {
+			break
+		}
+
+		switch v.Kind() {
+		case RuntimeValue:
+			t := v.Type()
+			if t == nil {
+				break
+			}
+
+			pa := false
+			if e := t.Elem(); e != nil && e.Kind() == Array {
+				pa = true
+				t = e
+			}
+
+			switch t.Kind() {
+			case Array:
+				if !pa && !v.Addressable() {
+					if ctx.err(n.PrimaryExpression, "invalid operation on %s value (slice of unaddressable value)", t) {
+						return true
+					}
+					break
+				}
+
+				n.Value = newRuntimeValue(newSliceType(ctx, t.Elem()))
+			default:
+				//dbg("", t.Kind())
+				todo(n, true) // cannot slice T
+			}
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
+		l := n.checkIndexExpr(ctx, n.ExpressionOpt)
+		if l != nil {
+			todo(n) // check L
+		}
+		h := n.checkIndexExpr(ctx, n.ExpressionOpt2)
+		if h != nil {
+			todo(n) // check H
+		}
+		if l != nil && h != nil {
+			todo(n) // check l <= H
+		}
 	case 8: // PrimaryExpression Call
+		defer func() {
+			n.lenPoisoned = n.Call.lenPoisoned
+			if n.Value != nil && n.Value.Kind() != ConstValue {
+				n.lenPoisoned = true
+			}
+		}()
+
 		v := n.PrimaryExpression.Value
 		if v == nil {
 			break
@@ -1692,33 +1991,65 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				break
 			}
 
-			if d := v.PredeclaredFunction(); d != nil {
+			if d := v.Declaration(); d != nil {
 				switch {
 				case ctx.isPredeclared(d):
-					todo(n)
-				default:
-					if !d.(*FuncDeclaration).unsafe {
-						panic("internal error")
-					}
-
 					switch d.Name() {
-					case idAlignof:
+					case idAppend:
 						todo(n)
-					case idOffsetof:
-						n.Value = offsetof(ctx, n.Call)
-					case idSizeof:
-						n.Value = sizeof(ctx, n.Call)
+					case idCap:
+						n.Value = builtinCap(ctx, n.Call)
+					case idClose:
+						todo(n)
+					case idComplex:
+						n.Value = builtinComplex(ctx, n.Call)
+					case idCopy:
+						todo(n)
+					case idDelete:
+						todo(n)
+					case idImag:
+						todo(n)
+					case idLen:
+						n.Value = builtinLen(ctx, n.Call)
+					case idMake:
+						n.Value = builtinMake(ctx, n.Call)
+					case idNew:
+						n.Value = builtinNew(ctx, n.Call)
+					case idPanic:
+						todo(n)
+					case idPrint:
+						todo(n)
+					case idPrintln:
+						todo(n)
+					case idReal:
+						n.Value = builtinReal(ctx, n.Call)
+					case idRecover:
+						todo(n)
 					default:
 						panic("internal error")
 					}
+					return false
+				default:
+					if x, ok := d.(*FuncDeclaration); ok && x.unsafe {
+						switch d.Name() {
+						case idAlignof:
+							todo(n)
+						case idOffsetof:
+							n.Value = offsetof(ctx, n.Call)
+						case idSizeof:
+							n.Value = sizeof(ctx, n.Call)
+						default:
+							panic("internal error")
+						}
+						return false
+					}
 				}
-				break
 			}
 
-			return n.checkCall(t, 0)
+			return n.checkCall(ctx, t, 0)
 		case TypeValue: // Conversion.
 			t := v.Type()
-			args, ddd := n.Call.args()
+			args, _, ddd := n.Call.args()
 			if ddd {
 				todo(n, true)
 			}
@@ -1742,11 +2073,11 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 
 		switch v.Kind() {
 		case TypeValue:
-			if n.CompLitValue.check(ctx, v.Type()) {
+			if (*CompLitValue)(nil).check(ctx, n.CompLitValue, v.Type()) {
 				return true
 			}
 
-			n.Value = newRuntimeValue(v.Type())
+			n.Value = n.CompLitValue.Value()
 		default:
 			todo(n, true)
 		}
@@ -1768,7 +2099,10 @@ func (n *PrimaryExpression) isIdentifier() (xc.Token, bool) {
 
 // ------------------------------------------------------------------- Prologue
 
-func (n *Prologue) post(lx *lexer) {
+func (n *Prologue) post(lx *lexer) (stop bool) {
+	for _, v := range lx.imports {
+		v.once = lx.oncePackage(v.bl, string(dict.S(v.ip)))
+	}
 	for _, v := range lx.imports {
 		p := v.once.Value().(*Package)
 		v.Package = p
@@ -1793,8 +2127,13 @@ func (n *Prologue) post(lx *lexer) {
 			}
 		}
 
+		if v.name == 0 {
+			return true
+		}
+
 		lx.fileScope.declare(lx, v)
 	}
+	return false
 }
 
 // ------------------------------------------------------------- QualifiedIdent
@@ -1828,6 +2167,28 @@ func (n *QualifiedIdent) str() string {
 	default:
 		return string(i.S())
 	}
+}
+
+func (n *QualifiedIdent) checkTypeDeclaration(ctx *context, t *TypeDeclaration) (stop bool) {
+	if n.Case == 0 /* IDENTIFIER */ && ctx.isPredeclared(t) && ctx.pkg.ImportPath != "" {
+		if t.Kind() == Invalid {
+			//dbg("", position(n.Pos()), ctx.pkg.ImportPath)
+			panic("internal error")
+		}
+
+		return false
+
+	}
+
+	return t.check(ctx)
+}
+
+func (n *QualifiedIdent) checkTypeName(ctx *context) (_ Type, stop bool) {
+	if t := n.resolutionScope.mustLookupType(ctx, n, n.fileScope); t != nil {
+		return t, n.checkTypeDeclaration(ctx, t)
+	}
+
+	return nil, false
 }
 
 // ---------------------------------------------------------------- ReceiverOpt
@@ -1917,8 +2278,6 @@ func (n *ResultOpt) check(ctx *context) (stop bool) {
 	}
 
 	switch n.Case {
-	case 0: // /* empty */
-		// nop
 	case 1: // Parameters
 		var a []Type
 		for l := n.Parameters.ParameterDeclList; l != nil; l = l.ParameterDeclList {
@@ -2011,8 +2370,15 @@ func (n *SliceType) check(ctx *context) (stop bool) {
 // ------------------------------------------------------------------ Statement
 
 func (n *Statement) check(ctx *context) (stop bool) {
-	todo(n)
-	return false
+	if n == nil {
+		return false
+	}
+
+	return n.Block.check(ctx) ||
+		n.ConstDecl.check(ctx) ||
+		n.StatementNonDecl.check(ctx) ||
+		n.TypeDecl.check(ctx) ||
+		n.VarDecl.check(ctx)
 }
 
 // -------------------------------------------------------------- StatementList
@@ -2027,6 +2393,83 @@ func (n *StatementList) check(ctx *context) (stop bool) {
 	return false
 }
 
+// ----------------------------------------------------------- StatementNonDecl
+
+func (n *StatementNonDecl) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	switch n.Case {
+	case 0: // "break" IdentifierOpt
+		todo(n)
+	case 1: // "continue" IdentifierOpt
+		todo(n)
+	case 2: // "defer" Expression
+		todo(n)
+	case 3: // "fallthrough"
+		todo(n)
+	case 4: // ForStatement
+		todo(n)
+	case 5: // "go" Expression
+		todo(n)
+	case 6: // "goto" IDENTIFIER
+		todo(n)
+	case 7: // IDENTIFIER ':' Statement
+		todo(n)
+	case 8: // IfStatement
+		todo(n)
+	case 9: // "return" ExpressionListOpt
+		if o := n.ExpressionListOpt; o != nil {
+			if o.check(ctx) {
+				return true
+			}
+
+			s := n.resolutionScope
+			for !s.isFnScope {
+				s = s.Parent
+			}
+
+			ft := *s.fnType
+			if ft == nil {
+				break
+			}
+
+			rt := ft.Result()
+			if rt == nil {
+				break
+			}
+
+			list := o.ExpressionList.list
+			switch rt.Kind() {
+			case Tuple:
+				todo(n)
+			default:
+				if len(list) > 1 {
+					todo(n, true) // too many values to return
+				}
+				v := list[0].Value
+				if v == nil {
+					break
+				}
+
+				if !v.AssignableTo(rt) {
+					todo(n, true) // type mismatch
+				}
+			}
+		}
+	case 10: // SelectStatement
+		todo(n)
+	case 11: // SimpleStatement
+		todo(n)
+	case 12: // SwitchStatement
+		todo(n)
+	default:
+		panic("internal error")
+	}
+	return false
+}
+
 // ------------------------------------------------------------ StructFieldDecl
 
 func (n *StructFieldDecl) decl(lx *lexer) {
@@ -2036,7 +2479,7 @@ func (n *StructFieldDecl) decl(lx *lexer) {
 	}
 	switch n.Case {
 	case 0: // '*' QualifiedIdent TagOpt
-		lx.scope.declare(lx, newFieldDeclaration(
+		lx.declarationScope.declare(lx, newFieldDeclaration(
 			n.QualifiedIdent.i(),
 			nil,
 			true,
@@ -2047,7 +2490,7 @@ func (n *StructFieldDecl) decl(lx *lexer) {
 		))
 	case 1: // IdentifierList Typ TagOpt
 		for l := n.IdentifierList; l != nil; l = l.IdentifierList {
-			lx.scope.declare(lx, newFieldDeclaration(
+			lx.declarationScope.declare(lx, newFieldDeclaration(
 				l.ident(),
 				n.Typ.normalize(),
 				false,
@@ -2058,7 +2501,7 @@ func (n *StructFieldDecl) decl(lx *lexer) {
 			))
 		}
 	case 2: // QualifiedIdent TagOpt
-		lx.scope.declare(lx, newFieldDeclaration(
+		lx.declarationScope.declare(lx, newFieldDeclaration(
 			n.QualifiedIdent.i(),
 			nil,
 			false,
@@ -2225,10 +2668,7 @@ func (n *Typ) check(ctx *context) (stop bool) {
 		if t.GenericArgumentsOpt != nil {
 			todo(n)
 		}
-		if t := n.resolutionScope.mustLookupType(ctx, n.QualifiedIdent, n.fileScope); t != nil {
-			n.Type = t
-			stop = t.check(ctx)
-		}
+		n.Type, stop = n.QualifiedIdent.checkTypeName(ctx)
 	case 8: // SliceType
 		stop = t.SliceType.check(ctx)
 		n.Type = t.SliceType.Type
@@ -2239,6 +2679,17 @@ func (n *Typ) check(ctx *context) (stop bool) {
 		panic("internal error")
 	}
 	return stop
+}
+
+// ------------------------------------------------------------------- TypeDecl
+
+func (n *TypeDecl) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	todo(n)
+	return false
 }
 
 // ---------------------------------------------------------------- TypeLiteral
@@ -2259,7 +2710,11 @@ func (n *TypeLiteral) check(ctx *context) (stop bool) {
 	case 0: // '*' TypeLiteral
 		todo(n)
 	case 1: // ArrayType
-		todo(n)
+		if n.ArrayType.check(ctx) {
+			return true
+		}
+
+		n.Type = n.ArrayType.Type
 	case 2: // ChanType
 		todo(n)
 	case 3: // FuncType
@@ -2267,7 +2722,8 @@ func (n *TypeLiteral) check(ctx *context) (stop bool) {
 	case 4: // InterfaceType
 		todo(n)
 	case 5: // MapType
-		todo(n)
+		stop = n.MapType.check(ctx)
+		n.Type = n.MapType.Type
 	case 6: // SliceType
 		stop = n.SliceType.check(ctx)
 		n.Type = n.SliceType.Type
@@ -2299,7 +2755,11 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 	}
 
 	var v Value
-	if n.Case != 7 { // PrimaryExpression
+	switch n.Case {
+	case 7: // PrimaryExpression
+		n.lenPoisoned = n.PrimaryExpression.lenPoisoned
+	default:
+		n.lenPoisoned = n.UnaryExpression.lenPoisoned
 		v = n.UnaryExpression.Value
 		if v == nil {
 			return false
@@ -2308,9 +2768,25 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // '!' UnaryExpression
-		todo(n)
+		switch v.Kind() {
+		case ConstValue:
+			switch c := v.Const(); c.Type().Kind() {
+			case Bool:
+				n.Value = newConstValue(newBoolConst(!c.(*boolConst).val, c.Type(), false))
+			case UntypedBool:
+				n.Value = newConstValue(newBoolConst(!c.(*boolConst).val, c.Type(), true))
+			default:
+				todo(n, true) // inv op
+			}
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
 	case 1: // '&' UnaryExpression
 		switch v.Kind() {
+		case RuntimeValue:
+			//TODO disallow taking address of a function (but not of a variable of a function type).
+			n.Value = newRuntimeValue(newPtrType(ctx, v.Type()))
 		default:
 			//dbg("", v.Kind())
 			todo(n)
@@ -2318,14 +2794,13 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 	case 2: // '*' UnaryExpression
 		switch v.Kind() {
 		case RuntimeValue:
-			if t := v.Type(); t != nil {
-				if t.Kind() != Ptr {
-					todo(n, true)
-					break
-				}
-
-				n.Value = newRuntimeValue(t.Elem())
+			t := v.Type()
+			if t.Kind() != Ptr {
+				todo(n, true)
+				break
 			}
+
+			n.Value = newRuntimeValue(t.Elem())
 		case TypeValue:
 			n.Value = newTypeValue(newPtrType(ctx, v.Type()))
 		default:
@@ -2337,7 +2812,7 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 	case 4: // '-' UnaryExpression
 		switch v.Kind() {
 		case ConstValue:
-			n.Value = v.Neg(ctx.Context, n.UnaryExpression)
+			n.Value = v.neg(ctx.Context, n.UnaryExpression)
 		default:
 			//dbg("", v.Kind())
 			todo(n)
@@ -2345,17 +2820,40 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 	case 5: // '^' UnaryExpression
 		switch v.Kind() {
 		case ConstValue:
-			n.Value = v.Cpl(ctx.Context, n.UnaryExpression)
+			n.Value = v.cpl(ctx.Context, n.UnaryExpression)
 		default:
 			//dbg("", v.Kind())
 			todo(n)
 		}
 	case 6: // "<-" UnaryExpression
-		todo(n)
+		n.lenPoisoned = true
+		switch v.Kind() {
+		case RuntimeValue:
+			t := v.Type()
+			if t == nil {
+				break
+			}
+
+			n.Value = newRuntimeValue(t.Elem())
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
 	case 7: // PrimaryExpression
 		n.Value = n.PrimaryExpression.Value
 	default:
 		panic("internal error")
 	}
+	return false
+}
+
+// -------------------------------------------------------------------- VarDecl
+
+func (n *VarDecl) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	todo(n)
 	return false
 }

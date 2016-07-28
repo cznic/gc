@@ -169,6 +169,7 @@ type Context struct {
 	trueValue        *constValue
 	uintptrType      Type
 	universe         *Scope
+	untypedBoolType  Type
 	voidType         Type
 }
 
@@ -264,30 +265,32 @@ func (c *Context) setupLimits() {
 
 func (c *Context) declareBuiltins() error {
 	for _, v := range []struct {
-		name              string
+		name              int
 		kind              Kind
 		align, fieldAlign int
 		size              uint64
+		dst               *Type
 	}{
-		{"bool", Bool, 1, 1, 1},
-		{"complex64", Complex64, 8, 8, 8},
-		{"complex128", Complex128, 8, 8, 16},
-		{"float32", Float32, 4, 4, 4},
-		{"float64", Float64, 8, 8, 8},
-		{"int", Int, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes)},
-		{"int8", Int8, 1, 1, 1},
-		{"int16", Int16, 2, 2, 2},
-		{"int32", Int32, 4, 4, 4},
-		{"int64", Int64, 8, 8, 8},
-		{"string", String, c.model.PtrBytes, c.model.PtrBytes, uint64(2 * c.model.PtrBytes)},
-		{"uint", Uint, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes)},
-		{"uint8", Uint8, 1, 1, 1},
-		{"uint16", Uint16, 2, 2, 2},
-		{"uint32", Uint32, 4, 4, 4},
-		{"uint64", Uint64, 8, 8, 8},
-		{"uintptr", Uintptr, c.model.PtrBytes, c.model.PtrBytes, uint64(c.model.PtrBytes)},
+		{idBool, Bool, 1, 1, 1, &c.boolType},
+		{idBool, UntypedBool, 1, 1, 1, &c.untypedBoolType},
+		{idComplex128, Complex128, 8, 8, 16, &c.complex128Type},
+		{idComplex64, Complex64, 8, 8, 8, nil},
+		{idFloat32, Float32, 4, 4, 4, &c.float32Type},
+		{idFloat64, Float64, 8, 8, 8, &c.float64Type},
+		{idInt, Int, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes), &c.intType},
+		{idInt16, Int16, 2, 2, 2, nil},
+		{idInt32, Int32, 4, 4, 4, &c.int32Type},
+		{idInt64, Int64, 8, 8, 8, nil},
+		{idInt8, Int8, 1, 1, 1, nil},
+		{idString, String, c.model.PtrBytes, c.model.PtrBytes, uint64(2 * c.model.PtrBytes), &c.stringType},
+		{idUint, Uint, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes), nil},
+		{idUint16, Uint16, 2, 2, 2, nil},
+		{idUint32, Uint32, 4, 4, 4, nil},
+		{idUint64, Uint64, 8, 8, 8, nil},
+		{idUint8, Uint8, 1, 1, 1, nil},
+		{idUintptr, Uintptr, c.model.PtrBytes, c.model.PtrBytes, uint64(c.model.PtrBytes), &c.uintptrType},
 	} {
-		t := xc.Token{Val: dict.SID(v.name)}
+		t := xc.Token{Val: v.name}
 		d := newTypeDeclaration(nil, t, nil)
 		d.ctx = c
 		base := d.base()
@@ -296,21 +299,18 @@ func (c *Context) declareBuiltins() error {
 		base.kind = v.kind
 		base.size = v.size
 		base.typ = d
-		c.universe.declare(nil, d)
+		if v.dst != nil {
+			*v.dst = d
+		}
+		if v.dst != &c.untypedBoolType {
+			c.universe.declare(nil, d)
+		}
 	}
 
 	b := c.universe.Bindings
-	b[dict.SID("byte")] = b[dict.SID("uint8")]
-	b[dict.SID("rune")] = b[dict.SID("int32")]
+	b[idByte] = b[idUint8]
+	b[idRune] = b[idInt32]
 
-	c.boolType = b[dict.SID("bool")].(*TypeDeclaration)
-	c.complex128Type = b[dict.SID("complex128")].(*TypeDeclaration)
-	c.float32Type = b[dict.SID("float32")].(*TypeDeclaration)
-	c.float64Type = b[dict.SID("float64")].(*TypeDeclaration)
-	c.int32Type = b[dict.SID("int32")].(*TypeDeclaration)
-	c.intType = b[dict.SID("int")].(*TypeDeclaration)
-	c.stringType = b[dict.SID("string")].(*TypeDeclaration)
-	c.uintptrType = b[dict.SID("uintptr")].(*TypeDeclaration)
 	c.voidType = newTupleType(&context{Context: c}, nil)
 
 	p := c.newPackage("", "")
@@ -323,12 +323,14 @@ func (c *Context) declareBuiltins() error {
 		return nil
 	}
 
-	b[dict.SID("false")].(*ConstDeclaration).Value = newConstValue(newBoolConst(false, c.boolType, true))
-	b[dict.SID("true")].(*ConstDeclaration).Value = newConstValue(newBoolConst(true, c.boolType, true))
+	b[idFalse].(*ConstDeclaration).Value = newConstValue(newBoolConst(false, c.boolType, true))
+	b[idTrue].(*ConstDeclaration).Value = newConstValue(newBoolConst(true, c.boolType, true))
 
 	c.falseValue = newConstValue(newBoolConst(false, c.boolType, true))
 	c.nilValue = newNilValue()
 	c.trueValue = newConstValue(newBoolConst(true, c.boolType, true))
+
+	p.Scope.check(&context{Context: c, pkg: p})
 	return nil
 }
 
@@ -388,7 +390,13 @@ func (c *Context) DirectoryFromImportPath(importPath string) (string, error) {
 	}
 
 	a := []string{fmt.Sprintf("cannot find package %q in any of:", importPath)}
-	for _, v := range c.searchPaths {
+	for i, v := range c.searchPaths {
+		switch i {
+		case 0:
+			v += " (from GOROOT)"
+		default:
+			v += " (from GOPATH)"
+		}
 		a = append(a, "\t"+v)
 	}
 
@@ -567,13 +575,19 @@ func (c *Context) valueAssignmentFail(n Node, t Type, v Value) {
 	case ConstValue:
 		c.constAssignmentFail(n, t, v.Const())
 	default:
-		c.err(n, "cannot use type %s as type %s in assignment", v.Type(), t)
+		switch {
+		case t.Kind() == Interface:
+			v.Type().implementsFailed(t.context(), n, "cannot use type %s as type %s in assignment:", t)
+		default:
+			c.err(n, "cannot use type %s as type %s in assignment", v.Type(), t)
+		}
 	}
 }
 
 func (c *Context) constAssignmentFail(n Node, t Type, d Const) {
 	if d.Untyped() && d.Type().ConvertibleTo(t) &&
-		!(d.Type().Kind() == String && t.Kind() == Slice && (t.Elem().Kind() == Uint8 || t.Elem().Kind() == Int32)) {
+		!(d.Type().Kind() == String && t.Kind() == Slice && (t.Elem().Kind() == Uint8 || t.Elem().Kind() == Int32)) &&
+		!(d.Integral() && t.Kind() == String) {
 		c.constConversionFail(n, t, d)
 		return
 	}
@@ -585,21 +599,19 @@ func (c *Context) constConversionFail(n Node, t Type, d Const) {
 	switch {
 	case t.Kind() == Interface && d.Type().Implements(t):
 		// nop
+	case d.Type().ComplexType() && t.Numeric():
+		//todo(n, true)
+		c.err(n, "constant %s truncated to real", d)
+	case d.Type().FloatingPointType() && t.IntegerType() && !d.Integral():
+		c.err(n, "constant %s truncated to integer", d)
 	case !d.Type().ConvertibleTo(t):
 		c.err(n, "cannot convert type %s to %s", d.Type(), t)
-	case d.Type().FloatingPointType() && t.IntegerType() && !d.Integral():
-		if k := d.Type().Kind(); k == Complex64 || k == Complex128 {
-			todo(n, true) // ... truncated to real
-			break
-		}
-
-		c.err(n, "constant %s truncated to integer", d)
 	default:
 		c.err(n, "constant %s overflows %s", d, t)
 	}
 }
 
-func (c *Context) arithmeticBinOpShape(a, b Const, n Node) (Type, bool, Const, Const) {
+func (c *Context) arithmeticBinOpShape(a, b Const, n Node) (Type, bool /* untyped*/, Const, Const) {
 	switch {
 	case a.Untyped():
 		switch {
@@ -682,4 +694,79 @@ func (c *Context) compositeLiteralValueFail(n Node, v Value, t Type) bool {
 	default:
 		return c.err(n, "cannot use value of type %s as type %s in array or slice literal", v.Type(), t)
 	}
+}
+
+func (c *Context) mustAssignNil(n Node, t Type) (stop bool) {
+	if !c.nilValue.AssignableTo(t) {
+		return c.err(n, "cannot use nil as type %s in assignment", t)
+	}
+
+	return false
+}
+
+func (c *Context) mustConvertNil(n Node, t Type) (stop bool) {
+	if !c.nilValue.AssignableTo(t) {
+		return c.err(n, "cannot convert nil to type %s", t)
+	}
+
+	return false
+}
+
+func (c *Context) constBooleanBinOpShape(a, b Const, n Node) (Type, bool /* untyped*/, Const, Const) {
+	switch {
+	case a.Untyped():
+		switch {
+		case b.Untyped():
+			fail := false
+			if a.Kind() != BoolConst {
+				fail = true
+				todo(n, true) // need bool
+			}
+			if b.Kind() != BoolConst {
+				fail = true
+				todo(n, true) // need bool
+			}
+			if fail {
+				break
+			}
+
+			return c.boolType, true, a, b
+		default: // a.Untyped && !b.Untyped
+			todo(n)
+		}
+	case b.Untyped(): // !a.Untyped() && b.Untyped()
+		todo(n)
+	default: // !a.Untyped() && !b.Untyped()
+		todo(n)
+	}
+	return nil, false, nil, nil
+}
+
+// Boolean and, boolean or.
+func (c *Context) booleanBinOpShape(a, b Type, n Node) Type {
+	switch a.Kind() {
+	case Bool:
+		switch b.Kind() {
+		case Bool:
+			if a.AssignableTo(b) {
+				return a
+			}
+		case UntypedBool:
+			return a
+		default:
+			todo(n, true) // invalid operand
+		}
+	case UntypedBool:
+		switch b.Kind() {
+		case Bool:
+			return b
+		case UntypedBool:
+			return a
+		default:
+			todo(n, true) // invalid operand
+		}
+	default:
+		todo(n, true) // invalid operand
+	}
+	return nil
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func offsetof(ctx *context, n *Call) Value {
-	args, ddd := n.args()
+	args, _, ddd := n.args()
 	if len(args) < 1 {
 		todo(n, true)
 		return nil
@@ -93,7 +93,7 @@ func offsetof(ctx *context, n *Call) Value {
 }
 
 func sizeof(ctx *context, n *Call) Value {
-	args, ddd := n.args()
+	args, _, ddd := n.args()
 	if len(args) < 1 {
 		todo(n, true)
 		return nil
