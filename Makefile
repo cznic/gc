@@ -28,7 +28,7 @@ cpu: clean
 	go tool pprof -lines *.test cpu.out
 
 edit:
-	gvim -p Makefile scanner.l parser.yy log test.log all_test.go ast2.go builtin.go context.go decl.go etc.go gc.go lexer.go package.go type.go unsafe.go value.go
+	@ 1>/dev/null 2>/dev/null gvim -p Makefile scanner.l parser.yy log test.log all_test.go ast2.go builtin.go context.go decl.go etc.go gc.go lexer.go package.go type.go unsafe.go value.go
 
 editor: parser.go scanner.go
 	gofmt -l -s -w *.go

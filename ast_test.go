@@ -1301,34 +1301,91 @@ func ExampleConstSpec_case2() {
 }
 
 func ExampleConstSpecList() {
-	fmt.Println(exampleAST(57, "package a ; const ( b )"))
+	fmt.Println(exampleAST(57, "package a ; const ( b = 42 )"))
 	// Output:
 	// &gc.ConstSpecList{
 	// · ConstSpec: &gc.ConstSpec{
+	// · · Case: 1,
+	// · · ExpressionList: &gc.ExpressionList{
+	// · · · Expression: &gc.Expression{
+	// · · · · UnaryExpression: &gc.UnaryExpression{
+	// · · · · · Case: 7,
+	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · · · · Operand: &gc.Operand{
+	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 42,
+	// · · · · · · · · Case: 3,
+	// · · · · · · · · Token: example57.go:1:25: INT_LIT "42",
+	// · · · · · · · },
+	// · · · · · · · Case: 2,
+	// · · · · · · },
+	// · · · · · },
+	// · · · · },
+	// · · · },
+	// · · },
 	// · · IdentifierList: &gc.IdentifierList{
 	// · · · Token: example57.go:1:21: IDENTIFIER "b",
 	// · · },
+	// · · Token: example57.go:1:23: '=',
 	// · },
 	// }
 }
 
 func ExampleConstSpecList_case1() {
-	fmt.Println(exampleAST(58, "package a ; const ( b ; c )"))
+	fmt.Println(exampleAST(58, "package a ; const ( b = 42 ; c = 314 )"))
 	// Output:
 	// &gc.ConstSpecList{
 	// · ConstSpec: &gc.ConstSpec{
+	// · · Case: 1,
+	// · · ExpressionList: &gc.ExpressionList{
+	// · · · Expression: &gc.Expression{
+	// · · · · UnaryExpression: &gc.UnaryExpression{
+	// · · · · · Case: 7,
+	// · · · · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · · · · Operand: &gc.Operand{
+	// · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · Value: 42,
+	// · · · · · · · · Case: 3,
+	// · · · · · · · · Token: example58.go:1:25: INT_LIT "42",
+	// · · · · · · · },
+	// · · · · · · · Case: 2,
+	// · · · · · · },
+	// · · · · · },
+	// · · · · },
+	// · · · },
+	// · · },
 	// · · IdentifierList: &gc.IdentifierList{
 	// · · · Token: example58.go:1:21: IDENTIFIER "b",
 	// · · },
+	// · · Token: example58.go:1:23: '=',
 	// · },
 	// · ConstSpecList: &gc.ConstSpecList{
 	// · · Case: 1,
 	// · · ConstSpec: &gc.ConstSpec{
-	// · · · IdentifierList: &gc.IdentifierList{
-	// · · · · Token: example58.go:1:25: IDENTIFIER "c",
+	// · · · Case: 1,
+	// · · · ExpressionList: &gc.ExpressionList{
+	// · · · · Expression: &gc.Expression{
+	// · · · · · UnaryExpression: &gc.UnaryExpression{
+	// · · · · · · Case: 7,
+	// · · · · · · PrimaryExpression: &gc.PrimaryExpression{
+	// · · · · · · · Operand: &gc.Operand{
+	// · · · · · · · · BasicLiteral: &gc.BasicLiteral{
+	// · · · · · · · · · Value: 314,
+	// · · · · · · · · · Case: 3,
+	// · · · · · · · · · Token: example58.go:1:34: INT_LIT "314",
+	// · · · · · · · · },
+	// · · · · · · · · Case: 2,
+	// · · · · · · · },
+	// · · · · · · },
+	// · · · · · },
+	// · · · · },
 	// · · · },
+	// · · · IdentifierList: &gc.IdentifierList{
+	// · · · · Token: example58.go:1:30: IDENTIFIER "c",
+	// · · · },
+	// · · · Token: example58.go:1:32: '=',
 	// · · },
-	// · · Token: example58.go:1:23: ';',
+	// · · Token: example58.go:1:28: ';',
 	// · },
 	// }
 }

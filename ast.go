@@ -19,7 +19,7 @@ import (
 //	|       TypeLiteral  // Case 1
 type Argument struct {
 	Value       Value
-	lenPoisoned bool
+	flags       flags
 	Case        int
 	Expression  *Expression
 	TypeLiteral *TypeLiteral
@@ -34,6 +34,10 @@ func (n *Argument) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Argument) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Expression.Pos()
@@ -50,6 +54,7 @@ func (n *Argument) Pos() token.Pos {
 //	        Argument
 //	|       ArgumentList ',' Argument  // Case 1
 type ArgumentList struct {
+	flags        flags
 	Argument     *Argument
 	ArgumentList *ArgumentList
 	Case         int
@@ -82,6 +87,10 @@ func (n *ArgumentList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ArgumentList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Argument.Pos()
@@ -119,6 +128,10 @@ func (n *ArrayType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ArrayType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -153,6 +166,10 @@ func (n *Assignment) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Assignment) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.ExpressionList.Pos()
 }
 
@@ -180,6 +197,10 @@ func (n *BasicLiteral) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *BasicLiteral) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -202,6 +223,10 @@ func (n *Block) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Block) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -224,6 +249,10 @@ func (n *Body) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Body) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -234,7 +263,7 @@ func (n *Body) Pos() token.Pos {
 //	|       '(' ArgumentList CommaOpt ')'        // Case 1
 //	|       '(' ArgumentList "..." CommaOpt ')'  // Case 2
 type Call struct {
-	lenPoisoned  bool
+	flags        flags
 	ArgumentList *ArgumentList
 	Case         int
 	CommaOpt     *CommaOpt
@@ -252,6 +281,10 @@ func (n *Call) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Call) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -279,6 +312,10 @@ func (n *ChanType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ChanType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -334,6 +371,10 @@ func (n *CompLitItem) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *CompLitItem) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0, 1, 2:
 		return n.CompLitValue.Pos()
@@ -382,6 +423,10 @@ func (n *CompLitItemList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *CompLitItemList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.CompLitItem.Pos()
@@ -418,6 +463,10 @@ func (n *CompLitType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *CompLitType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.ArrayType.Pos()
@@ -456,6 +505,10 @@ func (n *CompLitValue) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *CompLitValue) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -484,6 +537,10 @@ func (n *ConstDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ConstDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -510,6 +567,10 @@ func (n *ConstSpec) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ConstSpec) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.IdentifierList.Pos()
 }
 
@@ -551,6 +612,10 @@ func (n *ConstSpecList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ConstSpecList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.ConstSpec.Pos()
@@ -581,6 +646,10 @@ func (n *Elif) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Elif) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -683,7 +752,7 @@ func (n *ElseOpt) Pos() token.Pos {
 //	|       Expression "<-" Expression  // Case 20
 type Expression struct {
 	Value           Value
-	lenPoisoned     bool
+	flags           flags
 	Case            int
 	Expression      *Expression
 	Expression2     *Expression
@@ -700,6 +769,10 @@ func (n *Expression) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Expression) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20:
 		return n.Expression.Pos()
@@ -749,6 +822,10 @@ func (n *ExpressionList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ExpressionList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Expression.Pos()
@@ -790,8 +867,9 @@ func (n *ExpressionListOpt) Pos() token.Pos {
 //	        /* empty */
 //	|       Expression   // Case 1
 type ExpressionOpt struct {
-	lenPoisoned bool
-	Expression  *Expression
+	Value      Value
+	flags      flags
+	Expression *Expression
 }
 
 func (n *ExpressionOpt) fragment() interface{} { return n }
@@ -832,6 +910,10 @@ func (n *File) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *File) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Prologue.Pos()
 }
 
@@ -860,6 +942,10 @@ func (n *ForHeader) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ForHeader) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Range.Pos()
@@ -895,6 +981,10 @@ func (n *ForStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ForStatement) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -945,6 +1035,10 @@ func (n *FuncDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *FuncDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -973,6 +1067,10 @@ func (n *FuncType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *FuncType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1068,6 +1166,10 @@ func (n *IdentifierList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *IdentifierList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1:
 		return n.IdentifierList.Pos()
@@ -1124,6 +1226,10 @@ func (n *IfHeader) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *IfHeader) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.SimpleStatementOpt.Pos()
@@ -1159,6 +1265,10 @@ func (n *IfStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *IfStatement) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1187,6 +1297,10 @@ func (n *ImportDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ImportDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1262,6 +1376,10 @@ func (n *ImportSpec) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ImportSpec) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1, 3:
 		if p := n.IdentifierOpt.Pos(); p != 0 {
@@ -1314,6 +1432,10 @@ func (n *ImportSpecList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ImportSpecList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.ImportSpec.Pos()
@@ -1345,6 +1467,10 @@ func (n *InterfaceMethodDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *InterfaceMethodDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1:
 		return n.QualifiedIdent.Pos()
@@ -1393,6 +1519,10 @@ func (n *InterfaceMethodDeclList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *InterfaceMethodDeclList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.InterfaceMethodDecl.Pos()
@@ -1430,6 +1560,10 @@ func (n *InterfaceType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *InterfaceType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1452,6 +1586,10 @@ func (n *LBrace) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *LBrace) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1482,6 +1620,10 @@ func (n *LBraceCompLitItem) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *LBraceCompLitItem) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0, 1, 2:
 		return n.Expression.Pos()
@@ -1530,6 +1672,10 @@ func (n *LBraceCompLitItemList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *LBraceCompLitItemList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.LBraceCompLitItem.Pos()
@@ -1564,6 +1710,10 @@ func (n *LBraceCompLitValue) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *LBraceCompLitValue) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.LBrace.Pos()
 }
 
@@ -1590,6 +1740,10 @@ func (n *MapType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *MapType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1604,7 +1758,7 @@ func (n *MapType) Pos() token.Pos {
 type Operand struct {
 	Value               Value
 	fileScope           *Scope
-	lenPoisoned         bool
+	flags               flags
 	resolutionScope     *Scope // Where to search for case 4: IDENTIFIER.
 	BasicLiteral        *BasicLiteral
 	Case                int
@@ -1627,6 +1781,10 @@ func (n *Operand) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Operand) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 2:
 		return n.BasicLiteral.Pos()
@@ -1658,6 +1816,10 @@ func (n *PackageClause) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *PackageClause) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1688,6 +1850,10 @@ func (n *ParameterDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ParameterDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0, 1, 2:
 		return n.Token.Pos()
@@ -1736,6 +1902,10 @@ func (n *ParameterDeclList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ParameterDeclList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.ParameterDecl.Pos()
@@ -1769,6 +1939,10 @@ func (n *Parameters) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Parameters) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1788,7 +1962,7 @@ func (n *Parameters) Pos() token.Pos {
 //	|       TypeLiteral '(' Expression CommaOpt ')'                                      // Case 10
 type PrimaryExpression struct {
 	Value              Value
-	lenPoisoned        bool
+	flags              flags
 	Call               *Call
 	Case               int
 	CommaOpt           *CommaOpt
@@ -1818,6 +1992,10 @@ func (n *PrimaryExpression) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *PrimaryExpression) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1:
 		return n.CompLitType.Pos()
@@ -1850,6 +2028,10 @@ func (n *Prologue) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Prologue) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.PackageClause.Pos()
 }
 
@@ -1876,6 +2058,10 @@ func (n *QualifiedIdent) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *QualifiedIdent) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -1902,6 +2088,10 @@ func (n *Range) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Range) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0, 1:
 		return n.ExpressionList.Pos()
@@ -1963,6 +2153,10 @@ func (n *ResultOpt) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *ResultOpt) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return 0
@@ -1993,6 +2187,10 @@ func (n *SelectStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SelectStatement) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2040,6 +2238,10 @@ func (n *Signature) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Signature) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Parameters.Pos()
 }
 
@@ -2052,6 +2254,8 @@ func (n *Signature) Pos() token.Pos {
 //	|       Expression "++"                     // Case 3
 //	|       ExpressionList ":=" ExpressionList  // Case 4
 type SimpleStatement struct {
+	idlist          []xc.Token
+	resolutionScope *Scope
 	Assignment      *Assignment
 	Case            int
 	Expression      *Expression
@@ -2069,6 +2273,10 @@ func (n *SimpleStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SimpleStatement) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Assignment.Pos()
@@ -2127,6 +2335,10 @@ func (n *SliceType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SliceType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2141,6 +2353,7 @@ func (n *SliceType) Pos() token.Pos {
 //	|       StatementNonDecl  // Case 5
 //	|       error             // Case 6
 type Statement struct {
+	flags            flags
 	Block            *Block
 	Case             int
 	ConstDecl        *ConstDecl
@@ -2159,6 +2372,10 @@ func (n *Statement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Statement) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return 0
@@ -2185,6 +2402,7 @@ func (n *Statement) Pos() token.Pos {
 //	        Statement
 //	|       StatementList ';' Statement  // Case 1
 type StatementList struct {
+	flags         flags
 	Case          int
 	Statement     *Statement
 	StatementList *StatementList
@@ -2217,6 +2435,10 @@ func (n *StatementList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *StatementList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Statement.Pos()
@@ -2272,6 +2494,10 @@ func (n *StatementNonDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *StatementNonDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 4:
 		return n.ForStatement.Pos()
@@ -2319,6 +2545,10 @@ func (n *StructFieldDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *StructFieldDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1:
 		return n.IdentifierList.Pos()
@@ -2369,6 +2599,10 @@ func (n *StructFieldDeclList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *StructFieldDeclList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.StructFieldDecl.Pos()
@@ -2406,6 +2640,10 @@ func (n *StructType) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *StructType) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2430,6 +2668,10 @@ func (n *SwitchBody) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchBody) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2460,6 +2702,10 @@ func (n *SwitchCase) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchCase) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2481,6 +2727,10 @@ func (n *SwitchCaseBlock) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchCaseBlock) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.SwitchCase.Pos()
 }
 
@@ -2521,6 +2771,10 @@ func (n *SwitchCaseList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchCaseList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.SwitchCaseBlock.Pos()
@@ -2561,6 +2815,10 @@ func (n *SwitchHeader) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchHeader) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.SimpleStatementOpt.Pos()
@@ -2594,6 +2852,10 @@ func (n *SwitchStatement) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *SwitchStatement) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2651,6 +2913,10 @@ func (n *TopLevelDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *TopLevelDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.ConstDecl.Pos()
@@ -2757,6 +3023,10 @@ func (n *Typ) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *Typ) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 2:
 		return n.ArrayType.Pos()
@@ -2806,6 +3076,10 @@ func (n *TypeDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *TypeDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2847,6 +3121,10 @@ func (n *TypeList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *TypeList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.Typ.Pos()
@@ -2892,6 +3170,10 @@ func (n *TypeLiteral) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *TypeLiteral) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 1:
 		return n.ArrayType.Pos()
@@ -2933,6 +3215,10 @@ func (n *TypeSpec) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *TypeSpec) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -2974,6 +3260,10 @@ func (n *TypeSpecList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *TypeSpecList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.TypeSpec.Pos()
@@ -2997,7 +3287,7 @@ func (n *TypeSpecList) Pos() token.Pos {
 //	|       PrimaryExpression     // Case 7
 type UnaryExpression struct {
 	Value             Value
-	lenPoisoned       bool
+	flags             flags
 	Case              int
 	PrimaryExpression *PrimaryExpression
 	Token             xc.Token
@@ -3013,6 +3303,10 @@ func (n *UnaryExpression) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *UnaryExpression) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 7:
 		return n.PrimaryExpression.Pos()
@@ -3048,6 +3342,10 @@ func (n *VarDecl) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *VarDecl) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.Token.Pos()
 }
 
@@ -3074,6 +3372,10 @@ func (n *VarSpec) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *VarSpec) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	return n.IdentifierList.Pos()
 }
 
@@ -3115,6 +3417,10 @@ func (n *VarSpecList) String() string {
 
 // Pos reports the position of the first component of n or zero if it's empty.
 func (n *VarSpecList) Pos() token.Pos {
+	if n == nil {
+		return 0
+	}
+
 	switch n.Case {
 	case 0:
 		return n.VarSpec.Pos()

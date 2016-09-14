@@ -122,12 +122,14 @@ func (n *Argument) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // Expression
+		//dbg("", position(n.Pos()))
 		if n.Expression.check(ctx) {
 			return true
 		}
 
 		n.Value = n.Expression.Value
-		n.lenPoisoned = n.Expression.lenPoisoned
+		//dbg("%p", n.Value)
+		n.flags = n.Expression.flags
 	case 1: // TypeLiteral
 		if n.TypeLiteral.check(ctx) {
 			return true
@@ -135,6 +137,7 @@ func (n *Argument) check(ctx *context) (stop bool) {
 
 		if t := n.TypeLiteral.Type; t != nil {
 			n.Value = newTypeValue(t)
+			n.flags = n.TypeLiteral.Type.flags()
 		}
 	default:
 		panic("internal error")
@@ -160,6 +163,17 @@ func (n *ArgumentList) node(i int) Node {
 	return n
 }
 
+func (n *ArgumentList) check(ctx *context) (stop bool) {
+	for ; n != nil; n = n.ArgumentList {
+		if n.Argument.check(ctx) {
+			return true
+		}
+
+		n.flags = n.flags | n.Argument.flags
+	}
+	return false
+}
+
 // ------------------------------------------------------------------ ArrayType
 
 func (n *ArrayType) check(ctx *context) (stop bool) {
@@ -167,7 +181,7 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -185,12 +199,18 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 			break
 		}
 
-		n.Type = newArrayType(ctx, t, -1)
+		n.Type = newArrayType(t, -1, 0)
 		if cv := n.compLitValue; cv != nil {
-			stop = (*CompLitValue)(nil).check(ctx, cv, n.Type)
+			return (*CompLitValue)(nil).check(ctx, cv, n.Type)
 		}
 	case 1: // '[' Expression ']' Typ
-		stop = n.Expression.check(ctx) || n.Typ.check(ctx)
+		ctx = ctx.setErrf(func(g *gate) bool {
+			return ctx.err(n.Expression, "invalid array bound")
+		})
+		if n.Expression.check(ctx) || n.Typ.check(ctx) {
+			return true
+		}
+
 		v := n.Expression.Value
 		if v == nil {
 			break
@@ -204,11 +224,15 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 		switch v.Kind() {
 		case ConstValue:
 			switch c := v.Const(); c.Kind() {
-			case IntConst:
-				if d := c.Convert(ctx.intType); d != nil {
+			case FloatingPointConst:
+				if !c.nonNegativeInteger(ctx) {
+					return ctx.constAssignmentFail(n.Expression, ctx.intType, c)
+				}
+
+				if d := c.Convert(ctx.Context, ctx.intType); d != nil {
 					val := d.Const().(*intConst).val
 					if val >= 0 {
-						n.Type = newArrayType(ctx, t, val)
+						n.Type = newArrayType(t, val, n.Expression.flags)
 						break
 					}
 
@@ -216,19 +240,154 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 					break
 				}
 
-				ctx.err(n.Expression, "array bound is too large")
+				return ctx.err(n.Expression, "array bound is too large")
+			case IntConst:
+				if d := c.Convert(ctx.Context, ctx.intType); d != nil {
+					val := d.Const().(*intConst).val
+					if val >= 0 {
+						n.Type = newArrayType(t, val, n.Expression.flags)
+						break
+					}
+
+					return ctx.err(n.Expression, "array bound must be non-negative")
+				}
+
+				return ctx.err(n.Expression, "array bound is too large")
 			default:
-				todo(n)
+				return ctx.err(n.Expression, "invalid array bound %s", c)
 			}
 		case NilValue:
-			ctx.err(n.Expression, "invalid array bound nil")
+			return ctx.err(n.Expression, "invalid array bound nil")
 		default:
 			todo(n, true)
 		}
 	default:
 		panic("internal error")
 	}
-	return stop
+	return false
+}
+
+// ----------------------------------------------------------------- Assignment
+
+func (n *Assignment) check0(ctx *context, f func(*context)) {
+	lhs := n.ExpressionList.list
+	rhs := n.ExpressionList2.list
+	switch len(rhs) {
+	case 1:
+		e := rhs[0]
+		if e == nil {
+			return
+		}
+
+		rv := e.Value
+		if rv == nil {
+			return
+		}
+
+		rt := rv.Type()
+		if rt == nil {
+			return
+		}
+
+		switch rt.Kind() {
+		case Tuple:
+			todo(n)
+		default:
+			if len(lhs) != 1 {
+				todo(n, true) // mismatch
+				return
+			}
+
+			e := lhs[0]
+			if e == nil {
+				return
+			}
+
+			lv := e.Value
+			if lv == nil {
+				return
+			}
+
+			if !lv.assignableTo() {
+				todo(n, true) // invalid dst
+				return
+			}
+
+			lt := lv.Type()
+			if lt == nil {
+				return
+			}
+
+			if !rv.AssignableTo(ctx.Context, lt) {
+				todo(n, true) // type mismatch
+				return
+			}
+		}
+	default:
+		todo(n)
+	}
+	if f != nil {
+		f(ctx)
+	}
+}
+
+func (n *Assignment) checkInts(ctx *context) {
+	lhs := n.ExpressionList.list
+	for _, item := range lhs {
+		if item == nil {
+			continue
+		}
+
+		v := item.Value
+		if v == nil {
+			continue
+		}
+
+		if !v.Type().IntegerType() {
+			todo(n, true) // need int item
+		}
+	}
+}
+
+func (n *Assignment) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	if n.ExpressionList.check(ctx) ||
+		n.ExpressionList2.check(ctx) {
+		return true
+	}
+
+	switch n.Case {
+	case 0: // ExpressionList '=' ExpressionList
+		n.check0(ctx, nil)
+	case 1: // ExpressionList "+=" ExpressionList
+		todo(n)
+	case 2: // ExpressionList "&^=" ExpressionList
+		todo(n)
+	case 3: // ExpressionList "&=" ExpressionList
+		todo(n)
+	case 4: // ExpressionList "/=" ExpressionList
+		todo(n)
+	case 5: // ExpressionList "<<=" ExpressionList
+		todo(n)
+	case 6: // ExpressionList "%=" ExpressionList
+		todo(n)
+	case 7: // ExpressionList "*=" ExpressionList
+		todo(n)
+	case 8: // ExpressionList "|=" ExpressionList
+		n.check0(ctx, n.checkInts)
+	case 9: // ExpressionList ">>=" ExpressionList
+		todo(n)
+	case 10: // ExpressionList "-=" ExpressionList
+		todo(n)
+	case 11: // ExpressionList "^=" ExpressionList
+		todo(n)
+	default:
+		panic("internal error")
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------- Block
@@ -238,8 +397,17 @@ func (n *Block) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	todo(n)
-	return false
+	return n.StatementList.check(ctx)
+}
+
+// ----------------------------------------------------------------------- Body
+
+func (n *Body) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.StatementList.check(ctx)
 }
 
 // ----------------------------------------------------------------------- Call
@@ -253,22 +421,21 @@ func (n *Call) check(ctx *context) (stop bool) {
 		if l.Argument.check(ctx) {
 			return true
 		}
-		n.lenPoisoned = n.lenPoisoned || l.Argument.lenPoisoned
+
+		n.flags = n.flags | l.Argument.flags
 	}
 	return false
 }
 
-func (n *Call) args() (_ []Value, lenPoisoned, ddd bool) {
+func (n *Call) args() (_ []Value, flags flags, ddd bool) {
 	var a []Value
-	first := true
 	for l := n.ArgumentList; l != nil; l = l.ArgumentList {
-		if first && l.Argument.Expression != nil {
-			lenPoisoned = l.Argument.Expression.lenPoisoned
-			first = false
+		if l.Argument.Expression != nil {
+			flags = flags | l.Argument.Expression.flags
 		}
 		a = append(a, l.Argument.Value)
 	}
-	return a, lenPoisoned, n.Case == 2 // '(' ArgumentList "..." CommaOpt ')'
+	return a, flags, n.Case == 2 // '(' ArgumentList "..." CommaOpt ')'
 }
 
 // ------------------------------------------------------------------- ChanType
@@ -278,7 +445,7 @@ func (n *ChanType) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -361,7 +528,7 @@ func (n *CompLitType) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -417,7 +584,7 @@ func (n *CompLitValue) gate() *gate    { return &n.guard }
 func (n *CompLitValue) setType(t Type) { n.Type = t }
 
 func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop bool) {
-	done, stop := n.gate().check(ctx, nil)
+	done, stop := n.gate().check(ctx, nil, t)
 	if done || stop {
 		return stop
 	}
@@ -433,27 +600,35 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 	var numField int
 	var keyed, unkeyed bool
 	m := map[mapKey]struct{}{}
-	tk := t.Kind()
+	tt := t
+	if t.Kind() == Ptr {
+		tt = t.Elem()
+	}
+	if tt == nil {
+		return
+	}
+
+	tk := tt.Kind()
 
 	switch tk {
 	case Array:
-		len = t.Len()
-		et = t.Elem()
+		len = tt.Len()
+		et = tt.Elem()
 		if len < 0 {
 			defer func() {
-				t.(*arrayType).len = maxIndex + 1
+				tt.(*arrayType).len = maxIndex + 1
 			}()
 		}
 	case Map:
-		kt = t.Key()
-		et = t.Elem()
+		kt = tt.Key()
+		et = tt.Elem()
 	case Slice:
-		et = t.Elem()
+		et = tt.Elem()
 		len = -1
 	case Struct:
-		numField = t.NumField()
+		numField = tt.NumField()
 	default:
-		ctx.err(n, "invalid type for composite literal: %s", t)
+		ctx.err(n, "invalid type for composite literal: %s", tt)
 		return false
 	}
 
@@ -503,7 +678,7 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 						break
 					}
 
-					if !v.nonNegativeInteger() {
+					if v.Kind() != ConstValue || !v.nonNegativeInteger(ctx) {
 						if ctx.err(e, "index must be non-negative integer constant") {
 							return true
 						}
@@ -544,7 +719,7 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 						break
 					}
 
-					if !v.AssignableTo(kt) {
+					if !v.AssignableTo(ctx.Context, kt) {
 						switch v.Kind() {
 						case ConstValue:
 							if ctx.err(e, "cannot use %s (type %s) as type %s in map key", v.Const(), v.Type(), kt) {
@@ -586,6 +761,13 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 					default:
 						var k mapKey
 						switch ck.Kind() {
+						case IntConst, RuneConst:
+							if d := ck.Convert(ctx.Context, ctx.intType); d != nil {
+								k.i = d.Const().(*intConst).val
+								break
+							}
+
+							todo(n, true) // too large
 						case StringConst:
 							k.i = int64(ck.(*stringConst).val.id())
 						default:
@@ -593,11 +775,13 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 							todo(e)
 						}
 						switch ck.Kind() {
-						case StringConst: //TODO more types
+						case IntConst, RuneConst, StringConst: //TODO more types
 							if _, ok := m[k]; ok {
 								if ctx.err(e, "duplicate key %s in map literal", ck) {
 									return true
 								}
+
+								break
 							}
 
 							m[k] = struct{}{}
@@ -613,7 +797,7 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 						continue
 					}
 
-					field = t.FieldByName(fn.Val)
+					field = tt.FieldByName(fn.Val)
 					if field == nil {
 						todo(e, true) // unknown field
 						continue
@@ -676,7 +860,8 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 					todo(val, true) // dup index
 				}
 				m[k] = struct{}{}
-				if v != nil && !v.AssignableTo(et) {
+				if v != nil && !v.AssignableTo(ctx.Context, et) {
+					//dbg("", position(val.Pos()))
 					if ctx.compositeLiteralValueFail(val, v, et) {
 						return true
 					}
@@ -684,14 +869,14 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 				maxIndex = mathutil.MaxInt64(maxIndex, index)
 				index++
 			case Map:
-				if v != nil && !v.AssignableTo(et) {
+				if v != nil && !v.AssignableTo(ctx.Context, et) {
 					todo(val, true)
 				}
 			case Struct:
 				switch {
 				case hasKey:
 					keyed = true
-					if v != nil && field.Type != nil && !v.AssignableTo(field.Type) {
+					if v != nil && field.Type != nil && !v.AssignableTo(ctx.Context, field.Type) {
 						todo(val, true)
 					}
 				default:
@@ -704,9 +889,11 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 						break
 					}
 
-					f := t.Field(int(index))
-					if v != nil && f.Type != nil && !v.AssignableTo(f.Type) {
-						todo(val, true) // assign fail
+					f := tt.Field(int(index))
+					if v != nil && f.Type != nil && !v.AssignableTo(ctx.Context, f.Type) {
+						if ctx.err(val, "cannot use type %s as type %s in field value", v.Type(), f.Type) {
+							return true
+						}
 					}
 					index++
 				}
@@ -741,35 +928,90 @@ func (n *ConstSpec) decl(lx *lexer, t *Typ, el *ExpressionList) {
 		lx.iota++
 	}()
 
+	if el == nil && t != nil {
+		todo(n, true) // invalid
+		return
+	}
+
+	if el != nil {
+		lx.constExpr = el
+		lx.constType = t
+	}
 	el0 := el
+	shared := false
 	if el0 == nil {
+		shared = true
 		el0 = lx.constExpr
+		t = lx.constType
 	}
 	if el0 == nil && lx.firstConstSpec {
 		lx.err(n, "constant declaration must have expression")
 		return
 	}
+
 	scopeStart := lx.lookahead.Pos()
+	el = el0
 loop:
 	for l := n.IdentifierList; l != nil; l = l.IdentifierList {
 		var e *Expression
 		switch {
-		case el != nil:
-			e = el.Expression
-			el = el.ExpressionList
 		case el0 != nil:
-			lx.err(el0, "not enough expression(s) in list")
+			el = el0
+			e = el0.Expression
+			el0 = el0.ExpressionList
+		default:
+			lx.err(el, "not enough expression(s) in list")
 			break loop
 		}
-		d := newConstDeclaration(l.ident(), t, e, lx.iota, scopeStart)
+		d := newConstDeclaration(l.ident(), t, e, lx.iota, scopeStart, shared)
 		lx.declarationScope.declare(lx, d)
 	}
-	if el != nil {
-		lx.err(el, "extra expression(s) in list")
+	if el0 != nil {
+		lx.err(el0, "extra expression(s) in list")
 	}
 }
 
+// ----------------------------------------------------------------------- Elif
+
+func (n *Elif) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.IfHeader.check(ctx) || n.Body.check(ctx)
+}
+
+// ------------------------------------------------------------------- ElifList
+
+func (n *ElifList) check(ctx *context) (stop bool) {
+	for ; n != nil; n = n.ElifList {
+		if n.Elif.check(ctx) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// -------------------------------------------------------------------- ElseOpt
+
+func (n *ElseOpt) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.Block.check(ctx)
+}
+
 // ----------------------------------------------------------------- Expression
+
+func (n *Expression) isCall() bool {
+	if n.Case != 0 {
+		return false
+	}
+
+	return n.UnaryExpression.isCall()
+}
 
 func (n *Expression) isIdentifier() (xc.Token, bool) {
 	if n.Case != 0 {
@@ -784,6 +1026,7 @@ func (n *Expression) check(ctx *context) (stop bool) {
 		return false
 	}
 
+	//dbg("", position(n.Pos()))
 	if n.Expression.check(ctx) ||
 		n.Expression2.check(ctx) ||
 		n.UnaryExpression.check(ctx) {
@@ -796,54 +1039,55 @@ func (n *Expression) check(ctx *context) (stop bool) {
 
 	switch {
 	case n.Case == 0: // UnaryExpression
-		n.lenPoisoned = n.UnaryExpression.lenPoisoned
+		n.flags = n.UnaryExpression.flags
 	default:
-		n.lenPoisoned = n.Expression.lenPoisoned || n.Expression2.lenPoisoned
+		n.flags = n.Expression.flags | n.Expression2.flags
 	}
 
 	switch n.Case {
 	case 0: // UnaryExpression
 		n.Value = n.UnaryExpression.Value
+		//dbg("%p", n.Value)
 	case 1: // Expression '%' Expression
-		n.Value = n.Expression.Value.mod(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.mod(ctx, n.Token, n.Expression2.Value)
 	case 2: // Expression '&' Expression
-		n.Value = n.Expression.Value.and(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.and(ctx, n.Token, n.Expression2.Value)
 	case 3: // Expression '*' Expression
-		n.Value = n.Expression.Value.mul(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.mul(ctx, n.Token, n.Expression2.Value)
 	case 4: // Expression '+' Expression
-		n.Value = n.Expression.Value.add(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.add(ctx, n.Token, n.Expression2.Value)
 	case 5: // Expression '-' Expression
-		n.Value = n.Expression.Value.sub(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.sub(ctx, n.Token, n.Expression2.Value)
 	case 6: // Expression '/' Expression
-		n.Value = n.Expression.Value.div(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.div(ctx, n.Token, n.Expression2.Value)
 	case 7: // Expression '<' Expression
-		n.Value = n.Expression.Value.lt(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.lt(ctx, n.Token, n.Expression2.Value)
 	case 8: // Expression '>' Expression
-		n.Value = n.Expression.Value.gt(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.gt(ctx, n.Token, n.Expression2.Value)
 	case 9: // Expression '^' Expression
-		n.Value = n.Expression.Value.xor(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.xor(ctx, n.Token, n.Expression2.Value)
 	case 10: // Expression '|' Expression
-		n.Value = n.Expression.Value.or(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.or(ctx, n.Token, n.Expression2.Value)
 	case 11: // Expression "&&" Expression
-		n.Value = n.Expression.Value.boolAnd(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.boolAnd(ctx, n.Token, n.Expression2.Value)
 	case 12: // Expression "&^" Expression
-		n.Value = n.Expression.Value.andNot(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.andNot(ctx, n.Token, n.Expression2.Value)
 	case 13: // Expression "==" Expression
-		n.Value = n.Expression.Value.eq(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.eq(ctx, n.Token, n.Expression2.Value)
 	case 14: // Expression ">=" Expression
-		n.Value = n.Expression.Value.ge(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.ge(ctx, n.Token, n.Expression2.Value)
 	case 15: // Expression "<=" Expression
-		todo(n)
+		n.Value = n.Expression.Value.le(ctx, n.Token, n.Expression2.Value)
 	case 16: // Expression "<<" Expression
-		n.Value = n.Expression.Value.lsh(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.lsh(ctx, n.Token, n.Expression2.Value)
 	case 17: // Expression "!=" Expression
-		n.Value = n.Expression.Value.neq(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.neq(ctx, n.Token, n.Expression2.Value)
 	case 18: // Expression "||" Expression
-		n.Value = n.Expression.Value.boolOr(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.boolOr(ctx, n.Token, n.Expression2.Value)
 	case 19: // Expression ">>" Expression
-		n.Value = n.Expression.Value.rsh(n.Token, n.Expression2.Value)
+		n.Value = n.Expression.Value.rsh(ctx, n.Token, n.Expression2.Value)
 	case 20: // Expression "<-" Expression
-		todo(n)
+		n.Value = newRuntimeValue(ctx.voidType)
 	default:
 		panic("internal error")
 	}
@@ -879,16 +1123,23 @@ func (n *Expression) ident() (t xc.Token) {
 // ------------------------------------------------------------- ExpressionList
 
 func (n *ExpressionList) check(ctx *context) (stop bool) {
-	if len(n.list) != 0 {
-		panic("internal error")
+	if n == nil {
+		return false
 	}
 
+	if len(n.list) != 0 {
+		todo(n)
+		return false
+		//TODO panic("internal error")
+	}
+
+	n0 := n
 	for ; n != nil; n = n.ExpressionList {
 		if n.Expression.check(ctx) {
 			return true
 		}
 
-		n.list = append(n.list, n.Expression)
+		n0.list = append(n0.list, n.Expression)
 	}
 	return false
 }
@@ -910,10 +1161,61 @@ func (n *ExpressionOpt) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	n.Expression.check(ctx)
-	n.lenPoisoned = n.Expression.lenPoisoned
-	todo(n)
+	if n.Expression.check(ctx) {
+		return true
+	}
+
+	n.flags = n.Expression.flags
+	n.Value = n.Expression.Value
 	return false
+}
+
+// ------------------------------------------------------------------ ForHeader
+
+func (n *ForHeader) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	switch n.Case {
+	case 0: // Range
+		if n.Range.check(ctx) {
+			return true
+		}
+	case 1: // SimpleStatementOpt ';' SimpleStatementOpt ';' SimpleStatementOpt
+		if n.SimpleStatementOpt.check(ctx, false) ||
+			n.SimpleStatementOpt2.check(ctx, true) ||
+			n.SimpleStatementOpt3.check(ctx, false) {
+			return true
+		}
+
+		if !n.SimpleStatementOpt2.boolExprOrNil() {
+			todo(n, true) // need bool
+			break
+		}
+	case 2: // SimpleStatementOpt
+		if n.SimpleStatementOpt.check(ctx, true) {
+			return true
+		}
+
+		if !n.SimpleStatementOpt.boolExprOrNil() {
+			todo(n, true) // need bool
+			break
+		}
+	default:
+		panic("internal error")
+	}
+	return false
+}
+
+// --------------------------------------------------------------- ForStatement
+
+func (n *ForStatement) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.ForHeader.check(ctx) || n.Body.check(ctx)
 }
 
 // ------------------------------------------------------------------- FuncType
@@ -923,7 +1225,7 @@ func (n *FuncType) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -971,6 +1273,39 @@ func (n *IdentifierList) ident() xc.Token {
 	// case 1: // IdentifierList ',' IDENTIFIER
 	return n.Token2
 
+}
+
+// ------------------------------------------------------------------- IfHeader
+
+func (n *IfHeader) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	switch n.Case {
+	case 0: // SimpleStatementOpt
+		return n.SimpleStatementOpt.check(ctx, true)
+	case 1: // SimpleStatementOpt ';' SimpleStatementOpt
+		return n.SimpleStatementOpt.check(ctx, false) || n.SimpleStatementOpt2.check(ctx, true)
+	default:
+		panic("internal error")
+	}
+}
+
+// ---------------------------------------------------------------- IfStatement
+
+func (n *IfStatement) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	if n.IfHeader.check(ctx) ||
+		n.Body.check(ctx) ||
+		n.ElifList.check(ctx) ||
+		n.ElseOpt.check(ctx) {
+		return true
+	}
+	return false
 }
 
 // ----------------------------------------------------------------- ImportSpec
@@ -1058,7 +1393,7 @@ func (n *InterfaceType) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -1084,10 +1419,10 @@ func (n *InterfaceType) check(ctx *context) (stop bool) {
 			case 1: //  QualifiedIdent
 				qi := id.QualifiedIdent
 				if d := qi.resolutionScope.mustLookupQI(ctx, qi, qi.fileScope); d != nil {
-					ctx.errf = func() bool {
-						ctx.err(qi, "interface type loop involving %s", qi.str())
-						return true
-					}
+					ctx = ctx.setErrf(func(g *gate) bool {
+						*g = gateCycle
+						return ctx.err(qi, "interface type loop involving %s", qi.str())
+					})
 
 					switch x := d.(type) {
 					case *TypeDeclaration:
@@ -1241,7 +1576,7 @@ func (n *MapType) check(ctx *context) (stop bool) {
 
 	defer func() { ctx.stack = stack }()
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -1263,19 +1598,12 @@ func (n *Operand) isIdentifier() (xc.Token, bool) {
 	return n.Token, n.Case == 4 // IDENTIFIER GenericArgumentsOpt
 }
 
-func (n *Operand) checkDeclaration(ctx *context, d Declaration) (stop bool) {
-	if ctx.isPredeclared(d) && ctx.pkg.ImportPath != "" {
-		return false
-	}
-
-	return d.check(ctx)
-}
-
 func (n *Operand) check(ctx *context) (stop bool) {
 	if n == nil {
 		return false
 	}
 
+	//dbg("", position(n.Pos()), n.Case)
 	if n.Expression.check(ctx) ||
 		n.FuncType.check(ctx) ||
 		n.StatementList.check(ctx) {
@@ -1285,7 +1613,7 @@ func (n *Operand) check(ctx *context) (stop bool) {
 	switch n.Case {
 	case 0: // '(' Expression ')'
 		n.Value = n.Expression.Value
-		n.lenPoisoned = n.Expression.lenPoisoned
+		n.flags = n.Expression.flags
 	case 1: // '(' TypeLiteral ')'
 		if n.TypeLiteral.check(ctx) {
 			return true
@@ -1293,14 +1621,22 @@ func (n *Operand) check(ctx *context) (stop bool) {
 
 		if t := n.TypeLiteral.Type; t != nil {
 			n.Value = newTypeValue(t)
+			n.flags = t.flags()
 		}
 	case 2: // BasicLiteral
 		n.Value = n.BasicLiteral.Value
 	case 3: // FuncType LBrace StatementList '}'
-		n.Value = newRuntimeValue(n.FuncType.Type)
+		t := n.FuncType.Type
+		n.Value = newRuntimeValue(t)
+		if t != nil {
+			n.flags = t.flags()
+		}
+		if n.StatementList != nil {
+			n.flags = n.flags | n.StatementList.flags
+		}
 	case 4: // IDENTIFIER GenericArgumentsOpt
 		if n.GenericArgumentsOpt != nil {
-			todo(n)
+			//TODO generics todo(n)
 		}
 		if n.Token.Val == idUnderscore {
 			if ctx.err(n, "cannot use _ as value") {
@@ -1315,7 +1651,7 @@ func (n *Operand) check(ctx *context) (stop bool) {
 			break
 		}
 
-		if n.checkDeclaration(ctx, d) {
+		if d.check(ctx) {
 			return true
 		}
 
@@ -1327,6 +1663,7 @@ func (n *Operand) check(ctx *context) (stop bool) {
 					n.Value = ctx.falseValue
 				case idIota:
 					n.Value = ctx.iota
+					n.flags = flagHasIota
 					if n.Value == nil {
 						ctx.err(n.Token, "undefined: iota")
 					}
@@ -1339,12 +1676,22 @@ func (n *Operand) check(ctx *context) (stop bool) {
 			}
 
 			n.Value = x.Value
+			//dbg("%p", n.Value)
 		case *FuncDeclaration:
 			n.Value = newDeclarationValue(d, x.Type)
+			if x.Type != nil {
+				n.flags = x.Type.flags()
+			}
 		case *ImportDeclaration:
 			n.Value = newPackageValue(x)
+		case *ParameterDeclaration:
+			n.Value = newAddressableValue(x.Type)
+			if x.Type != nil {
+				n.flags = x.Type.flags()
+			}
 		case *TypeDeclaration:
 			n.Value = newTypeValue(x)
+			n.flags = x.flags()
 		case *VarDeclaration:
 			if isPredeclared {
 				switch d.Name() {
@@ -1356,8 +1703,9 @@ func (n *Operand) check(ctx *context) (stop bool) {
 				break
 			}
 
-			if t := x.Type; t != nil {
-				n.Value = newAddressableValue(t)
+			n.Value = newAddressableValue(x.Type)
+			if x.Type != nil {
+				n.flags = x.Type.flags()
 			}
 		default:
 			//dbg("%s: %T", position(n.Pos()), d)
@@ -1445,7 +1793,7 @@ func (n *Parameters) post(lx *lexer) {
 			switch t := pd.Typ; t.Case {
 			case 7: // QualifiedIdent GenericArgumentsOpt
 				if t.GenericArgumentsOpt != nil {
-					todo(n)
+					//TODO generics todo(n)
 				}
 				switch qi := t.QualifiedIdent; qi.Case {
 				case 0: // IDENTIFIER
@@ -1505,12 +1853,11 @@ func (n *Parameters) check(ctx *context) (stop bool) {
 
 // ---------------------------------------------------------- PrimaryExpression
 
-func (n *PrimaryExpression) checkConversion(node Node, t Type, arg Value) {
+func (n *PrimaryExpression) checkConversion(ctx *context, node Node, t Type, arg Value) {
 	if t == nil || arg == nil {
 		return
 	}
 
-	ctx := t.context()
 	if t := arg.Type(); t != nil && !t.ConvertibleTo(t) {
 		ctx.err(node, "cannot convert type %s to %s", arg.Type(), t)
 		return
@@ -1519,21 +1866,20 @@ func (n *PrimaryExpression) checkConversion(node Node, t Type, arg Value) {
 	switch arg.Kind() {
 	case ConstValue:
 		c := arg.Const()
-		if n.Value = c.Convert(t); n.Value == nil {
+		if n.Value = c.Convert(ctx.Context, t); n.Value == nil {
 			ctx.constConversionFail(node, t, c)
 		}
 	case NilValue:
-		if n.Value = arg.Convert(t); n.Value == nil {
+		if n.Value = arg.Convert(ctx.Context, t); n.Value == nil {
 			ctx.mustConvertNil(node, t)
 		}
 	case RuntimeValue:
-		if n.Value = arg.Convert(t); n.Value == nil {
+		if n.Value = arg.Convert(ctx.Context, t); n.Value == nil {
 			switch {
 			case t.Kind() == Interface:
 				arg.Type().implementsFailed(ctx, node, "cannot convert %s to type %s:", t)
 			default:
-				//dbg("", arg.Type(), t)
-				todo(n, true)
+				ctx.err(node, "cannot convert %s to type %s", arg.Type(), t)
 			}
 		}
 	case TypeValue:
@@ -1543,29 +1889,105 @@ func (n *PrimaryExpression) checkConversion(node Node, t Type, arg Value) {
 	}
 }
 
+func (n *PrimaryExpression) variadicParam(ft Type, i int) Type {
+	if n := ft.NumIn(); ft.IsVariadic() && i >= n-1 {
+		return ft.In(n - 1).Elem()
+	}
+
+	return ft.In(i)
+}
+
 func (n *PrimaryExpression) checkCall(ctx *context, ft Type, skip int) (stop bool) {
 	if ft == nil {
 		return false
 	}
 
+	const (
+		variadic = 1 << iota
+		dots
+		tuple
+	)
+
 	args, _, ddd := n.Call.args()
-	switch {
-	case ft.IsVariadic():
-		todo(n)
-	default:
-		if len(args) != ft.NumIn()-skip {
-			todo(n) //TODO special case single tuple arg.
-		}
-		if ddd {
-			todo(n)
-		}
-		for i, arg := range args {
-			if arg != nil && !arg.AssignableTo(ft.In(i+skip)) {
-				todo(n)
+	var flags int
+	if ft.IsVariadic() {
+		flags |= variadic
+	}
+	if ddd {
+		flags |= dots
+	}
+	if len(args) == 1 {
+		arg := args[0]
+		if arg != nil && arg.Kind() != NilValue {
+			if t := arg.Type(); t != nil && t.Kind() == Tuple {
+				flags |= tuple
 			}
 		}
 	}
 
+	in := ft.NumIn()
+	switch flags {
+	case variadic:
+		if len(args) < in-1-skip {
+			todo(n, true)
+			break
+		}
+
+		for i, arg := range args {
+			if arg != nil && !arg.AssignableTo(ctx.Context, n.variadicParam(ft, i+skip)) {
+				ctx.valueAssignmentFail(n.Call.ArgumentList.node(i), n.variadicParam(ft, i+skip), arg)
+			}
+		}
+	case dots:
+		todo(n)
+	case dots | variadic:
+		todo(n)
+	case tuple:
+		args := args[0].Type().Elements()
+		if len(args) < in-1-skip {
+			todo(n, true)
+			break
+		}
+
+		for i, arg := range args {
+			if arg != nil && !arg.AssignableTo(ft.In(i+skip)) {
+				todo(n, true)
+			}
+		}
+	case tuple | variadic:
+		args := args[0].Type().Elements()
+		if len(args) < in-1-skip {
+			todo(n, true)
+			break
+		}
+
+		for i, arg := range args {
+			if arg != nil && !arg.AssignableTo(n.variadicParam(ft, i+skip)) {
+				todo(n, true)
+			}
+		}
+	case tuple | dots:
+		fallthrough
+	case tuple | dots | variadic:
+		ctx.err(n.Call.ArgumentList.node(0), "multiple-value in single-value context")
+	default:
+	}
+	//TODO- switch {
+	//TODO- case ft.IsVariadic():
+	//TODO- 	todo(n)
+	//TODO- default:
+	//TODO- 	if len(args) != ft.NumIn()-skip {
+	//TODO- 		todo(n) //TODO special case single tuple arg.
+	//TODO- 	}
+	//TODO- 	if ddd {
+	//TODO- 		todo(n)
+	//TODO- 	}
+	//TODO- 	for i, arg := range args {
+	//TODO- 		if arg != nil && !arg.AssignableTo(ft.In(i+skip)) {
+	//TODO- 			todo(n)
+	//TODO- 		}
+	//TODO- 	}
+	//TODO- }
 	n.Value = newRuntimeValue(ft.Result())
 	return false
 }
@@ -1594,6 +2016,10 @@ func (n *PrimaryExpression) checkSelector(ctx *context, t Type, nm xc.Token) []S
 			return
 		}
 
+		if len(path) >= 100 {
+			panic("internal error") //TODO need inf. recursion protection.
+		}
+
 		if m := t.MethodByName(nm.Val); !ignoreMethods && m != nil && !m.merged {
 			s := append(path[:len(path):len(path)], m)
 			paths = append(paths, s)
@@ -1618,6 +2044,10 @@ func (n *PrimaryExpression) checkSelector(ctx *context, t Type, nm xc.Token) []S
 
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
+			if !f.Anonymous {
+				continue
+			}
+
 			t := f.Type
 			if t.Kind() == Ptr {
 				t = t.Elem()
@@ -1650,12 +2080,38 @@ func (n *PrimaryExpression) checkSelector(ctx *context, t Type, nm xc.Token) []S
 	panic("internal error")
 }
 
-func (n *PrimaryExpression) checkIndexExpr(ctx *context, o *ExpressionOpt) Value {
+func (n *PrimaryExpression) checkSliceIndex(ctx *context, o *ExpressionOpt) Const {
 	if o == nil {
 		return nil
 	}
 
-	todo(o)
+	if o.check(ctx) {
+		return nil
+	}
+
+	v := o.Value
+	if v == nil {
+		return nil
+	}
+
+	if !v.Type().Numeric() || !v.nonNegativeInteger(ctx) {
+		todo(n, true) // non-integer index
+		return nil
+	}
+
+	switch v.Kind() {
+	case ConstValue:
+	default:
+		//dbg("", v.Kind())
+		todo(n)
+		return nil
+	}
+
+	if c := v.Const().Convert(ctx.Context, ctx.intType); c != nil {
+		return c.Const()
+	}
+
+	todo(n, true) // const index overflow
 	return nil
 }
 
@@ -1664,6 +2120,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 		return false
 	}
 
+	//dbg("", position(n.Pos()), n.Case)
 	if n.Call.check(ctx) ||
 		n.Expression.check(ctx) ||
 		n.ExpressionOpt.check(ctx) ||
@@ -1677,21 +2134,22 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 	}
 
 	if n.Expression != nil {
-		n.lenPoisoned = n.Expression.lenPoisoned
+		n.flags = n.Expression.flags
 	}
 	if n.ExpressionOpt != nil {
-		n.lenPoisoned = n.lenPoisoned || n.ExpressionOpt.lenPoisoned
+		n.flags = n.flags | n.ExpressionOpt.flags
 	}
 	if n.ExpressionOpt2 != nil {
-		n.lenPoisoned = n.lenPoisoned || n.ExpressionOpt2.lenPoisoned
+		n.flags = n.flags | n.ExpressionOpt2.flags
 	}
 	if n.ExpressionOpt3 != nil {
-		n.lenPoisoned = n.lenPoisoned || n.ExpressionOpt3.lenPoisoned
+		n.flags = n.flags | n.ExpressionOpt3.flags
 	}
 	switch n.Case {
 	case 0: // Operand
 		n.Value = n.Operand.Value
-		n.lenPoisoned = n.Operand.lenPoisoned
+		n.flags = n.Operand.flags
+		//dbg("%p", n.Value)
 	case 1: // CompLitType LBraceCompLitValue
 		if n.CompLitType.check(ctx) {
 			return true
@@ -1703,18 +2161,11 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			}
 
 			n.Value = newRuntimeValue(t)
+			n.flags = t.flags()
 		}
 	case 2: // PrimaryExpression '.' '(' "type" ')'
-		todo(n)
-	case 3: // PrimaryExpression '.' '(' Typ ')'
 		v := n.PrimaryExpression.Value
 		if v == nil {
-			break
-		}
-
-		nm := n.Token2
-		if nm.Val == idUnderscore {
-			todo(n, true)
 			break
 		}
 
@@ -1725,12 +2176,39 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				break
 			}
 
+			n.flags = t.flags()
+			if t.Kind() != Interface {
+				todo(n, true) // not an interface
+			}
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
+		n.flags = n.flags | n.PrimaryExpression.flags
+	case 3: // PrimaryExpression '.' '(' Typ ')'
+		v := n.PrimaryExpression.Value
+		if v == nil {
+			break
+		}
+
+		switch v.Kind() {
+		case RuntimeValue:
+			t := v.Type()
+			if t == nil {
+				break
+			}
+
+			n.flags = t.flags()
 			if t.Kind() != Interface {
 				todo(n, true) // not an interface
 				break
 			}
 
-			n.Value = newRuntimeValue(n.Typ.Type)
+			t = n.Typ.Type
+			n.Value = newRuntimeValue(t)
+			if t != nil {
+				n.flags = n.flags | t.flags()
+			}
 		default:
 			//dbg("", v.Kind())
 			todo(n)
@@ -1741,6 +2219,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			break
 		}
 
+		n.flags = n.PrimaryExpression.flags
 		nm := n.Token2
 		if nm.Val == idUnderscore {
 			todo(n, true)
@@ -1759,12 +2238,22 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				switch x := d.(type) {
 				case *ConstDeclaration:
 					n.Value = x.Value
+					if n.Value != nil && n.Value.Type() != nil {
+						n.flags = n.flags | n.Value.Type().flags()
+					}
 				case *FuncDeclaration:
 					n.Value = newDeclarationValue(d, x.Type)
+					if x.Type != nil {
+						n.flags = n.flags | x.Type.flags()
+					}
 				case *TypeDeclaration:
 					n.Value = newTypeValue(x)
+					n.flags = n.flags | x.flags()
 				case *VarDeclaration:
 					n.Value = newRuntimeValue(x.Type)
+					if x.Type != nil {
+						n.flags = n.flags | x.Type.flags()
+					}
 				default:
 					//dbg("%T", d)
 					todo(n)
@@ -1773,12 +2262,16 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			}
 
 			ctx.err(nm, "undefined: %s.%s", p.Name, nm.S())
+		case ConstValue:
+			v = newRuntimeValue(v.Type())
+			fallthrough
 		case RuntimeValue:
 			t := v.Type()
 			if t == nil {
 				break
 			}
 
+			n.flags = n.flags | t.flags()
 			path := n.checkSelector(ctx, t, nm)
 			if path == nil {
 				break
@@ -1789,17 +2282,57 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			if root == nil {
 				root = v
 			}
-			n.Value = newSelectorValue(path[len(path)-1].typ(), root, append(rv.path0, path[len(path)-1]), append(rv.path, path...))
+			val := path[len(path)-1]
+			vt := val.typ()
+			if m, ok := val.(*Method); ok && t.Kind() != Interface {
+				t2 := t
+				if t.Kind() == Ptr {
+					t2 = t2.Elem()
+				}
+				m = t2.MethodByName(m.Name)
+				if m != nil { // Method value.
+					f0 := m.Type.(*funcType)
+					f := *f0
+					f.in = f0.in[1:]
+					vt = &f
+					f.typeBase.typ = vt
+				}
+			}
+			n.Value = newSelectorValue(vt, root, append(rv.path0, path[len(path)-1]), append(rv.path, path...))
+			if n.Value != nil && n.Value.Type() != nil {
+				n.flags = n.flags | n.Value.Type().flags()
+			}
 		case TypeValue:
 			t := v.Type()
+			n.flags = n.flags | t.flags()
 			if t.Kind() == Interface {
 				todo(n, true)
 				break
 			}
 
+			needPtrRx := false
 			m := t.MethodByName(nm.Val)
+			if m == nil && t.Kind() == Ptr {
+				if e := t.Elem(); e != nil && e.Kind() != Interface {
+					needPtrRx = true
+					m = e.MethodByName(nm.Val)
+				}
+			}
 			if m == nil {
-				todo(n)
+				if needPtrRx {
+					t = newPtrType(ctx, t)
+				}
+				switch {
+				case t.Kind() == Ptr:
+					if ctx.err(nm, "(%s).%s undefined (type %s has no method %s)", t, nm.S(), t, nm.S()) {
+						return true
+					}
+				default:
+					if ctx.err(nm, "%s.%s undefined (type %s has no method %s)", t, nm.S(), t, nm.S()) {
+						return true
+					}
+				}
+
 				break
 			}
 
@@ -1808,27 +2341,39 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				break
 			}
 
-			n.Value = newRuntimeValue(m.Type)
+			// Method expression.
+			mt := m.Type
+			if mt != nil {
+				n.flags = n.flags | mt.flags()
+				if needPtrRx {
+					rxt := mt.In(0)
+					if rxt != nil && rxt.Kind() != Ptr {
+						mt = mt.(*funcType).ptrMethod(ctx)
+					}
+				}
+			}
+			n.Value = newRuntimeValue(mt)
 		default:
 			//dbg("", v.Kind())
 			todo(n)
 		}
 	case 5: // PrimaryExpression '[' Expression ']'
-		a := n.PrimaryExpression.Value
-		if a == nil {
+		pv := n.PrimaryExpression.Value
+		if pv == nil {
 			break
 		}
 
-		pt := a.Type()
+		pt := pv.Type()
 		if pt == nil {
 			break
 		}
 
+		n.flags = n.flags | pt.flags()
 		// For a of pointer to array type:
 		//
 		// · a[x] is shorthand for (*a)[x]
 		if pt.Kind() == Ptr && pt.Elem().Kind() == Array {
-			a = newRuntimeValue(pt.Elem())
+			pv = newRuntimeValue(pt.Elem())
 		}
 
 		x := n.Expression.Value
@@ -1861,18 +2406,18 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 					}
 				}
 
-				break
+				return false
 			}
 
 			if x.Kind() == ConstValue {
 				constX = ctx.mustConvertConst(n.Expression, ctx.intType, x.Const())
 				if constX == nil {
-					break
+					return false
 				}
 
-				if !constX.nonNegativeInteger() {
+				if !constX.nonNegativeInteger(ctx) {
 					todo(n.Expression, true) // < 0
-					break
+					return false
 				}
 			}
 		}
@@ -1888,36 +2433,79 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			//
 			// · a[x] is the array element at index x and the type
 			//   of a[x] is the element type of A
-			if i, j := constX.(*intConst).val, pt.Len(); i >= j {
-				if ctx.err(n.Expression, "invalid array index %d (out of bounds for %d-element array)", i, j) {
-					return true
-				}
+			if constX != nil {
+				if i, j := constX.(*intConst).val, pt.Len(); i >= j {
+					if ctx.err(n.Expression, "invalid array index %d (out of bounds for %d-element array)", i, j) {
+						return true
+					}
 
-				break
+					break
+				}
 			}
 
 			fallthrough
 		case Slice:
-			n.Value = newRuntimeValue(pt.Elem())
+			// For a of slice type S:
+			//
+			// · if x is out of range at run time, a run-time panic
+			//   occurs
+			//
+			// · a[x] is the slice element at index x and the type
+			//   of a[x] is the element type of S
+			n.Value = newAddressableValue(pt.Elem())
+			n.flags = n.flags | pt.Elem().flags()
 		case String:
-			todo(n)
+			// For a of string type:
+			//
+			// · a constant index must be in range if the string a
+			//   is also constant
+			//
+			// · if x is out of range at run time, a run-time panic
+			//   occurs
+			//
+			// · a[x] is the non-constant byte value at index x and
+			//   the type of a[x] is byte
+			//
+			// · a[x] may not be assigned to
+			switch pv.Kind() {
+			case RuntimeValue:
+				n.Value = newRuntimeValue(ctx.uint8Type)
+			default:
+				//dbg("", pv.Kind())
+				todo(n)
+			}
 		case Map:
+			// For a of map type M:
+			//
+			// · x's type must be assignable to the key type of M
+			//
+			// · if the map contains an entry with key x, a[x] is
+			//   the map value with key x and the type of a[x] is the
+			//   value type of M
+			//
+			// · if the map is nil or does not contain such an
+			//   entry, a[x] is the zero value for the value type of
+			//   M
 			kt := pt.Key()
 			if kt == nil {
 				break
 			}
 
-			if !x.AssignableTo(kt) {
+			n.flags = n.flags | kt.flags()
+			if !x.AssignableTo(ctx.Context, kt) {
 				todo(n, true) // invalid index type
 				break
 			}
 
-			n.Value = newRuntimeValue(pt.Elem())
+			n.Value = newMapIndexValue(pt.Elem())
+			n.flags = n.flags | pt.Elem().flags()
 		default:
-			todo(n)
+			// Otherwise a[x] is illegal.
+			todo(n, true)
 		}
 	case 6: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ':' ExpressionOpt ']'
 		todo(n)
+		//TODO n.flags =
 	case 7: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ']'
 		v := n.PrimaryExpression.Value
 		if v == nil {
@@ -1931,10 +2519,13 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				break
 			}
 
+			n.flags = n.flags | t.flags()
 			pa := false
-			if e := t.Elem(); e != nil && e.Kind() == Array {
-				pa = true
-				t = e
+			if t.Kind() == Ptr {
+				if e := t.Elem(); e != nil && e.Kind() == Array {
+					pa = true
+					t = e
+				}
 			}
 
 			switch t.Kind() {
@@ -1947,6 +2538,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				}
 
 				n.Value = newRuntimeValue(newSliceType(ctx, t.Elem()))
+				n.flags = n.flags | t.Elem().flags()
 			default:
 				//dbg("", t.Kind())
 				todo(n, true) // cannot slice T
@@ -1955,22 +2547,18 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			//dbg("", v.Kind())
 			todo(n)
 		}
-		l := n.checkIndexExpr(ctx, n.ExpressionOpt)
-		if l != nil {
-			todo(n) // check L
-		}
-		h := n.checkIndexExpr(ctx, n.ExpressionOpt2)
-		if h != nil {
-			todo(n) // check H
-		}
+		l := n.checkSliceIndex(ctx, n.ExpressionOpt)
+		h := n.checkSliceIndex(ctx, n.ExpressionOpt2)
 		if l != nil && h != nil {
-			todo(n) // check l <= H
+			if l.(*intConst).val > h.(*intConst).val {
+				todo(n, true) // l >= h
+			}
 		}
 	case 8: // PrimaryExpression Call
 		defer func() {
-			n.lenPoisoned = n.Call.lenPoisoned
+			n.flags = n.flags | n.Call.flags
 			if n.Value != nil && n.Value.Kind() != ConstValue {
-				n.lenPoisoned = true
+				n.flags = n.flags | flagLenPoisoned
 			}
 		}()
 
@@ -1986,6 +2574,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				break
 			}
 
+			n.flags = n.flags | t.flags()
 			if t.Kind() != Func {
 				todo(n, true)
 				break
@@ -1996,7 +2585,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 				case ctx.isPredeclared(d):
 					switch d.Name() {
 					case idAppend:
-						todo(n)
+						n.Value = builtinAppend(ctx, n.Call)
 					case idCap:
 						n.Value = builtinCap(ctx, n.Call)
 					case idClose:
@@ -2008,7 +2597,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 					case idDelete:
 						todo(n)
 					case idImag:
-						todo(n)
+						n.Value = builtinImag(ctx, n.Call)
 					case idLen:
 						n.Value = builtinLen(ctx, n.Call)
 					case idMake:
@@ -2016,11 +2605,11 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 					case idNew:
 						n.Value = builtinNew(ctx, n.Call)
 					case idPanic:
-						todo(n)
+						n.Value = builtinPanic(ctx, n.Call)
 					case idPrint:
-						todo(n)
+						n.Value = builtinPrint(ctx, n.Call, false)
 					case idPrintln:
-						todo(n)
+						n.Value = builtinPrint(ctx, n.Call, true)
 					case idReal:
 						n.Value = builtinReal(ctx, n.Call)
 					case idRecover:
@@ -2033,7 +2622,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 					if x, ok := d.(*FuncDeclaration); ok && x.unsafe {
 						switch d.Name() {
 						case idAlignof:
-							todo(n)
+							n.Value = alignof(ctx, n.Call)
 						case idOffsetof:
 							n.Value = offsetof(ctx, n.Call)
 						case idSizeof:
@@ -2049,6 +2638,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			return n.checkCall(ctx, t, 0)
 		case TypeValue: // Conversion.
 			t := v.Type()
+			n.flags = n.flags | t.flags()
 			args, _, ddd := n.Call.args()
 			if ddd {
 				todo(n, true)
@@ -2057,7 +2647,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			case 0:
 				todo(n, true)
 			case 1:
-				n.checkConversion(n.Call.ArgumentList.Argument, t, args[0])
+				n.checkConversion(ctx, n.Call.ArgumentList.Argument, t, args[0])
 			default:
 				todo(n, true)
 			}
@@ -2071,6 +2661,9 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			break
 		}
 
+		if v.Type() != nil {
+			n.flags = n.flags | v.Type().flags()
+		}
 		switch v.Kind() {
 		case TypeValue:
 			if (*CompLitValue)(nil).check(ctx, n.CompLitValue, v.Type()) {
@@ -2082,11 +2675,19 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			todo(n, true)
 		}
 	case 10: // TypeLiteral '(' Expression CommaOpt ')'
-		n.checkConversion(n.Expression, n.TypeLiteral.Type, n.Expression.Value)
+		t := n.TypeLiteral.Type
+		n.checkConversion(ctx, n.Expression, t, n.Expression.Value)
+		if t != nil {
+			n.flags = n.flags | t.flags()
+		}
 	default:
 		panic("internal error")
 	}
 	return false
+}
+
+func (n *PrimaryExpression) isCall() bool {
+	return n.Case == 8 // PrimaryExpression Call
 }
 
 func (n *PrimaryExpression) isIdentifier() (xc.Token, bool) {
@@ -2172,7 +2773,6 @@ func (n *QualifiedIdent) str() string {
 func (n *QualifiedIdent) checkTypeDeclaration(ctx *context, t *TypeDeclaration) (stop bool) {
 	if n.Case == 0 /* IDENTIFIER */ && ctx.isPredeclared(t) && ctx.pkg.ImportPath != "" {
 		if t.Kind() == Invalid {
-			//dbg("", position(n.Pos()), ctx.pkg.ImportPath)
 			panic("internal error")
 		}
 
@@ -2189,6 +2789,17 @@ func (n *QualifiedIdent) checkTypeName(ctx *context) (_ Type, stop bool) {
 	}
 
 	return nil, false
+}
+
+// ---------------------------------------------------------------------- Range
+
+func (n *Range) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	todo(n)
+	return false
 }
 
 // ---------------------------------------------------------------- ReceiverOpt
@@ -2233,7 +2844,7 @@ func (n *ReceiverOpt) post(lx *lexer) {
 			}
 		case 7: // QualifiedIdent GenericArgumentsOpt
 			if t.GenericArgumentsOpt != nil {
-				todo(n)
+				//TODO generics todo(n)
 			}
 			switch qi := t.QualifiedIdent; qi.Case {
 			case 0: // IDENTIFIER
@@ -2305,7 +2916,7 @@ func (n *ResultOpt) check(ctx *context) (stop bool) {
 		case 1:
 			n.Type = a[0]
 		default:
-			n.Type = newTupleType(ctx, a)
+			n.Type = newTupleType(a)
 		}
 	case 2: // Typ
 		n.Type = n.Typ.Type
@@ -2313,6 +2924,16 @@ func (n *ResultOpt) check(ctx *context) (stop bool) {
 		panic("internal error")
 	}
 	return false
+}
+
+// ------------------------------------------------------------ SelectStatement
+
+func (n *SelectStatement) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.SwitchBody.check(ctx)
 }
 
 // ------------------------------------------------------------------ Signature
@@ -2339,6 +2960,92 @@ func (n *Signature) check(ctx *context) (stop bool) {
 	return false
 }
 
+// ------------------------------------------------------------ SimpleStatement
+
+func (n *SimpleStatement) check(ctx *context, used bool) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	if n.Assignment.check(ctx) ||
+		n.Expression.check(ctx) ||
+		n.Case != 4 && (n.ExpressionList.check(ctx) ||
+			n.ExpressionList2.check(ctx)) {
+		return true
+	}
+
+	//dbg("", position(n.Pos()))
+	switch n.Case {
+	case 0: // Assignment
+		// nop
+	case 1: // Expression
+		v := n.Expression.Value
+		if v == nil {
+			break
+		}
+
+		if used || isVoid(v.Type()) || n.Expression.isCall() {
+			break
+		}
+
+		todo(n, true) // unused value
+	case 2: // Expression "--"
+		fallthrough
+	case 3: // Expression "++"
+		v := n.Expression.Value
+		if v == nil {
+			break
+		}
+
+		if !v.Type().IntegerType() {
+			todo(n, true) // need int
+		}
+	case 4: // ExpressionList ":=" ExpressionList
+		// nop
+	default:
+		panic("internal error")
+	}
+	return false
+}
+
+func (n *SimpleStatement) boolExprOrNil() bool {
+	if n == nil {
+		return true
+	}
+
+	switch n.Case {
+	case
+		0, // Assignment
+		2, // Expression "--"
+		3, // Expression "++"
+		4: // ExpressionList ":=" ExpressionList
+		return false
+	case 1: // Expression
+		v := n.Expression.Value
+		return v == nil || v.Type().Kind() == Bool || v.Type().Kind() == UntypedBool
+	default:
+		panic("internal error")
+	}
+}
+
+// --------------------------------------------------------- SimpleStatementOpt
+
+func (n *SimpleStatementOpt) check(ctx *context, used bool) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.SimpleStatement.check(ctx, used)
+}
+
+func (n *SimpleStatementOpt) boolExprOrNil() bool {
+	if n == nil {
+		return true
+	}
+
+	return n.SimpleStatement.boolExprOrNil()
+}
+
 // ------------------------------------------------------------------ SliceType
 
 func (n *SliceType) check(ctx *context) (stop bool) {
@@ -2351,7 +3058,7 @@ func (n *SliceType) check(ctx *context) (stop bool) {
 
 	defer func() { ctx.stack = stack }()
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -2379,6 +3086,8 @@ func (n *Statement) check(ctx *context) (stop bool) {
 		n.StatementNonDecl.check(ctx) ||
 		n.TypeDecl.check(ctx) ||
 		n.VarDecl.check(ctx)
+
+	//TODO set n.flags
 }
 
 // -------------------------------------------------------------- StatementList
@@ -2388,6 +3097,10 @@ func (n *StatementList) check(ctx *context) (stop bool) {
 		i := n.Statement
 		if i.check(ctx) {
 			return true
+		}
+
+		if n.Statement != nil {
+			n.flags = n.flags | n.Statement.flags
 		}
 	}
 	return false
@@ -2402,68 +3115,135 @@ func (n *StatementNonDecl) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // "break" IdentifierOpt
-		todo(n)
+		//TODO verify valid context
+		if o := n.IdentifierOpt; o != nil {
+			n.resolutionScope.mustLookupLabel(ctx, o.Token)
+			//TODO verify valid target
+		}
 	case 1: // "continue" IdentifierOpt
 		todo(n)
 	case 2: // "defer" Expression
 		todo(n)
 	case 3: // "fallthrough"
-		todo(n)
+		//TODO check valid context
 	case 4: // ForStatement
-		todo(n)
+		return n.ForStatement.check(ctx)
 	case 5: // "go" Expression
 		todo(n)
 	case 6: // "goto" IDENTIFIER
-		todo(n)
+		n.resolutionScope.mustLookupLabel(ctx, n.Token2)
+		//TODO verify valid target
 	case 7: // IDENTIFIER ':' Statement
-		todo(n)
+		return n.Statement.check(ctx)
 	case 8: // IfStatement
-		todo(n)
+		return n.IfStatement.check(ctx)
 	case 9: // "return" ExpressionListOpt
-		if o := n.ExpressionListOpt; o != nil {
-			if o.check(ctx) {
-				return true
-			}
+		o := n.ExpressionListOpt
+		if o == nil {
+			break
+		}
 
-			s := n.resolutionScope
-			for !s.isFnScope {
-				s = s.Parent
-			}
+		if o.check(ctx) {
+			return true
+		}
 
-			ft := *s.fnType
-			if ft == nil {
-				break
-			}
+		s := n.resolutionScope
+		for !s.isFnScope {
+			s = s.Parent
+		}
 
-			rt := ft.Result()
-			if rt == nil {
-				break
-			}
+		if s.fnType == nil {
+			break
+		}
 
-			list := o.ExpressionList.list
-			switch rt.Kind() {
-			case Tuple:
-				todo(n)
-			default:
-				if len(list) > 1 {
-					todo(n, true) // too many values to return
-				}
+		ft := *s.fnType
+		if ft == nil {
+			break
+		}
+
+		rt := ft.Result()
+		if rt == nil {
+			break
+		}
+
+		if isVoid(rt) {
+			todo(n, true)
+			break
+		}
+
+		list := o.ExpressionList.list
+		switch rt.Kind() {
+		case Tuple:
+			rte := rt.Elements()
+			switch {
+			case len(list) == 1: // must be tuple as well
 				v := list[0].Value
 				if v == nil {
 					break
 				}
 
-				if !v.AssignableTo(rt) {
-					todo(n, true) // type mismatch
+				if v.Type().Kind() != Tuple {
+					todo(n, true) // mismatch
+					break
 				}
+
+				le := v.Type().Elements()
+				if len(le) != len(rte) {
+					todo(n, true) // mismatch
+					break
+				}
+
+				for i, v := range le {
+					if !v.AssignableTo(rte[i]) {
+						todo(n, true) // mismatch
+					}
+				}
+			default:
+				if len(list) < len(rte) {
+					todo(n, true) // not enough values to return
+				}
+				if len(list) > len(rte) {
+					todo(n, true) // too many values to return
+				}
+				for i, e := range list[:mathutil.Min(len(list), len(rte))] {
+					if e == nil {
+						continue
+					}
+
+					v := e.Value
+					if v == nil {
+						continue
+					}
+
+					t := rte[i]
+					if t == nil {
+						continue
+					}
+
+					if !v.AssignableTo(ctx.Context, rte[i]) {
+						todo(n, true) // type mismatch
+					}
+				}
+			}
+		default: // Single valued function
+			if len(list) > 1 {
+				todo(n, true) // too many values to return
+			}
+			v := list[0].Value
+			if v == nil {
+				break
+			}
+
+			if !v.AssignableTo(ctx.Context, rt) {
+				todo(n, true) // type mismatch
 			}
 		}
 	case 10: // SelectStatement
-		todo(n)
+		return n.SelectStatement.check(ctx)
 	case 11: // SimpleStatement
-		todo(n)
+		return n.SimpleStatement.check(ctx, false)
 	case 12: // SwitchStatement
-		todo(n)
+		return n.SwitchStatement.check(ctx)
 	default:
 		panic("internal error")
 	}
@@ -2528,7 +3308,7 @@ func (n *StructType) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -2543,7 +3323,7 @@ func (n *StructType) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // "struct" LBrace '}'
-		n.Type = newStructType(ctx, nil, nil)
+		n.Type = newStructType(n, nil, nil)
 	case 1: // "struct" LBrace StructFieldDeclList SemicolonOpt '}'
 		s := n.fields
 		a := make(fields, 0, len(s.Bindings)+len(s.Unbound))
@@ -2556,30 +3336,48 @@ func (n *StructType) check(ctx *context) (stop bool) {
 		sort.Sort(a)
 		sf := make([]StructField, 0, len(a))
 		var mta []Method
+		var fixes []*Type
+		m := map[int]struct{}{}
 		for _, f := range a {
 			if f.check(ctx) {
 				return true
 			}
 
-			if ft := f.Type; ft != nil && f.isAnonymous && ft.NumMethod() != 0 {
-				m := map[int]struct{}{}
-				for i := 0; i < ft.NumMethod(); i++ {
-					mt := ft.Method(i)
-					if _, ok := m[mt.Name]; ok {
-						continue
-					}
+			if ft := f.Type; ft != nil && f.isAnonymous {
+				ptr := ft.Kind() == Ptr
+				if ptr {
+					ft = ft.Elem()
+				}
+				if ft != nil && ft.NumMethod() != 0 {
+					for i := 0; i < ft.NumMethod(); i++ {
+						mt := ft.Method(i)
+						if _, ok := m[mt.Name]; ok {
+							continue
+						}
 
-					m[mt.Name] = struct{}{}
-					var mt2 Method
-					switch {
-					case ft.Kind() == Interface:
-						todo(zeroNode) // Merge interface method, must synthesize new method w/ receiver.
-					default:
-						mt2 = *mt
+						m[mt.Name] = struct{}{}
+						var mt2 Method
+						switch {
+						case ft.Kind() == Interface:
+							if ptr {
+								break
+							}
+
+							// Merge interface method, must synthesize new method w/ receiver.
+							mt2 = *mt
+							in := []Type{nil}
+							for i := 0; i < mt.Type.NumIn(); i++ {
+								in = append(in, mt.Type.In(i))
+							}
+							fixes = append(fixes, &in[0])
+							mt2.Type = newFuncType(ctx, mt.Name, in, mt.Type.Result(), isExported(mt.Name), mt.Type.IsVariadic())
+						default:
+							mt2 = *mt
+						}
 						mt2.merged = true
+						mt2.Index = len(mta)
+						mta = append(mta, mt2)
 					}
-					mt2.Index = len(mta)
-					mta = append(mta, mt2)
 				}
 			}
 
@@ -2605,12 +3403,95 @@ func (n *StructType) check(ctx *context) (stop bool) {
 				f.isAnonymous,
 			})
 		}
-		n.Type = newStructType(ctx, sf, mta)
+		n.Type = newStructType(n, sf, mta)
+		for i := range fixes {
+			*fixes[i] = n.Type
+		}
 	default:
 		panic("internal error")
 	}
 
 	return stop
+}
+
+// ----------------------------------------------------------------- SwitchCase
+
+func (n *SwitchCase) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	switch n.Case {
+	case 0: // "case" ArgumentList ':'
+		return n.ArgumentList.check(ctx)
+	case 1: // "case" ArgumentList '=' Expression ':'
+		todo(n)
+	case 2: // "case" ArgumentList ":=" Expression ':'
+		todo(n)
+	case 3: // "default" ':'
+		//TODO check unique
+	case 4: // "case" error
+		todo(n)
+	case 5: // "default" error
+		todo(n)
+	default:
+		panic("internal error")
+	}
+	return false
+}
+
+// ------------------------------------------------------------ SwitchCaseBlock
+
+func (n *SwitchCaseBlock) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.SwitchCase.check(ctx) || n.StatementList.check(ctx)
+}
+
+// ----------------------------------------------------------------- SwitchBody
+
+func (n *SwitchBody) check(ctx *context) (stop bool) {
+	for l := n.SwitchCaseList; l != nil; l = l.SwitchCaseList {
+		if l.SwitchCaseBlock.check(ctx) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// --------------------------------------------------------------- SwitchHeader
+
+func (n *SwitchHeader) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	switch n.Case {
+	case 0: // SimpleStatementOpt
+		return n.SimpleStatementOpt.check(ctx, true)
+	case 1: // SimpleStatementOpt ';'
+		todo(n)
+	case 2: // SimpleStatementOpt ';' Expression
+		todo(n)
+	case 3: // SimpleStatementOpt ';' IDENTIFIER ":=" PrimaryExpression '.' '(' "type" ')'
+		todo(n)
+	default:
+		panic("internal error")
+	}
+	return false
+}
+
+// ------------------------------------------------------------ SwitchStatement
+
+func (n *SwitchStatement) check(ctx *context) (stop bool) {
+	if n == nil {
+		return false
+	}
+
+	return n.SwitchHeader.check(ctx) || n.SwitchBody.check(ctx)
 }
 
 // ------------------------------------------------------------------------ Typ
@@ -2631,7 +3512,7 @@ func (n *Typ) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -2666,7 +3547,7 @@ func (n *Typ) check(ctx *context) (stop bool) {
 		n.Type = t.MapType.Type
 	case 7: // QualifiedIdent GenericArgumentsOpt
 		if t.GenericArgumentsOpt != nil {
-			todo(n)
+			//TODO generics todo(n)
 		}
 		n.Type, stop = n.QualifiedIdent.checkTypeName(ctx)
 	case 8: // SliceType
@@ -2699,7 +3580,7 @@ func (n *TypeLiteral) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	done, stop := n.guard.check(ctx, nil)
+	done, stop := n.guard.check(ctx, nil, n.Type)
 	if done || stop {
 		return stop
 	}
@@ -2708,7 +3589,13 @@ func (n *TypeLiteral) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // '*' TypeLiteral
-		todo(n)
+		if n.TypeLiteral.check(ctx) {
+			return true
+		}
+
+		if t := n.TypeLiteral.Type; t != nil {
+			n.Type = newPtrType(ctx, t)
+		}
 	case 1: // ArrayType
 		if n.ArrayType.check(ctx) {
 			return true
@@ -2716,26 +3603,52 @@ func (n *TypeLiteral) check(ctx *context) (stop bool) {
 
 		n.Type = n.ArrayType.Type
 	case 2: // ChanType
-		todo(n)
+		if n.ChanType.check(ctx) {
+			return true
+		}
+
+		n.Type = n.ChanType.Type
 	case 3: // FuncType
 		todo(n)
 	case 4: // InterfaceType
-		todo(n)
+		if n.InterfaceType.check(ctx) {
+			return true
+		}
+
+		n.Type = n.InterfaceType.Type
 	case 5: // MapType
-		stop = n.MapType.check(ctx)
+		if n.MapType.check(ctx) {
+			return true
+		}
+
 		n.Type = n.MapType.Type
 	case 6: // SliceType
-		stop = n.SliceType.check(ctx)
+		if n.SliceType.check(ctx) {
+			return true
+		}
+
 		n.Type = n.SliceType.Type
 	case 7: // StructType
-		todo(n)
+		if n.StructType.check(ctx) {
+			return true
+		}
+
+		n.Type = n.StructType.Type
 	default:
 		panic("internal error")
 	}
-	return stop
+	return false
 }
 
 // ------------------------------------------------------------ UnaryExpression
+
+func (n *UnaryExpression) isCall() bool {
+	if n.Case != 7 { // PrimaryExpression
+		return false
+	}
+
+	return n.PrimaryExpression.isCall()
+}
 
 func (n *UnaryExpression) isIdentifier() (xc.Token, bool) {
 	if n.Case != 7 { // PrimaryExpression
@@ -2750,6 +3663,7 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 		return false
 	}
 
+	//dbg("", position(n.Pos()), n.Case)
 	if n.UnaryExpression.check(ctx) || n.PrimaryExpression.check(ctx) {
 		return true
 	}
@@ -2757,9 +3671,9 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 	var v Value
 	switch n.Case {
 	case 7: // PrimaryExpression
-		n.lenPoisoned = n.PrimaryExpression.lenPoisoned
+		n.flags = n.PrimaryExpression.flags
 	default:
-		n.lenPoisoned = n.UnaryExpression.lenPoisoned
+		n.flags = n.UnaryExpression.flags
 		v = n.UnaryExpression.Value
 		if v == nil {
 			return false
@@ -2808,11 +3722,22 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 			todo(n)
 		}
 	case 3: // '+' UnaryExpression
-		todo(n)
+		switch v.Kind() {
+		case ConstValue:
+			if !v.Type().Numeric() {
+				todo(n, true) // invalid op
+				break
+			}
+
+			n.Value = v
+		default:
+			//dbg("", v.Kind())
+			todo(n)
+		}
 	case 4: // '-' UnaryExpression
 		switch v.Kind() {
 		case ConstValue:
-			n.Value = v.neg(ctx.Context, n.UnaryExpression)
+			n.Value = v.neg(ctx, n.UnaryExpression)
 		default:
 			//dbg("", v.Kind())
 			todo(n)
@@ -2820,13 +3745,20 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 	case 5: // '^' UnaryExpression
 		switch v.Kind() {
 		case ConstValue:
-			n.Value = v.cpl(ctx.Context, n.UnaryExpression)
+			n.Value = v.cpl(ctx, n.UnaryExpression)
+		case RuntimeValue:
+			if !v.Type().IntegerType() {
+				todo(n, true) // need int
+				break
+			}
+
+			n.Value = newRuntimeValue(v.Type())
 		default:
 			//dbg("", v.Kind())
 			todo(n)
 		}
 	case 6: // "<-" UnaryExpression
-		n.lenPoisoned = true
+		n.flags = n.flags | flagLenPoisoned
 		switch v.Kind() {
 		case RuntimeValue:
 			t := v.Type()
@@ -2841,6 +3773,7 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 		}
 	case 7: // PrimaryExpression
 		n.Value = n.PrimaryExpression.Value
+		//dbg("%p", n.Value)
 	default:
 		panic("internal error")
 	}
@@ -2850,10 +3783,6 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 // -------------------------------------------------------------------- VarDecl
 
 func (n *VarDecl) check(ctx *context) (stop bool) {
-	if n == nil {
-		return false
-	}
-
-	todo(n)
+	// All is done in decl.go/varDecl()
 	return false
 }

@@ -4,8 +4,58 @@
 
 package gc
 
+func builtinAppend(ctx *context, call *Call) Value {
+	args, _, ddd := call.args()
+	if len(args) < 2 {
+		todo(call.ArgumentList, true) // not enough args
+		return nil
+	}
+
+	sv := args[0]
+	if sv == nil {
+		return nil
+	}
+
+	switch sv.Kind() {
+	case TypeValue:
+		todo(call, true) // invalid arg
+		return nil
+	case NilValue:
+		todo(call, true) // invalid arg
+		return nil
+	}
+
+	st := sv.Type()
+	if st.Kind() != Slice {
+		todo(call, true) // expected slice
+		return nil
+	}
+
+	et := st.Elem()
+	if et == nil {
+		return newRuntimeValue(st)
+	}
+
+	switch {
+	case ddd:
+		todo(call)
+	default:
+		for _, v := range args[1:] {
+			if v == nil {
+				continue
+			}
+
+			if !v.AssignableTo(ctx.Context, et) {
+				todo(call, true) // type mismatch
+			}
+		}
+		return newRuntimeValue(st)
+	}
+	return nil
+}
+
 func builtinCap(ctx *context, call *Call) Value {
-	args, lenPoisoned, ddd := call.args()
+	args, flags, ddd := call.args()
 	if ddd {
 		todo(call.ArgumentList, true) // ... invalid
 	}
@@ -37,7 +87,7 @@ func builtinCap(ctx *context, call *Call) Value {
 		case Array:
 			if len := t.Len(); len >= 0 {
 				switch {
-				case lenPoisoned:
+				case flags.lenPoisoned():
 					return newRuntimeValue(ctx.intType)
 				default:
 					return newConstValue(newIntConst(len, nil, ctx.intType, true))
@@ -74,7 +124,7 @@ func builtinComplex(ctx *context, call *Call) Value {
 		case RuntimeValue:
 			todo(call)
 		case ConstValue:
-			if constRe = re.Const().mustConvert(call.ArgumentList.Argument, ctx.float64Type); constRe == nil {
+			if constRe = re.Const().mustConvert(ctx, call.ArgumentList.Argument, ctx.float64Type); constRe == nil {
 				return nil
 			}
 		default:
@@ -87,7 +137,7 @@ func builtinComplex(ctx *context, call *Call) Value {
 		case RuntimeValue:
 			todo(call)
 		case ConstValue:
-			if constIm = im.Const().mustConvert(call.ArgumentList.Argument, ctx.float64Type); constIm == nil {
+			if constIm = im.Const().mustConvert(ctx, call.ArgumentList.Argument, ctx.float64Type); constIm == nil {
 				return nil
 			}
 		default:
@@ -97,7 +147,6 @@ func builtinComplex(ctx *context, call *Call) Value {
 	}
 
 	if constRe == nil || constIm == nil {
-		todo(call)
 		return nil
 	}
 
@@ -110,8 +159,35 @@ func builtinComplex(ctx *context, call *Call) Value {
 	return newConstValue(c)
 }
 
+func builtinImag(ctx *context, call *Call) Value {
+	args, _, ddd := call.args()
+	if ddd {
+		todo(call.ArgumentList, true) // ... invalid
+	}
+	if len(args) < 1 {
+		todo(call.ArgumentList, true) // not enough args
+		return nil
+	}
+
+	if len(args) > 1 {
+		todo(call.ArgumentList, true) // too many args
+	}
+
+	v := args[0]
+	if v == nil {
+		return nil
+	}
+
+	switch v.Kind() {
+	default:
+		//dbg("", v.Kind())
+		todo(call)
+	}
+	return nil
+}
+
 func builtinLen(ctx *context, call *Call) Value {
-	args, lenPoisoned, ddd := call.args()
+	args, flags, ddd := call.args()
 	if ddd {
 		todo(call.ArgumentList, true) // ... invalid
 	}
@@ -151,12 +227,14 @@ func builtinLen(ctx *context, call *Call) Value {
 		case Array:
 			if len := t.Len(); len >= 0 {
 				switch {
-				case lenPoisoned:
+				case flags.lenPoisoned():
 					return newRuntimeValue(ctx.intType)
 				default:
 					return newConstValue(newIntConst(len, nil, ctx.intType, true))
 				}
 			}
+		case Slice:
+			return newRuntimeValue(ctx.intType)
 		default:
 			//dbg("", t.Kind())
 			todo(call)
@@ -182,16 +260,30 @@ func builtinMake(ctx *context, call *Call) Value {
 		todo(call.ArgumentList.node(3), true) // too many args
 	}
 
+	iarg := [3]int64{1: -1, 2: -1}
 	for i := 1; i <= 2 && i < len(args); i++ {
 		v := args[i]
 		if v == nil {
 			continue
 		}
 
+		if !v.nonNegativeInteger(ctx) {
+			todo(call, true)
+			return nil
+		}
+
 		switch v.Kind() {
-		//TODO check v is nonNegativeInteger()
+		case ConstValue:
+			c := v.Const().Convert(ctx.Context, ctx.intType)
+			if c == nil {
+				todo(call, true) //TODO ctx.constConversionFail(call.ArgumentList.node(i), ctx.intType, v.Const())
+				return nil
+			}
+
+			iarg[i] = c.Const().(*intConst).val
 		default:
-			todo(call.ArgumentList.node(i))
+			//dbg("", v.Kind())
+			todo(call)
 		}
 	}
 
@@ -204,17 +296,26 @@ func builtinMake(ctx *context, call *Call) Value {
 	case TypeValue:
 		switch t := v.Type(); t.Kind() {
 		case Chan:
-			todo(call)
+			if len(args) > 2 {
+				todo(call.ArgumentList.node(2), true) // too many args
+			}
+
+			return newRuntimeValue(t)
 		case Map:
 			if kt := t.Key(); kt != nil && !kt.Comparable() {
 				todo(call, true) // invalid key type
+				break
 			}
 
 			if len(args) > 2 {
 				todo(call.ArgumentList.node(2), true) // too many args
 			}
+			return newRuntimeValue(t)
 		case Slice:
-			todo(call)
+			if len(args) == 3 {
+				todo(call) // check arg2 <= arg3
+			}
+			return newRuntimeValue(t)
 		default:
 			todo(call, true) // invalid arg
 		}
@@ -251,6 +352,27 @@ func builtinNew(ctx *context, call *Call) Value {
 		todo(call, true) // not a type
 	}
 	return nil
+}
+
+func builtinPanic(ctx *context, call *Call) Value {
+	args, _, ddd := call.args()
+	if ddd {
+		todo(call.ArgumentList, true) // ... invalid
+	}
+	if len(args) < 1 {
+		todo(call.ArgumentList, true) // not enough args
+		return nil
+	}
+
+	if len(args) > 1 {
+		todo(call.ArgumentList.node(3), true) // too many args
+	}
+	return newRuntimeValue(ctx.voidType)
+}
+
+func builtinPrint(ctx *context, call *Call, nl bool) Value {
+	//TODO args, _, ddd := call.args()
+	return newRuntimeValue(ctx.voidType)
 }
 
 func builtinReal(ctx *context, call *Call) Value {

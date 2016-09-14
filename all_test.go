@@ -258,9 +258,9 @@ func testLoad(t testing.TB) {
 	)
 	if _, ok := t.(*testing.T); ok {
 		t.Log(len(m))
-	}
-	if err != nil {
-		t.Fatal(errStr(err))
+		if err != nil {
+			t.Fatal(errStr(err))
+		}
 	}
 }
 
@@ -486,7 +486,7 @@ outer:
 
 			for _, v := range errCheckPatterns.FindAllSubmatch(e.S(), -1) {
 				re := v[1]
-				ok, err := regexp.MatchString(string(re), g.Error())
+				ok, err := regexp.MatchString(string(re), strings.SplitN(g.Error(), ": ", 2)[1])
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -525,12 +525,6 @@ func TestTmp(t *testing.T) {
 	if err := p.loadString("", `
 package foo
 
-var removeNewlinesMapper = func(r rune) rune {
-	if r == '\r' || r == '\n' {
-		return -1
-	}
-	return r
-}
 `,
 	); err != nil {
 		t.Fatal(errStr(err))

@@ -2426,7 +2426,7 @@ yynewstate:
 				break
 			}
 
-			lhs.Value = newConstValue(newFloatConst(0, f, lx.float64Type, true).normalize())
+			lhs.Value = newConstValue(newFloatConst(0, f, lx.float64Type, true).normalize(lx.ctx))
 		}
 	case 22:
 		{
@@ -2449,7 +2449,7 @@ yynewstate:
 				break
 			}
 
-			lhs.Value = newConstValue(newComplexConst(0, &bigComplex{big.NewFloat(0).SetPrec(lx.floatConstPrec), f}, lx.float64Type, true).normalize())
+			lhs.Value = newConstValue(newComplexConst(0, &bigComplex{big.NewFloat(0).SetPrec(lx.floatConstPrec), f}, lx.float64Type, true).normalize(lx.ctx))
 		}
 	case 23:
 		{
@@ -2468,7 +2468,7 @@ yynewstate:
 				break
 			}
 
-			if lhs.Value = newConstValue(newIntConst(0, i, lx.intType, true).normalize()); lhs.Value == nil {
+			if lhs.Value = newConstValue(newIntConst(0, i, lx.intType, true).normalize(lx.ctx)); lhs.Value == nil {
 				lx.err(t, "integer literal overflow %s", s)
 			}
 		}
@@ -3327,9 +3327,8 @@ yynewstate:
 	case 124:
 		{
 			lx := yylex.(*lexer)
-			s := lx.resolutionScope
 			lx.pushScope()
-			lx.resolutionScope = s
+			lx.declarationScope.skip = true
 		}
 	case 125:
 		{
@@ -3926,7 +3925,8 @@ yynewstate:
 				ExpressionList2: yyS[yypt-0].node.(*ExpressionList).reverse(),
 			}
 			yyVAL.node = lhs
-			varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
+			lhs.resolutionScope = lx.resolutionScope
+			lhs.idlist = varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
 		}
 	case 191:
 		{
@@ -4008,18 +4008,24 @@ yynewstate:
 		}
 	case 203:
 		{
-			yyVAL.node = &StatementNonDecl{
+			lx := yylex.(*lexer)
+			lhs := &StatementNonDecl{
 				Token:         yyS[yypt-1].Token,
 				IdentifierOpt: yyS[yypt-0].node.(*IdentifierOpt),
 			}
+			yyVAL.node = lhs
+			lhs.resolutionScope = lx.resolutionScope
 		}
 	case 204:
 		{
-			yyVAL.node = &StatementNonDecl{
+			lx := yylex.(*lexer)
+			lhs := &StatementNonDecl{
 				Case:          1,
 				Token:         yyS[yypt-1].Token,
 				IdentifierOpt: yyS[yypt-0].node.(*IdentifierOpt),
 			}
+			yyVAL.node = lhs
+			lhs.resolutionScope = lx.resolutionScope
 		}
 	case 205:
 		{
@@ -4053,11 +4059,14 @@ yynewstate:
 		}
 	case 209:
 		{
-			yyVAL.node = &StatementNonDecl{
+			lx := yylex.(*lexer)
+			lhs := &StatementNonDecl{
 				Case:   6,
 				Token:  yyS[yypt-1].Token,
 				Token2: yyS[yypt-0].Token,
 			}
+			yyVAL.node = lhs
+			lhs.resolutionScope = lx.resolutionScope
 		}
 	case 210:
 		{
@@ -4212,7 +4221,7 @@ yynewstate:
 		{
 			lx := yylex.(*lexer)
 			lx.pushScope()
-			lx.resolutionScope = lx.declarationScope.Parent
+			lx.declarationScope.skip = true
 		}
 	case 226:
 		{

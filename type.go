@@ -40,6 +40,7 @@ var (
 	_ Type = (*ptrType)(nil)
 	_ Type = (*sliceType)(nil)
 	_ Type = (*structType)(nil)
+	_ Type = (*tupleType)(nil)
 )
 
 // Selector is either a *StructField or a *Method. The pointee is read only.
@@ -106,9 +107,9 @@ type Type interface {
 	// Methods applicable to all types.
 
 	base() *typeBase
-	context() *Context
 	field(int) Type
-	implementsFailed(*Context, Node, string, Type) bool
+	flags() flags
+	implementsFailed(*context, Node, string, Type) bool
 	isNamed() bool
 	numField() int
 	setOffset(int, uint64)
@@ -238,7 +239,7 @@ type Type interface {
 	// Bits returns the size of the type in bits.  It panics if the type's
 	// Kind is not one of the sized or unsized Int, Uint, Float, or Complex
 	// kinds.
-	Bits() int
+	Bits(*Context) int
 
 	// ChanDir returns a channel type's direction.  It panics if the type's
 	// Kind is not Chan.
@@ -371,7 +372,6 @@ func (s *StructField) typ() Type { return s.Type }
 
 type typeBase struct {
 	align      int
-	ctx        *Context
 	fieldAlign int
 	kind       Kind
 	methods    []Method
@@ -383,13 +383,13 @@ type typeBase struct {
 func (t *typeBase) Align() int                        { return t.align }
 func (t *typeBase) base() *typeBase                   { return t }
 func (t *typeBase) ChanDir() ChanDir                  { panic("ChanDir of non-chan type") }
-func (t *typeBase) context() *Context                 { return t.ctx }
 func (t *typeBase) Elements() []Type                  { panic("Elements of non-tuple type") }
 func (t *typeBase) Field(int) *StructField            { panic("Field of non-struct type") }
 func (t *typeBase) field(int) Type                    { panic("internal error") }
 func (t *typeBase) FieldAlign() int                   { return t.fieldAlign }
 func (t *typeBase) FieldByIndex([]int) StructField    { panic("FieldByIndex of non-struct type") }
 func (t *typeBase) FieldByName(name int) *StructField { panic("FieldByName of non-struct type") }
+func (t *typeBase) flags() flags                      { panic("internal error") }
 func (t *typeBase) Identical(Type) bool               { panic("internal error") }
 func (t *typeBase) In(i int) Type                     { panic("In of a non-func type") }
 func (t *typeBase) isNamed() bool                     { return t.pkgPath != 0 }
@@ -460,7 +460,7 @@ func (t *typeBase) AssignableTo(u Type) bool {
 	return false
 }
 
-func (t *typeBase) Bits() int {
+func (t *typeBase) Bits(ctx *Context) int {
 	switch t.Kind() {
 	case Int8, Uint8:
 		return 8
@@ -471,7 +471,7 @@ func (t *typeBase) Bits() int {
 	case Int64, Uint64, Float64, Complex64:
 		return 64
 	case Int, Uint:
-		return t.context().model.IntBytes * 8
+		return ctx.model.IntBytes * 8
 	case Complex128:
 		return 128
 	}
@@ -638,18 +638,14 @@ func (t *typeBase) FloatingPointType() bool {
 	return k == Float32 || k == Float64
 }
 
-func (t *typeBase) implementsFailed(ctx *Context, n Node, msg string, u Type) (stop bool) {
+func (t *typeBase) implementsFailed(ctx *context, n Node, msg string, u Type) (stop bool) {
 	if u.Kind() != Interface {
 		panic("internal error")
 	}
 
 	s := fmt.Sprintf(msg, t, u)
 
-	var checkNonPtrRx bool
-	switch {
-	case t.isNamed() && t.Kind() != Interface:
-		checkNonPtrRx = true
-	case t.Kind() == Ptr && t.Elem().isNamed():
+	if t.Kind() == Ptr {
 		t = t.Elem().base()
 	}
 
@@ -667,11 +663,6 @@ func (t *typeBase) implementsFailed(ctx *Context, n Node, msg string, u Type) (s
 		mt := t.MethodByName(mu.Name)
 		if mt == nil || mt.PkgPath != mu.PkgPath {
 			return ctx.err(n, "%s\n\t%s does not implement %s (missing %s method)", s, t, u, dict.S(mu.Name))
-		}
-
-		if checkNonPtrRx && mt.Type.In(0).Kind() == Ptr {
-			todo(n, true)
-			return false
 		}
 
 		tt := mt.Type
@@ -715,11 +706,7 @@ func (t *typeBase) Implements(u Type) bool {
 		panic("non-interface argument passed to Implements")
 	}
 
-	var checkNonPtrRx bool
-	switch {
-	case t.isNamed() && t.Kind() != Interface:
-		checkNonPtrRx = true
-	case t.Kind() == Ptr && t.Elem().isNamed():
+	if t.Kind() == Ptr {
 		t = t.Elem().base()
 	}
 
@@ -741,10 +728,6 @@ func (t *typeBase) Implements(u Type) bool {
 		mu := u.Method(i)
 		mt := t.MethodByName(mu.Name)
 		if mt == nil || mt.PkgPath != mu.PkgPath {
-			return false
-		}
-
-		if checkNonPtrRx && mt.Type.In(0).Kind() == Ptr {
 			return false
 		}
 
@@ -851,21 +834,26 @@ type arrayType struct {
 	typeBase
 	elem Type
 	len  int64
+	flgs flags
 }
 
-func newArrayType(ctx *context, elem Type, len int64) *arrayType {
+func newArrayType(elem Type, len int64, flags flags) *arrayType {
 	t := &arrayType{elem: elem, len: len}
+	t.flgs = flags
 	t.align = elem.Align()
-	t.ctx = ctx.Context
 	t.fieldAlign = elem.FieldAlign()
 	t.kind = Array
 	t.size = elem.Size() * uint64(len)
+	if elem != nil {
+		t.flgs = t.flgs | elem.flags()
+	}
 	t.typ = t
 	return t
 }
 
-func (t *arrayType) Elem() Type { return t.elem }
-func (t *arrayType) Len() int64 { return t.len }
+func (t *arrayType) Elem() Type   { return t.elem }
+func (t *arrayType) Len() int64   { return t.len }
+func (t *arrayType) flags() flags { return t.flgs }
 
 func (t *arrayType) Identical(u Type) bool {
 	return u.Kind() == Array && t.Len() == u.Len() && t.Elem().Identical(u.Elem())
@@ -889,21 +877,25 @@ type chanType struct {
 	typeBase
 	dir  ChanDir
 	elem Type
+	flgs flags
 }
 
 func newChanType(ctx *context, dir ChanDir, elem Type) *chanType {
 	t := &chanType{dir: dir, elem: elem}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Chan
 	t.size = uint64(ctx.model.PtrBytes)
+	if elem != nil {
+		t.flgs = elem.flags()
+	}
 	t.typ = t
 	return t
 }
 
 func (t *chanType) ChanDir() ChanDir { return t.dir }
 func (t *chanType) Elem() Type       { return t.elem }
+func (t *chanType) flags() flags     { return t.flgs }
 
 func (t *chanType) Identical(u Type) bool {
 	return u.Kind() == Chan && t.ChanDir() == u.ChanDir() && t.Elem().Identical(u.Elem())
@@ -932,15 +924,23 @@ type funcType struct {
 	name       int // For methods only.
 	result     Type
 	typeBase
+	flgs flags
 }
 
 func newFuncType(ctx *context, name int, in []Type, result Type, isExported, isVariadic bool) *funcType {
 	t := &funcType{name: name, in: in, result: result, isExported: isExported, isVariadic: isVariadic}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Func
 	t.size = uint64(ctx.model.PtrBytes)
+	if result != nil {
+		t.flgs = result.flags()
+	}
+	for _, v := range in {
+		if v != nil {
+			t.flgs = t.flgs | v.flags()
+		}
+	}
 	t.typ = t
 	return t
 }
@@ -948,6 +948,15 @@ func newFuncType(ctx *context, name int, in []Type, result Type, isExported, isV
 func (t *funcType) IsVariadic() bool { return t.isVariadic }
 func (t *funcType) NumIn() int       { return len(t.in) }
 func (t *funcType) Result() Type     { return t.result }
+func (t *funcType) flags() flags     { return t.flgs }
+
+func (t *funcType) ptrMethod(ctx *context) *funcType {
+	u := *t
+	u.in = append([]Type(nil), t.in...)
+	u.in[0] = newPtrType(ctx, t.in[0])
+	u.typ = &u
+	return &u
+}
 
 func (t *funcType) Identical(u Type) bool {
 	if u.Kind() != Func {
@@ -1040,19 +1049,26 @@ func (t *funcType) signatureString(skip int) string {
 
 type interfaceType struct {
 	typeBase
+	flgs flags
 }
 
 func newInterfaceType(ctx *context, methods []Method) *interfaceType {
 	t := &interfaceType{}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Interface
 	t.methods = methods
 	t.size = uint64(2 * ctx.model.PtrBytes)
+	for _, m := range methods {
+		if m.Type != nil {
+			t.flgs = t.flgs | m.Type.flags()
+		}
+	}
 	t.typ = t
 	return t
 }
+
+func (t *interfaceType) flags() flags { return t.flgs }
 
 func (t *interfaceType) Identical(u Type) bool {
 	if u.Kind() != Interface {
@@ -1093,12 +1109,18 @@ type mapType struct {
 	typeBase
 	elem Type
 	key  Type
+	flgs flags
 }
 
 func newMapType(ctx *context, key, elem Type) *mapType {
 	t := &mapType{elem: elem, key: key}
+	if key != nil {
+		t.flgs = key.flags()
+	}
+	if elem != nil {
+		t.flgs = t.flgs | elem.flags()
+	}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Map
 	t.size = uint64(ctx.model.PtrBytes)
@@ -1106,8 +1128,9 @@ func newMapType(ctx *context, key, elem Type) *mapType {
 	return t
 }
 
-func (t *mapType) Elem() Type { return t.elem }
-func (t *mapType) Key() Type  { return t.key }
+func (t *mapType) Elem() Type   { return t.elem }
+func (t *mapType) Key() Type    { return t.key }
+func (t *mapType) flags() flags { return t.flgs }
 
 func (t *mapType) Identical(u Type) bool {
 	return u.Kind() == Map && t.Key().Identical(u.Key()) && t.Elem().Identical(u.Elem())
@@ -1125,12 +1148,15 @@ func (t *mapType) str(w *bytes.Buffer) {
 type ptrType struct {
 	typeBase
 	elem Type
+	flgs flags
 }
 
 func newPtrType(ctx *context, elem Type) *ptrType {
 	t := &ptrType{elem: elem}
+	if elem != nil {
+		t.flgs = elem.flags()
+	}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Ptr
 	t.size = uint64(ctx.model.PtrBytes)
@@ -1140,6 +1166,7 @@ func newPtrType(ctx *context, elem Type) *ptrType {
 
 func (t *ptrType) Elem() Type            { return t.elem }
 func (t *ptrType) Identical(u Type) bool { return u.Kind() == Ptr && t.Elem().Identical(u.Elem()) }
+func (t *ptrType) flags() flags          { return t.flgs }
 
 func (t *ptrType) str(w *bytes.Buffer) {
 	w.WriteByte('*')
@@ -1151,12 +1178,15 @@ func (t *ptrType) str(w *bytes.Buffer) {
 type sliceType struct {
 	typeBase
 	elem Type
+	flgs flags
 }
 
 func newSliceType(ctx *context, elem Type) *sliceType {
 	t := &sliceType{elem: elem}
+	if elem != nil {
+		t.flgs = elem.flags()
+	}
 	t.align = ctx.model.PtrBytes
-	t.ctx = ctx.Context
 	t.fieldAlign = ctx.model.PtrBytes
 	t.kind = Slice
 	t.size = uint64(3 * ctx.model.PtrBytes)
@@ -1166,6 +1196,7 @@ func newSliceType(ctx *context, elem Type) *sliceType {
 
 func (t *sliceType) Elem() Type            { return t.elem }
 func (t *sliceType) Identical(u Type) bool { return u.Kind() == Slice && t.Elem().Identical(u.Elem()) }
+func (t *sliceType) flags() flags          { return t.flgs }
 
 func (t *sliceType) str(w *bytes.Buffer) {
 	w.WriteString("[]")
@@ -1177,11 +1208,17 @@ func (t *sliceType) str(w *bytes.Buffer) {
 type structType struct {
 	fields []StructField
 	typeBase
+	flgs flags
+	node Node //TODO-
 }
 
-func newStructType(ctx *context, fields []StructField, methods []Method) *structType {
-	t := &structType{fields: fields}
-	t.ctx = ctx.Context
+func newStructType(n Node, fields []StructField, methods []Method) *structType {
+	t := &structType{fields: fields, node: n}
+	for _, v := range fields {
+		if v.Type != nil {
+			t.flgs = t.flgs | v.Type.flags()
+		}
+	}
 	t.kind = Struct
 	t.methods = methods
 	t.typ = t
@@ -1192,6 +1229,7 @@ func (t *structType) field(i int) Type          { return t.fields[i].Type }
 func (t *structType) NumField() int             { return len(t.fields) }
 func (t *structType) numField() int             { return len(t.fields) }
 func (t *structType) setOffset(i int, o uint64) { t.Field(i).Offset = o }
+func (t *structType) flags() flags              { return t.flgs }
 
 func (t *structType) Field(i int) *StructField {
 	if i < 0 || i > len(t.fields) {
@@ -1256,8 +1294,10 @@ func (t *structType) Identical(u Type) bool {
 func (t *structType) str(w *bytes.Buffer) {
 	w.WriteString("struct{")
 	for i, v := range t.fields {
-		w.Write(dict.S(v.Name))
-		w.WriteByte(' ')
+		if !v.Anonymous {
+			w.Write(dict.S(v.Name))
+			w.WriteByte(' ')
+		}
 		safeTypeStr(v.Type, w)
 		if i != len(t.fields)-1 {
 			w.WriteString("; ")
@@ -1271,11 +1311,16 @@ func (t *structType) str(w *bytes.Buffer) {
 type tupleType struct {
 	typeBase
 	elements []Type
+	flgs     flags
 }
 
-func newTupleType(ctx *context, elements []Type) *tupleType {
+func newTupleType(elements []Type) *tupleType {
 	t := &tupleType{elements: elements}
-	t.ctx = ctx.Context
+	for _, v := range elements {
+		if v != nil {
+			t.flgs = t.flgs | v.flags()
+		}
+	}
 	t.kind = Tuple
 	t.typ = t
 	t.align, t.fieldAlign, t.size = measure(t)
@@ -1286,6 +1331,7 @@ func (t *tupleType) Elements() []Type      { return t.elements }
 func (t *tupleType) field(i int) Type      { return t.elements[i] }
 func (t *tupleType) numField() int         { return len(t.elements) }
 func (t *tupleType) setOffset(int, uint64) {}
+func (t *tupleType) flags() flags          { return t.flgs }
 
 func (t *tupleType) Identical(u Type) bool {
 	if u.Kind() != Tuple {

@@ -69,6 +69,7 @@ func (p *Package) load() error {
 	}
 
 	c := p.Context
+	ctx := &context{Context: c}
 	if len(p.Files) == 0 && !c.options.disableNoBuildableFilesError {
 		return fmt.Errorf("package %s: no buildable Go source files in %s", p.ImportPath, p.Directory)
 	}
@@ -83,11 +84,11 @@ func (p *Package) load() error {
 		d := p.forwardTypes[nm]
 		ex := c.universe.Bindings[nm]
 		if _, ok := ex.(*TypeDeclaration); ok {
-			c.err(d, "cannot define new methods on non-local type %s", v)
+			ctx.err(d, "cannot define new methods on non-local type %s", v)
 			continue
 		}
 
-		c.err(d, "undefined %s", v)
+		ctx.err(d, "undefined %s", v)
 	}
 
 	p.Scope.check(&context{Context: c, pkg: p})

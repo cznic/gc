@@ -8,6 +8,37 @@ import (
 	"strings"
 )
 
+func alignof(ctx *context, n *Call) Value {
+	args, _, ddd := n.args()
+	if len(args) < 1 {
+		todo(n, true)
+		return nil
+	}
+
+	if len(args) > 1 {
+		todo(n, true)
+		return nil
+	}
+
+	if ddd {
+		todo(n, true)
+		return nil
+
+	}
+
+	v := args[0]
+	if v == nil {
+		return nil
+	}
+
+	t := v.Type()
+	if t == nil {
+		return nil
+	}
+
+	return uintptrConstValueFromUint64(ctx, uint64(t.Align()))
+}
+
 func offsetof(ctx *context, n *Call) Value {
 	args, _, ddd := n.args()
 	if len(args) < 1 {

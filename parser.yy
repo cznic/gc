@@ -224,12 +224,13 @@ File:
 		lx.pkg.Files = append(lx.pkg.Files, lhs)
 	}
 
-/*yy:field	Value		Value */
-/*yy:field	lenPoisoned	bool */
+/*yy:field	Value	Value */
+/*yy:field	flags	flags */
 Argument:
 	Expression
 |       TypeLiteral
 
+/*yy:field	flags	flags */
 ArgumentList:
 	Argument
 |       ArgumentList ',' Argument
@@ -291,7 +292,7 @@ BasicLiteral:
 			break
 		}
 
-		lhs.Value = newConstValue(newFloatConst(0, f, lx.float64Type, true).normalize())
+		lhs.Value = newConstValue(newFloatConst(0, f, lx.float64Type, true).normalize(lx.ctx))
 	}
 |       IMAG_LIT
 	{
@@ -308,7 +309,7 @@ BasicLiteral:
 			break
 		}
 
-		lhs.Value = newConstValue(newComplexConst(0, &bigComplex{big.NewFloat(0).SetPrec(lx.floatConstPrec), f}, lx.float64Type, true).normalize())
+		lhs.Value = newConstValue(newComplexConst(0, &bigComplex{big.NewFloat(0).SetPrec(lx.floatConstPrec), f}, lx.float64Type, true).normalize(lx.ctx))
 	}
 |       INT_LIT
 	{
@@ -321,7 +322,7 @@ BasicLiteral:
 			break
 		}
 
-		if lhs.Value = newConstValue(newIntConst(0, i, lx.intType, true).normalize()); lhs.Value == nil {
+		if lhs.Value = newConstValue(newIntConst(0, i, lx.intType, true).normalize(lx.ctx)); lhs.Value == nil {
 			lx.err(t, "integer literal overflow %s", s)
 		}
 	}
@@ -358,7 +359,7 @@ Body:
 		lx.popScope()
 	}
 
-/*yy:field	lenPoisoned	bool */
+/*yy:field	flags	flags */
 Call:
 	'(' ')'
 |       '(' ArgumentList CommaOpt ')'
@@ -420,8 +421,10 @@ ConstSpec:
 		lhs.decl(lx, lhs.Typ, lhs.ExpressionList)
 	}
 
+/*yy:example "package a ; const ( b = 42 )" */
 ConstSpecList:
 	ConstSpec
+/*yy:example "package a ; const ( b = 42 ; c = 314 )" */
 |       ConstSpecList ';' ConstSpec
 
 Elif:
@@ -438,8 +441,8 @@ ElseOpt:
 	/* empty */
 |       "else" Block
 
-/*yy:field	Value		Value */
-/*yy:field	lenPoisoned	bool */
+/*yy:field	Value	Value */
+/*yy:field	flags	flags */
 Expression:
 	UnaryExpression
 |       Expression '%' Expression
@@ -463,12 +466,13 @@ Expression:
 |       Expression ">>" Expression
 |       Expression "<-" Expression
 
-/*yy:field	lenPoisoned	bool */
+/*yy:field	Value	Value */
+/*yy:field	flags	flags */
 ExpressionOpt:
 	/* empty */
 |       Expression
 
-/*yy:field	list	[]*Expression*/
+/*yy:field	list	[]*Expression */
 ExpressionList:
 	Expression
 |       ExpressionList ',' Expression
@@ -618,9 +622,8 @@ InterfaceType:
 	"interface" LBrace '}'
 |       "interface" LBrace
 	{
-		s := lx.resolutionScope
 		lx.pushScope()
-		lx.resolutionScope = s
+		lx.declarationScope.skip = true
 	}
 	InterfaceMethodDeclList SemicolonOpt '}'
 	{
@@ -681,7 +684,7 @@ MapType:
 
 /*yy:field	Value		Value */
 /*yy:field	fileScope	*Scope */
-/*yy:field	lenPoisoned	bool */
+/*yy:field	flags		flags */
 /*yy:field	resolutionScope	*Scope	// Where to search for case 4: IDENTIFIER. */
 Operand:
 	'(' Expression ')'
@@ -736,8 +739,8 @@ Parameters:
 	'(' ')'
 |       '(' ParameterDeclList CommaOpt ')'
 
-/*yy:field	Value		Value */
-/*yy:field	lenPoisoned	bool */
+/*yy:field	Value	Value */
+/*yy:field	flags	flags */
 PrimaryExpression:
 	Operand
 |       CompLitType LBraceCompLitValue
@@ -840,6 +843,8 @@ SemicolonOpt:
 Signature:
 	Parameters ResultOpt
 
+/*yy:field	idlist	[]xc.Token */
+/*yy:field	resolutionScope	*Scope */
 SimpleStatement:
 	Assignment
 |       Expression
@@ -847,7 +852,8 @@ SimpleStatement:
 |       Expression "++"
 |       ExpressionList ":=" ExpressionList
 	{
-		varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
+		lhs.resolutionScope = lx.resolutionScope
+		lhs.idlist = varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
 	}
 
 SimpleStatementOpt:
@@ -859,6 +865,7 @@ SimpleStatementOpt:
 SliceType:
 	'[' ']' Typ
 
+/*yy:field	flags	flags */
 Statement:
 	/* empty */
 |       Block
@@ -869,6 +876,7 @@ Statement:
 |	error
 
 /*yy:example "package a ; if { b ;" */
+/*yy:field	flags	flags */
 StatementList:
 	Statement
 |       StatementList ';' Statement
@@ -876,12 +884,21 @@ StatementList:
 /*yy:field	resolutionScope	*Scope */
 StatementNonDecl:
 	"break" IdentifierOpt
+	{
+		lhs.resolutionScope = lx.resolutionScope
+	}
 |       "continue" IdentifierOpt
+	{
+		lhs.resolutionScope = lx.resolutionScope
+	}
 |       "defer" Expression
 |       "fallthrough"
 |       ForStatement
 |       "go" Expression
 |       "goto" IDENTIFIER
+	{
+		lhs.resolutionScope = lx.resolutionScope
+	}
 |       IDENTIFIER ':' Statement
 	{
 		lx.declarationScope.declare(lx, newLabelDeclaration(lhs.Token))
@@ -934,7 +951,7 @@ StructType:
 |       "struct" LBrace
 	{
 		lx.pushScope()
-		lx.resolutionScope = lx.declarationScope.Parent
+		lx.declarationScope.skip = true
 	}
 	StructFieldDeclList SemicolonOpt '}'
 	{
@@ -1088,8 +1105,8 @@ TypeSpecList:
 	TypeSpec
 |       TypeSpecList ';' TypeSpec
 
-/*yy:field	Value		Value */
-/*yy:field	lenPoisoned	bool */
+/*yy:field	Value	Value */
+/*yy:field	flags	flags */
 UnaryExpression:
 	'!' UnaryExpression
 |       '&' UnaryExpression

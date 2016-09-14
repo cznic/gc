@@ -159,9 +159,9 @@ func todo(n Node, opt ...bool) { //TODO-
 
 	if len(opt) != 0 && todoTrace {
 		p := position(n.Pos()).String()
-		if !strings.HasPrefix(p, "testdata") {
-			return
-		}
+		//if !strings.HasPrefix(p, "testdata") {
+		//	return
+		//}
 
 		_, fn, fl, _ := runtime.Caller(1)
 		fmt.Fprintf(os.Stderr, "trace %s:%d: ", filepath.Base(fn), fl)
@@ -282,3 +282,5 @@ func uintptrConstValueFromUint64(ctx *context, n uint64) Value {
 		return newConstValue(newIntConst(int64(n), nil, ctx.uintptrType, false))
 	}
 }
+
+func isVoid(t Type) bool { return t != nil && t.Kind() == Tuple && len(t.Elements()) == 0 }
