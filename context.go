@@ -635,7 +635,7 @@ func (c *context) constConversionFail(n Node, t Type, d Const) bool {
 	}
 }
 
-func (c *context) arithmeticBinOpShape(a, b Const, n Node) (Type, bool /* untyped*/, Const, Const) {
+func (c *context) arithmeticBinOpShape(a, b Const, n Node, op string) (Type, bool /* untyped*/, Const, Const) {
 	switch {
 	case a.Untyped():
 		switch {
@@ -675,7 +675,7 @@ func (c *context) arithmeticBinOpShape(a, b Const, n Node) (Type, bool /* untype
 	default: // !a.Untyped() && !b.Untyped()
 		t := a.Type()
 		if b.Type() != t {
-			todo(n, true)
+			c.err(n, "invalid operation: %s (mismatched types %s and %s)", op, t, b.Type())
 			break
 		}
 

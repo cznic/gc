@@ -423,7 +423,7 @@ func (t *typeBase) AssignableTo(u Type) bool {
 	}
 
 	// · Untyped bool is assignable to any bool type.
-	if t.Kind() == UntypedBool && u.Kind() == Bool {
+	if v.Kind() == UntypedBool && u.Kind() == Bool {
 		return true
 	}
 
@@ -568,6 +568,9 @@ func (t *typeBase) ComplexType() bool {
 
 func (t *typeBase) ConvertibleTo(u Type) bool {
 	xt := t.typ
+	if xt == nil {
+		return false
+	}
 
 	// A non-constant value x can be converted to type U in any of these
 	// cases:
@@ -575,6 +578,27 @@ func (t *typeBase) ConvertibleTo(u Type) bool {
 	// · x is assignable to U.
 	if xt.AssignableTo(u) {
 		return true
+	}
+
+	ptr := 0
+	ptrBytes := int(xt.Size())
+	for xt.Kind() == Ptr {
+		ptr++
+		xt = xt.Elem()
+		if xt == nil {
+			return false
+		}
+	}
+
+	if ptr != 0 {
+		xt = xt.UnderlyingType()
+		if xt == nil {
+			return false
+		}
+
+		for ; ptr != 0; ptr-- {
+			xt = newPtrType(ptrBytes, xt)
+		}
 	}
 
 	// · x's type and U have identical underlying types.
@@ -957,7 +981,7 @@ func (t *funcType) flags() flags     { return t.flgs }
 func (t *funcType) ptrMethod(ctx *context) *funcType {
 	u := *t
 	u.in = append([]Type(nil), t.in...)
-	u.in[0] = newPtrType(ctx, t.in[0])
+	u.in[0] = newPtrType(ctx.model.PtrBytes, t.in[0])
 	u.typ = &u
 	return &u
 }
@@ -1088,7 +1112,7 @@ func (t *interfaceType) Identical(u Type) bool {
 	for i := 0; i < nt; i++ {
 		mt := t.Method(i)
 		mu := t.MethodByName(mt.Name)
-		if mu == nil || mt.PkgPath != mu.PkgPath || mt.Type.Identical(mu.Type) {
+		if mu == nil || mt.PkgPath != mu.PkgPath || !mt.Type.Identical(mu.Type) {
 			return false
 		}
 	}
@@ -1155,15 +1179,15 @@ type ptrType struct {
 	flgs flags
 }
 
-func newPtrType(ctx *context, elem Type) *ptrType {
+func newPtrType(ptrBytes int, elem Type) *ptrType {
 	t := &ptrType{elem: elem}
 	if elem != nil {
 		t.flgs = elem.flags()
 	}
-	t.align = ctx.model.PtrBytes
-	t.fieldAlign = ctx.model.PtrBytes
+	t.align = ptrBytes
+	t.fieldAlign = ptrBytes
 	t.kind = Ptr
-	t.size = uint64(ctx.model.PtrBytes)
+	t.size = uint64(ptrBytes)
 	t.typ = t
 	return t
 }

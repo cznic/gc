@@ -189,7 +189,7 @@ func builtinImag(ctx *context, call *Call) Value {
 func builtinLen(ctx *context, call *Call) Value {
 	args, flags, ddd := call.args()
 	if ddd {
-		todo(call.ArgumentList, true) // ... invalid
+		ctx.err(call.ArgumentList, "invalid use of ... with builtin len")
 	}
 	if len(args) < 1 {
 		todo(call.ArgumentList, true) // not enough args
@@ -249,7 +249,7 @@ func builtinLen(ctx *context, call *Call) Value {
 func builtinMake(ctx *context, call *Call) Value {
 	args, _, ddd := call.args()
 	if ddd {
-		todo(call.ArgumentList, true) // ... invalid
+		ctx.err(call.ArgumentList, "invalid use of ... with builtin make")
 	}
 	if len(args) < 1 {
 		todo(call.ArgumentList, true) // not enough args
@@ -329,7 +329,7 @@ func builtinMake(ctx *context, call *Call) Value {
 func builtinNew(ctx *context, call *Call) Value {
 	args, _, ddd := call.args()
 	if ddd {
-		todo(call.ArgumentList, true) // ... invalid
+		ctx.err(call.ArgumentList, "invalid use of ... with builtin new")
 	}
 	if len(args) < 1 {
 		todo(call.ArgumentList, true) // not enough args
@@ -347,7 +347,7 @@ func builtinNew(ctx *context, call *Call) Value {
 
 	switch v.Kind() {
 	case TypeValue:
-		return newRuntimeValue(newPtrType(ctx, v.Type()))
+		return newRuntimeValue(newPtrType(ctx.model.PtrBytes, v.Type()))
 	default:
 		todo(call, true) // not a type
 	}

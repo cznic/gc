@@ -605,7 +605,7 @@ func (v *runtimeValue) eq(ctx *context, n Node, op Value) Value {
 		return newRuntimeValue(ctx.untypedBoolType)
 	case NilValue:
 		if !op.AssignableTo(ctx.Context, v.Type()) {
-			todo(n, true) // invalid operand
+			ctx.err(n, "invalid operation: == (mismatched types %s and nil)", v.Type())
 			break
 		}
 
@@ -658,8 +658,7 @@ func (v *runtimeValue) lt(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue, RuntimeValue:
 		if !v.AssignableTo(ctx.Context, ot) && !op.AssignableTo(ctx.Context, v.Type()) {
-			//dbg("", v.Type(), ot)
-			todo(n, true) // type mismatch
+			ctx.err(n, "invalid operation: < (mismatched types %s and %s)", v.Type(), ot)
 			break
 		}
 
@@ -781,7 +780,7 @@ func (v *runtimeValue) neq(ctx *context, n Node, op Value) Value {
 		return newRuntimeValue(ctx.untypedBoolType)
 	case NilValue:
 		if !op.AssignableTo(ctx.Context, v.Type()) {
-			todo(n, true) // invalid operand
+			ctx.mustConvertNil(n, v.Type())
 			break
 		}
 
@@ -842,7 +841,7 @@ func (v *runtimeValue) rsh(ctx *context, n Node, op Value) Value {
 
 func (v *runtimeValue) sub(ctx *context, n Node, op Value) Value {
 	if !v.Type().Numeric() {
-		todo(n, true) // invalid operand
+		ctx.err(n, "invalid operation: - (operator - not defined on %s)", v.Type())
 		return nil
 	}
 
@@ -1745,7 +1744,7 @@ func (c *complexConst) mul0(ctx *context, n Node, t Type, untyped bool, op Const
 func (c *complexConst) mul(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "*")
 		if t != nil {
 			if d := a.mul0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -1838,7 +1837,7 @@ func (c *floatConst) add0(ctx *context, n Node, t Type, untyped bool, op Const) 
 func (c *floatConst) add(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "+")
 		if t != nil {
 			if d := a.add0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -1998,7 +1997,7 @@ func (c *floatConst) div0(ctx *context, n Node, t Type, untyped bool, op Const) 
 func (c *floatConst) div(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "/")
 		if t != nil {
 			if d := a.div0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2076,7 +2075,7 @@ func (c *floatConst) mul0(ctx *context, n Node, t Type, untyped bool, op Const) 
 func (c *floatConst) mul(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "*")
 		if t != nil {
 			if d := a.mul0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2126,7 +2125,7 @@ func (c *floatConst) sub0(ctx *context, n Node, t Type, untyped bool, op Const) 
 func (c *floatConst) sub(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "-")
 		if t != nil {
 			if d := a.sub0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2198,7 +2197,7 @@ func (c *intConst) add0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) add(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "+")
 		if t != nil {
 			if d := a.add0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2223,7 +2222,7 @@ func (c *intConst) and0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) and(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "&")
 		if t != nil {
 			if d := a.and0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2248,7 +2247,7 @@ func (c *intConst) andNot0(ctx *context, n Node, t Type, untyped bool, op Const)
 func (c *intConst) andNot(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "&^")
 		if t != nil {
 			if d := a.andNot0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2293,7 +2292,7 @@ func (c *intConst) eq0(ctx *context, n Node, t Type, untyped bool, op Const) Con
 func (c *intConst) eq(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "==")
 		if t != nil {
 			if d := a.eq0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2321,7 +2320,7 @@ func (c *intConst) le0(ctx *context, n Node, t Type, untyped bool, op Const) Con
 func (c *intConst) le(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "<=")
 		if t != nil {
 			if d := a.le0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2341,7 +2340,7 @@ func (c *intConst) lt0(ctx *context, n Node, t Type, untyped bool, op Const) Con
 func (c *intConst) lt(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "<")
 		if t != nil {
 			if d := a.lt0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2361,7 +2360,7 @@ func (c *intConst) ge0(ctx *context, n Node, t Type, untyped bool, op Const) Con
 func (c *intConst) ge(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, ">=")
 		if t != nil {
 			if d := a.gt0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2394,7 +2393,7 @@ func (c *intConst) gt0(ctx *context, n Node, t Type, untyped bool, op Const) Con
 func (c *intConst) gt(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, ">")
 		if t != nil {
 			if d := a.gt0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2414,7 +2413,7 @@ func (c *intConst) neq0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) neq(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "!=")
 		if t != nil {
 			if d := a.eq0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2474,7 +2473,7 @@ func (c *intConst) or0(ctx *context, n Node, t Type, untyped bool, op Const) Con
 func (c *intConst) or(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "|")
 		if t != nil {
 			if d := a.or0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2588,7 +2587,7 @@ func (c *intConst) div0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) div(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "/")
 		if t != nil {
 			if d := a.div0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2696,7 +2695,7 @@ func (c *intConst) mod0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) mod(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "%")
 		if t != nil {
 			if d := a.mod0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2727,7 +2726,7 @@ func (c *intConst) mul0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) mul(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "*")
 		if t != nil {
 			if d := a.mul0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2837,7 +2836,7 @@ func (c *intConst) sub0(ctx *context, n Node, t Type, untyped bool, op Const) Co
 func (c *intConst) sub(ctx *context, n Node, op Value) Value {
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "-")
 		if t != nil {
 			if d := a.sub0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)
@@ -2863,7 +2862,7 @@ func (c *intConst) xor(ctx *context, n Node, op Value) Value {
 	ot := op.Type()
 	switch op.Kind() {
 	case ConstValue:
-		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n)
+		t, untyped, a, b := ctx.arithmeticBinOpShape(c, op.Const(), n, "^")
 		if t != nil {
 			if d := a.xor0(ctx, n, t, untyped, b); d != nil {
 				return newConstValue(d)

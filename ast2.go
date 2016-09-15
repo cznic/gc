@@ -269,7 +269,7 @@ func (n *ArrayType) check(ctx *context) (stop bool) {
 
 // ----------------------------------------------------------------- Assignment
 
-func (n *Assignment) check0(ctx *context, f func(*context)) {
+func (n *Assignment) check0(ctx *context, f func([]*Expression, []*Expression) bool, checkChanRx, checkIndex bool) (stop bool) {
 	lhs := n.ExpressionList.list
 	rhs := n.ExpressionList2.list
 	switch len(rhs) {
@@ -278,7 +278,6 @@ func (n *Assignment) check0(ctx *context, f func(*context)) {
 		if e == nil {
 			return
 		}
-
 		rv := e.Value
 		if rv == nil {
 			return
@@ -289,13 +288,33 @@ func (n *Assignment) check0(ctx *context, f func(*context)) {
 			return
 		}
 
+		if len(lhs) == 2 {
+			switch {
+			case checkChanRx && e.isChanReceive():
+				rt = newTupleType([]Type{ctx.untypedBoolType, rt})
+				rv = newRuntimeValue(rt)
+			case checkIndex && e.isIndex():
+				t := e.UnaryExpression.PrimaryExpression.PrimaryExpression.Value.Type()
+				if t == nil {
+					return false
+				}
+
+				switch t.Kind() {
+				case Map:
+					rt = newTupleType([]Type{rt, ctx.untypedBoolType})
+					rv = newRuntimeValue(rt)
+				default:
+					todo(n)
+				}
+			}
+		}
+
 		switch rt.Kind() {
 		case Tuple:
 			todo(n)
 		default:
 			if len(lhs) != 1 {
-				todo(n, true) // mismatch
-				return
+				return ctx.err(e, "assignment count mismatch: %d = 1", len(lhs))
 			}
 
 			e := lhs[0]
@@ -309,8 +328,7 @@ func (n *Assignment) check0(ctx *context, f func(*context)) {
 			}
 
 			if !lv.assignableTo() {
-				todo(n, true) // invalid dst
-				return
+				return ctx.err(e, "invalid assignment destination")
 			}
 
 			lt := lv.Type()
@@ -319,34 +337,19 @@ func (n *Assignment) check0(ctx *context, f func(*context)) {
 			}
 
 			if !rv.AssignableTo(ctx.Context, lt) {
-				ctx.err(n, "cannot use type %s as type %s in assignment", rv.Type(), lt)
-				return
+				if ctx.err(n, "cannot use type %s as type %s in assignment", rv.Type(), lt) {
+					return true
+				}
 			}
 		}
 	default:
 		todo(n)
 	}
 	if f != nil {
-		f(ctx)
+		return f(lhs, rhs)
 	}
-}
 
-func (n *Assignment) checkInts(ctx *context) {
-	lhs := n.ExpressionList.list
-	for _, item := range lhs {
-		if item == nil {
-			continue
-		}
-
-		v := item.Value
-		if v == nil {
-			continue
-		}
-
-		if !v.Type().IntegerType() {
-			todo(n, true) // need int item
-		}
-	}
+	return false
 }
 
 func (n *Assignment) check(ctx *context) (stop bool) {
@@ -361,7 +364,7 @@ func (n *Assignment) check(ctx *context) (stop bool) {
 
 	switch n.Case {
 	case 0: // ExpressionList '=' ExpressionList
-		n.check0(ctx, nil)
+		n.check0(ctx, nil, true, true)
 	case 1: // ExpressionList "+=" ExpressionList
 		todo(n)
 	case 2: // ExpressionList "&^=" ExpressionList
@@ -377,7 +380,25 @@ func (n *Assignment) check(ctx *context) (stop bool) {
 	case 7: // ExpressionList "*=" ExpressionList
 		todo(n)
 	case 8: // ExpressionList "|=" ExpressionList
-		n.check0(ctx, n.checkInts)
+		n.check0(ctx, func(lhs, rhs []*Expression) bool {
+			for _, item := range rhs {
+				if item == nil {
+					continue
+				}
+
+				v := item.Value
+				if v == nil {
+					continue
+				}
+
+				if !v.Type().IntegerType() {
+					if ctx.err(item, "invalid operation: |= (operator | not defined on %s)", v.Type()) {
+						return true
+					}
+				}
+			}
+			return false
+		}, false, false)
 	case 9: // ExpressionList ">>=" ExpressionList
 		todo(n)
 	case 10: // ExpressionList "-=" ExpressionList
@@ -1016,6 +1037,16 @@ func (n *Expression) isCall() bool {
 	return n.UnaryExpression.isCall()
 }
 
+func (n *Expression) isIndex() bool { return n.Case == 0 && n.UnaryExpression.isIndex() }
+
+func (n *Expression) isChanReceive() bool {
+	if n.Case != 0 {
+		return false
+	}
+
+	return n.UnaryExpression.isChanReceive()
+}
+
 func (n *Expression) isIdentifier() (xc.Token, bool) { //TODO remove, use .ident()
 	if n.Case != 0 {
 		return xc.Token{}, false
@@ -1195,8 +1226,23 @@ func (n *ForHeader) check(ctx *context) (stop bool) {
 			return true
 		}
 
-		if !n.SimpleStatementOpt2.boolExprOrNil() {
-			todo(n, true) // need bool
+		if o := n.SimpleStatementOpt2; !o.boolExprOrNil() {
+			e := o.SimpleStatement.Expression
+			if e == nil {
+				todo(o, true)
+				break
+			}
+
+			v := e.Value
+			if v == nil {
+				todo(o, true)
+				break
+			}
+
+			if ctx.err(e, "non-bool (type %s) used as for condition", v.Type()) {
+				return true
+			}
+
 			break
 		}
 	case 2: // SimpleStatementOpt
@@ -1864,11 +1910,6 @@ func (n *PrimaryExpression) checkConversion(ctx *context, node Node, t Type, arg
 		return
 	}
 
-	if at := arg.Type(); at != nil && !at.ConvertibleTo(t) {
-		ctx.err(node, "cannot convert type %s to %s", at, t)
-		return
-	}
-
 	switch arg.Kind() {
 	case ConstValue:
 		c := arg.Const()
@@ -1889,6 +1930,11 @@ func (n *PrimaryExpression) checkConversion(ctx *context, node Node, t Type, arg
 	//TODO- 		}
 	//TODO- 	}
 	case RuntimeValue:
+		if arg.Type() != nil && !arg.Type().ConvertibleTo(t) {
+			ctx.err(node, "cannot convert type %s to %s", arg.Type(), t)
+			return
+		}
+
 		n.Value = newRuntimeValue(t)
 	case TypeValue:
 		todo(n)
@@ -2011,7 +2057,7 @@ func (n *PrimaryExpression) checkSelector(ctx *context, t Type, nm xc.Token) []S
 			ctx.err(nm, "%s undefined (type *%s is pointer to interface, not interface)", nm.S(), t)
 			return nil
 		case Ptr:
-			todo(n, true) // fail
+			ctx.err(nm, "selecting %s.%s requires explicit dereference", t0, nm.S())
 			return nil
 		}
 	}
@@ -2229,19 +2275,21 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 
 		n.flags = n.PrimaryExpression.flags
 		nm := n.Token2
-		if nm.Val == idUnderscore {
-			todo(n, true)
-			break
+		if nm.Val == idUnderscore && ctx.err(nm, "cannot refer to blank field or method") {
+			return true
 		}
 
 		switch v.Kind() {
 		case PackageValue:
+			p := v.Declaration().(*ImportDeclaration).Package
 			if !isExported(nm.Val) { //TODO use d.IsExported()
-				todo(n, true)
+				if ctx.err(nm, "cannot refer to unexported name %s.%s", p.Name, nm.S()) {
+					return true
+				}
+
 				break
 			}
 
-			p := v.Declaration().(*ImportDeclaration).Package
 			if d := p.Scope.Bindings[nm.Val]; d != nil {
 				switch x := d.(type) {
 				case *ConstDeclaration:
@@ -2328,7 +2376,7 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			}
 			if m == nil {
 				if needPtrRx {
-					t = newPtrType(ctx, t)
+					t = newPtrType(ctx.model.PtrBytes, t)
 				}
 				switch {
 				case t.Kind() == Ptr:
@@ -2381,7 +2429,8 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 		//
 		// · a[x] is shorthand for (*a)[x]
 		if pt.Kind() == Ptr && pt.Elem().Kind() == Array {
-			pv = newRuntimeValue(pt.Elem())
+			pt = pt.Elem()
+			pv = newRuntimeValue(pt)
 		}
 
 		x := n.Expression.Value
@@ -2501,7 +2550,10 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 
 			n.flags = n.flags | kt.flags()
 			if !x.AssignableTo(ctx.Context, kt) {
-				todo(n, true) // invalid index type
+				if ctx.err(n.Expression, "cannot use type %s as type %s in map index", x.Type(), kt) {
+					return true
+				}
+
 				break
 			}
 
@@ -2509,7 +2561,9 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			n.flags = n.flags | pt.Elem().flags()
 		default:
 			// Otherwise a[x] is illegal.
-			todo(n, true)
+			if ctx.err(n, "invalid operation: (type %s does not support indexing)", pt) {
+				return true
+			}
 		}
 	case 6: // PrimaryExpression '[' ExpressionOpt ':' ExpressionOpt ':' ExpressionOpt ']'
 		todo(n)
@@ -2576,6 +2630,19 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 		}
 
 		switch v.Kind() {
+		case ConstValue:
+			if ctx.err(n, "cannot call non-function (type %s)", v.Type()) {
+				return true
+			}
+
+			break
+		case PackageValue:
+			p := v.Declaration().(*ImportDeclaration).Package
+			if ctx.err(n, "use of package %s without selector", p.Name) {
+				return true
+			}
+
+			break
 		case RuntimeValue:
 			t := v.Type()
 			if t == nil {
@@ -2649,7 +2716,9 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 			n.flags = n.flags | t.flags()
 			args, _, ddd := n.Call.args()
 			if ddd {
-				todo(n, true)
+				if ctx.err(n.Call.ArgumentList.Argument, "invalid use of ... in type conversion to %s", t) {
+					return true
+				}
 			}
 			switch len(args) {
 			case 0:
@@ -2697,6 +2766,8 @@ func (n *PrimaryExpression) check(ctx *context) (stop bool) {
 func (n *PrimaryExpression) isCall() bool {
 	return n.Case == 8 // PrimaryExpression Call
 }
+
+func (n *PrimaryExpression) isIndex() bool { return n.Case == 5 } // PrimaryExpression '[' Expression ']'
 
 func (n *PrimaryExpression) isIdentifier() (xc.Token, bool) {
 	if n.Case != 0 { // Operand
@@ -2983,6 +3054,7 @@ func (n *SimpleStatement) check(ctx *context, used bool) (stop bool) {
 	}
 
 	//dbg("", position(n.Pos()))
+	op := "++"
 	switch n.Case {
 	case 0: // Assignment
 		// nop
@@ -2992,12 +3064,24 @@ func (n *SimpleStatement) check(ctx *context, used bool) (stop bool) {
 			break
 		}
 
-		if used || isVoid(v.Type()) || n.Expression.isCall() {
+		if used || isVoid(v.Type()) || n.Expression.isCall() || n.Expression.isChanReceive() {
 			break
 		}
 
-		todo(n, true) // unused value
+		switch v.Kind() {
+		case ConstValue:
+			if ctx.err(n.Expression, "%s evaluated but not used", v.Const()) {
+				return true
+			}
+		case TypeValue:
+			if ctx.err(n.Expression, "type %s is not an expression", v.(*typeValue).Type()) {
+				return true
+			}
+		default:
+			todo(n, true) // unused value
+		}
 	case 2: // Expression "--"
+		op = "--"
 		fallthrough
 	case 3: // Expression "++"
 		v := n.Expression.Value
@@ -3005,8 +3089,17 @@ func (n *SimpleStatement) check(ctx *context, used bool) (stop bool) {
 			break
 		}
 
-		if !v.Type().IntegerType() {
-			todo(n, true) // need int
+		if !v.Type().Numeric() {
+			if ctx.err(n.Expression, "invalid operation: %s (non-numeric type %s)", op, v.Type()) {
+				return true
+			}
+
+			break
+		}
+
+		if !v.assignableTo() {
+			todo(n, true) // must be addressable or map index
+			break
 		}
 	case 4: // ExpressionList ":=" ExpressionList
 		// nop
@@ -3125,7 +3218,10 @@ func (n *StatementNonDecl) check(ctx *context) (stop bool) {
 	case 0: // "break" IdentifierOpt
 		//TODO verify valid context
 		if o := n.IdentifierOpt; o != nil {
-			n.resolutionScope.mustLookupLabel(ctx, o.Token)
+			if n.resolutionScope.lookupLabel(ctx, o.Token) == nil && ctx.err(o.Token, "break label not defined: %s", o.Token.S()) {
+				return true
+			}
+
 			//TODO verify valid target
 		}
 	case 1: // "continue" IdentifierOpt
@@ -3196,8 +3292,16 @@ func (n *StatementNonDecl) check(ctx *context) (stop bool) {
 				}
 
 				le := v.Type().Elements()
-				if len(le) != len(rte) {
-					todo(n, true) // mismatch
+				if len(le) > len(rte) {
+					if ctx.err(list[0], "too many arguments to return") {
+						return true
+					}
+
+					break
+				}
+
+				if len(le) < len(rte) {
+					todo(n, true) // not enough
 					break
 				}
 
@@ -3243,7 +3347,14 @@ func (n *StatementNonDecl) check(ctx *context) (stop bool) {
 			}
 
 			if !v.AssignableTo(ctx.Context, rt) {
-				todo(n, true) // type mismatch
+				switch v.Kind() {
+				case NilValue:
+					todo(n, true) // type mismatch
+				default:
+					if ctx.err(n, "cannot use type %s as type %s in return argument", v.Type(), rt) {
+						return true
+					}
+				}
 			}
 		}
 	case 10: // SelectStatement
@@ -3399,7 +3510,7 @@ func (n *StructType) check(ctx *context) (stop bool) {
 			}
 			t := f.Type
 			if f.isAnonymousPtr {
-				t = newPtrType(ctx, t)
+				t = newPtrType(ctx.model.PtrBytes, t)
 			}
 			sf = append(sf, StructField{
 				f.name,
@@ -3537,7 +3648,7 @@ func (n *Typ) check(ctx *context) (stop bool) {
 		ctx.stack = nil
 		defer func() { ctx.stack = stack }()
 		stop = t2.check(ctx)
-		n.Type = newPtrType(ctx, t2.Type)
+		n.Type = newPtrType(ctx.model.PtrBytes, t2.Type)
 	case 2: // ArrayType
 		stop = t.ArrayType.check(ctx)
 		n.Type = t.ArrayType.Type
@@ -3602,7 +3713,7 @@ func (n *TypeLiteral) check(ctx *context) (stop bool) {
 		}
 
 		if t := n.TypeLiteral.Type; t != nil {
-			n.Type = newPtrType(ctx, t)
+			n.Type = newPtrType(ctx.model.PtrBytes, t)
 		}
 	case 1: // ArrayType
 		if n.ArrayType.check(ctx) {
@@ -3658,6 +3769,12 @@ func (n *UnaryExpression) isCall() bool {
 	return n.PrimaryExpression.isCall()
 }
 
+func (n *UnaryExpression) isChanReceive() bool {
+	return n.Case == 6 // "<-" UnaryExpression
+}
+
+func (n *UnaryExpression) isIndex() bool { return n.Case == 7 && n.PrimaryExpression.isIndex() } // PrimaryExpression
+
 func (n *UnaryExpression) isIdentifier() (xc.Token, bool) {
 	if n.Case != 7 { // PrimaryExpression
 		return xc.Token{}, false
@@ -3708,7 +3825,7 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 		switch v.Kind() {
 		case RuntimeValue:
 			//TODO disallow taking address of a function (but not of a variable of a function type).
-			n.Value = newRuntimeValue(newPtrType(ctx, v.Type()))
+			n.Value = newRuntimeValue(newPtrType(ctx.model.PtrBytes, v.Type()))
 		default:
 			//dbg("", v.Kind())
 			todo(n)
@@ -3718,13 +3835,16 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 		case RuntimeValue:
 			t := v.Type()
 			if t.Kind() != Ptr {
-				todo(n, true)
+				if ctx.err(n.UnaryExpression, "invalid indirect of type %s", t) {
+					return true
+				}
+
 				break
 			}
 
 			n.Value = newAddressableValue(t.Elem())
 		case TypeValue:
-			n.Value = newTypeValue(newPtrType(ctx, v.Type()))
+			n.Value = newTypeValue(newPtrType(ctx.model.PtrBytes, v.Type()))
 		default:
 			//dbg("", v.Kind())
 			todo(n)
@@ -3733,7 +3853,14 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 		switch v.Kind() {
 		case ConstValue:
 			if !v.Type().Numeric() {
-				todo(n, true) // invalid op
+				s := ""
+				if v.Const().Untyped() {
+					s = "untyped "
+				}
+				if ctx.err(n.UnaryExpression, "invalid operation: + %s%s", s, v.Type()) {
+					return true
+				}
+
 				break
 			}
 

@@ -136,9 +136,7 @@ func sizeof(ctx *context, n *Call) Value {
 	}
 
 	if ddd {
-		todo(n, true)
-		return nil
-
+		ctx.err(n.ArgumentList.Argument, "invalid use of ... with builtin unsafe.Sizeof")
 	}
 
 	v := args[0]

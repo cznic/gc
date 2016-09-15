@@ -12,6 +12,10 @@
 
 package p
 
+import (
+	"sort"
+)
+
 // Dummy types.
 type ( //TODO-
 	t int
@@ -179,7 +183,7 @@ func New«keytype, valtype»(hashfn Hashfn«keytype», eqfn Eqfn«keytype») *Ha
 
 func (p *Hashmap«keytype, vvaltype») Lookup(key keytype) (found bool, val valtype) {
 	h := p.hashfn(key) % len(p.buckets)
-	for b := buckets[h]; b != nil; b = b.next {
+	for b := p.buckets[h]; b != nil; b = b.next {
 		if p.eqfn(key, b.key) {
 			return true, b.val
 		}
@@ -318,7 +322,7 @@ var IntPairZero307 = MakeIntPair305(0, 0)
 //     return e
 // }
 func (v *Vector«t») SetHeadMethod313«t»(e t) t {
-	v[0] = e
+	(*v)[0] = e
 	return e
 }
 
@@ -340,7 +344,7 @@ var v324 = MakePair299(0, 0)         // [int, int] deduced.
 func SliceAverage«t»(a []t) t {
 	s := t(0)
 	// or: var s t
-	for _, v = range a {
+	for _, v := range a {
 		s += v
 	}
 	return s / len(a)
@@ -374,7 +378,7 @@ func SliceAverage359«t»(a []t) t {
 		return s.Divide(t(len(a)))
 	default:
 		var s t
-		for _, v = range a {
+		for _, v := range a {
 			s += v
 		}
 		return s / len(a)
@@ -416,7 +420,7 @@ type sorter«t» struct {
 }
 
 func (s *sorter«t») Len«t»() int           { return len(s.s) }
-func (s *sorter«t») Less«t»(i, j int) bool { return s.less(s[i], s[j]) }
+func (s *sorter«t») Less«t»(i, j int) bool { return s.less(s.s[i], s.s[j]) }
 func (s *sorter«t») Swap«t»(i, j int)      { s.s[i], s.s[j] = s.s[j], s.s[i] }
 
 // gen [T] func SortNumericSlice(s []T) {

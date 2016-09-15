@@ -240,21 +240,26 @@ func (s *Scope) mustLookup(ctx *context, t xc.Token, fileScope *Scope) (d Declar
 	return d
 }
 
-func (s *Scope) mustLookupLabel(ctx *context, t xc.Token) {
-	for {
+func (s *Scope) lookupLabel(ctx *context, t xc.Token) Declaration {
+	for s != nil {
 		if !s.skip {
 			if d := s.Labels[t.Val]; d != nil {
-				return
-			}
-
-			if s.isFnScope {
-				todo(t, true) // undefined
-				return
+				return d
 			}
 		}
 
 		s = s.Parent
 	}
+	return nil
+}
+
+func (s *Scope) mustLookupLabel(ctx *context, t xc.Token) Declaration {
+	if d := s.lookupLabel(ctx, t); d != nil {
+		return d
+	}
+
+	todo(t, true) // undefined label
+	return nil
 }
 
 func (s *Scope) mustLookupLocalTLDType(ctx *context, t xc.Token) *TypeDeclaration {
@@ -585,7 +590,7 @@ func (n *FuncDeclaration) check(ctx *context) (stop bool) {
 	if n.rx != nil {
 		t := n.rx.Type
 		if n.rx.isPtr {
-			t = newPtrType(ctx, t)
+			t = newPtrType(ctx.model.PtrBytes, t)
 		}
 		in = []Type{t}
 	}
@@ -1560,7 +1565,10 @@ func (n *VarDeclaration) check(ctx *context) (stop bool) {
 				}
 
 				if i < 0 {
-					todo(n, true) // multiple-value in single-value context
+					if ctx.err(n.expr, "multiple-value %s in single-value context", vt) {
+						return true
+					}
+
 					break
 				}
 

@@ -19,8 +19,8 @@ func main() {
 	c++
 
 	var b bool
-	b++ // ERROR "invalid operation: b\+\+ \(non-numeric type bool\)"
+	b++ // ERROR "invalid operation: b?\+\+ \(non-numeric type bool\)"
 
 	var s string
-	s-- // ERROR "invalid operation: s-- \(non-numeric type string\)"
+	s-- // ERROR "invalid operation: s?-- \(non-numeric type string\)"
 }
