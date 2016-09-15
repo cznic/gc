@@ -911,7 +911,8 @@ func (n *TypeDeclaration) boot() {
 				break
 			}
 
-			fallthrough
+			mt2 = *mt
+			//TODO-fallthrough
 		default:
 			mt2 = *mt
 			mt2.merged = true
@@ -922,6 +923,7 @@ func (n *TypeDeclaration) boot() {
 	return
 }
 
+// Align implements Type.
 func (n *TypeDeclaration) Align() int {
 	if n.ctx != nil {
 		n.boot()
@@ -929,6 +931,7 @@ func (n *TypeDeclaration) Align() int {
 	return n.typeBase.Align()
 }
 
+// AssignableTo implements Type.
 func (n *TypeDeclaration) AssignableTo(u Type) bool {
 	if n.ctx != nil {
 		n.boot()
@@ -936,6 +939,7 @@ func (n *TypeDeclaration) AssignableTo(u Type) bool {
 	return n.typeBase.AssignableTo(u)
 }
 
+// Bits implements Type.
 func (n *TypeDeclaration) Bits(ctx *Context) int {
 	if n.ctx != nil {
 		n.boot()
@@ -943,6 +947,7 @@ func (n *TypeDeclaration) Bits(ctx *Context) int {
 	return n.typeBase.Bits(ctx)
 }
 
+// Comparable implements Type.
 func (n *TypeDeclaration) Comparable() bool {
 	if n.ctx != nil {
 		n.boot()
@@ -950,6 +955,7 @@ func (n *TypeDeclaration) Comparable() bool {
 	if n.typ == nil {
 		switch n.Kind() {
 		case
+			UntypedBool,
 			Bool,
 			Int,
 			Int8,
@@ -979,6 +985,7 @@ func (n *TypeDeclaration) Comparable() bool {
 	return n.typ.Comparable()
 }
 
+// ComplexType implements Type.
 func (n *TypeDeclaration) ComplexType() bool {
 	if n.ctx != nil {
 		n.boot()
@@ -986,6 +993,7 @@ func (n *TypeDeclaration) ComplexType() bool {
 	return n.typeBase.ComplexType()
 }
 
+// ConvertibleTo implements Type.
 func (n *TypeDeclaration) ConvertibleTo(u Type) bool {
 	if n.ctx != nil {
 		n.boot()
@@ -993,6 +1001,7 @@ func (n *TypeDeclaration) ConvertibleTo(u Type) bool {
 	return n.typeBase.ConvertibleTo(u)
 }
 
+// FieldAlign implements Type.
 func (n *TypeDeclaration) FieldAlign() int {
 	if n.ctx != nil {
 		n.boot()
@@ -1000,6 +1009,7 @@ func (n *TypeDeclaration) FieldAlign() int {
 	return n.typeBase.FieldAlign()
 }
 
+// FloatingPointType implements Type.
 func (n *TypeDeclaration) FloatingPointType() bool {
 	if n.ctx != nil {
 		n.boot()
@@ -1007,6 +1017,7 @@ func (n *TypeDeclaration) FloatingPointType() bool {
 	return n.typeBase.FloatingPointType()
 }
 
+// Implements implements Type.
 func (n *TypeDeclaration) Implements(u Type) bool {
 	if n.ctx != nil {
 		n.boot()
@@ -1014,6 +1025,7 @@ func (n *TypeDeclaration) Implements(u Type) bool {
 	return n.typeBase.Implements(u)
 }
 
+// IntegerType implements Type.
 func (n *TypeDeclaration) IntegerType() bool {
 	if n.ctx != nil {
 		n.boot()
@@ -1021,6 +1033,7 @@ func (n *TypeDeclaration) IntegerType() bool {
 	return n.typeBase.IntegerType()
 }
 
+// Kind implements Type.
 func (n *TypeDeclaration) Kind() Kind {
 	if n.ctx != nil {
 		n.boot()
@@ -1028,6 +1041,7 @@ func (n *TypeDeclaration) Kind() Kind {
 	return n.typeBase.Kind()
 }
 
+// Method implements Type.
 func (n *TypeDeclaration) Method(i int) *Method {
 	if n.ctx != nil {
 		n.boot()
@@ -1035,6 +1049,7 @@ func (n *TypeDeclaration) Method(i int) *Method {
 	return n.typeBase.Method(i)
 }
 
+// MethodByName implements Type.
 func (n *TypeDeclaration) MethodByName(nm int) *Method {
 	if n.ctx != nil {
 		n.boot()
@@ -1042,6 +1057,7 @@ func (n *TypeDeclaration) MethodByName(nm int) *Method {
 	return n.typeBase.MethodByName(nm)
 }
 
+// NumMethod implements Type.
 func (n *TypeDeclaration) NumMethod() int {
 	if n.ctx != nil {
 		n.boot()
@@ -1049,6 +1065,7 @@ func (n *TypeDeclaration) NumMethod() int {
 	return n.typeBase.NumMethod()
 }
 
+// Ordered implements Type.
 func (n *TypeDeclaration) Ordered() bool {
 	if n.ctx != nil {
 		n.boot()
@@ -1056,6 +1073,7 @@ func (n *TypeDeclaration) Ordered() bool {
 	return n.typeBase.Ordered()
 }
 
+// PkgPath implements Type.
 func (n *TypeDeclaration) PkgPath() int {
 	if n.ctx != nil {
 		n.boot()
@@ -1063,6 +1081,7 @@ func (n *TypeDeclaration) PkgPath() int {
 	return n.typeBase.PkgPath()
 }
 
+// Result implements Type.
 func (n *TypeDeclaration) Result() Type {
 	if n.ctx != nil {
 		n.boot()
@@ -1074,6 +1093,7 @@ func (n *TypeDeclaration) Result() Type {
 	return n.typ.Result()
 }
 
+// Size implements Type.
 func (n *TypeDeclaration) Size() uint64 {
 	if n.ctx != nil {
 		n.boot()
@@ -1088,6 +1108,7 @@ func (n *TypeDeclaration) String() string {
 	return n.typeBase.String()
 }
 
+// UnderlyingType implements Type.
 func (n *TypeDeclaration) UnderlyingType() Type {
 	if n.ctx != nil {
 		n.boot()
@@ -1095,6 +1116,7 @@ func (n *TypeDeclaration) UnderlyingType() Type {
 	return n.typeBase.UnderlyingType()
 }
 
+// UnsignedIntegerType implements Type.
 func (n *TypeDeclaration) UnsignedIntegerType() bool {
 	if n.ctx != nil {
 		n.boot()
@@ -1411,10 +1433,15 @@ func (n *TypeDeclaration) str(w *bytes.Buffer) {
 	}
 }
 
+const (
+	varDeclRange = 1 << iota
+)
+
 // VarDeclaration represents a variable declaration.
 type VarDeclaration struct {
 	Type       Type
 	expr       *Expression
+	declFlags  int
 	guard      gate
 	isExported bool
 	name       int
@@ -1424,8 +1451,9 @@ type VarDeclaration struct {
 	typ0       *Typ
 }
 
-func newVarDeclaration(tupleIndex int, nm xc.Token, typ0 *Typ, expr *Expression, scopeStart token.Pos) *VarDeclaration {
+func newVarDeclaration(tupleIndex int, nm xc.Token, typ0 *Typ, expr *Expression, scopeStart token.Pos, declFlags int) *VarDeclaration {
 	return &VarDeclaration{
+		declFlags:  declFlags,
 		expr:       expr,
 		isExported: isExported(nm.Val),
 		name:       nm.Val,
@@ -1510,7 +1538,19 @@ func (n *VarDeclaration) check(ctx *context) (stop bool) {
 				n.Type = c.Type()
 			}
 		case RuntimeValue:
-			switch vt := v.Type(); vt.Kind() {
+			vt := v.Type()
+			switch {
+			case n.declFlags&varDeclRange != 0:
+				switch vt.Kind() {
+				case Slice:
+					vt = newTupleType([]Type{ctx.intType, vt.Elem()})
+				default:
+					//dbg("", vt.Kind())
+					todo(n, true)
+					return false
+				}
+			}
+			switch vt.Kind() {
 			case Tuple:
 				elems := vt.Elements()
 				i := n.tupleIndex
@@ -1546,7 +1586,7 @@ func (n *VarDeclaration) Name() int { return n.name }
 // ScopeStart implements Declaration.
 func (n *VarDeclaration) ScopeStart() token.Pos { return n.scopeStart }
 
-func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int) []xc.Token {
+func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int, declFlags int) []xc.Token {
 	var ln []Node
 	var names []xc.Token
 	switch x := lhs.(type) {
@@ -1630,7 +1670,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 		}
 
 		for _, v := range names {
-			lx.declarationScope.declare(lx, newVarDeclaration(-1, v, typ0, nil, scopeStart))
+			lx.declarationScope.declare(lx, newVarDeclaration(-1, v, typ0, nil, scopeStart, declFlags))
 		}
 	case 1:
 		// One initializer.
@@ -1652,7 +1692,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 					hasNew = true
 				}
 			}
-			lx.declarationScope.declare(lx, newVarDeclaration(i, v, typ0, exprs[0], scopeStart))
+			lx.declarationScope.declare(lx, newVarDeclaration(i, v, typ0, exprs[0], scopeStart, declFlags))
 		}
 	default:
 		// Initializer list.
@@ -1684,7 +1724,7 @@ func varDecl(lx *lexer, lhs, rhs Node, typ0 *Typ, op string, maxLHS, maxRHS int)
 					hasNew = true
 				}
 			}
-			lx.declarationScope.declare(lx, newVarDeclaration(-1, v, typ0, e, scopeStart))
+			lx.declarationScope.declare(lx, newVarDeclaration(-1, v, typ0, e, scopeStart, declFlags))
 		}
 		if len(exprs) > len(names) {
 			lx.err(exprs[len(names)], "extra initializer(s) on right side of %s", op)

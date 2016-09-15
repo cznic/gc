@@ -801,7 +801,7 @@ Range:
 	ExpressionList '=' "range" Expression
 |       ExpressionList ":=" "range" Expression
 	{
-		varDecl(lx, lhs.ExpressionList, lhs.Expression, nil, ":=", 2, 1)
+		varDecl(lx, lhs.ExpressionList, lhs.Expression, nil, ":=", 2, 1, varDeclRange)
 	}
 |       "range" Expression
 
@@ -853,7 +853,7 @@ SimpleStatement:
 |       ExpressionList ":=" ExpressionList
 	{
 		lhs.resolutionScope = lx.resolutionScope
-		lhs.idlist = varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
+		lhs.idlist = varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1, 0)
 	}
 
 SimpleStatementOpt:
@@ -979,7 +979,7 @@ SwitchCase:
 |       "case" ArgumentList '=' Expression ':'
 |       "case" ArgumentList ":=" Expression ':'
 	{
-		varDecl(lx, lhs.ArgumentList, lhs.Expression, nil, ":=", 2, 1)
+		varDecl(lx, lhs.ArgumentList, lhs.Expression, nil, ":=", 2, 1, 0)
 	}
 |       "default" ':'	
 |	"case" error
@@ -1125,15 +1125,15 @@ VarDecl:
 VarSpec:
 	IdentifierList '=' ExpressionList
 	{
-		varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, nil, "=", -1, -1)
+		varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, nil, "=", -1, -1, 0)
 	}
 |       IdentifierList Typ
 	{
-		varDecl(lx, lhs.IdentifierList, nil, lhs.Typ, "", -1, -1)
+		varDecl(lx, lhs.IdentifierList, nil, lhs.Typ, "", -1, -1, 0)
 	}
 |       IdentifierList Typ '=' ExpressionList
 	{
-		varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, lhs.Typ, "=", -1, -1)
+		varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, lhs.Typ, "=", -1, -1, 0)
 	}
 
 VarSpecList:

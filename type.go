@@ -613,7 +613,11 @@ func (t *typeBase) ConvertibleTo(u Type) bool {
 		return true
 	}
 
-	if u.Kind() == UnsafePointer && (t.Kind() == Ptr || t.Kind() == Uintptr) {
+	if u.Kind() == UnsafePointer && (xt.Kind() == Ptr || xt.Kind() == Uintptr || xt.Kind() == UnsafePointer) {
+		return true
+	}
+
+	if xt.Kind() == UnsafePointer && (u.Kind() == Ptr || u.Kind() == Uintptr || u.Kind() == UnsafePointer) {
 		return true
 	}
 

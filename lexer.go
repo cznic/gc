@@ -493,7 +493,7 @@ again:
 			t = lx.switchDecl[n-1]
 		}
 		if t.IsValid() {
-			lx.declarationScope.declare(lx, newVarDeclaration(-1, t, nil, nil, lx.lookahead.Pos())) //TODO
+			lx.declarationScope.declare(lx, newVarDeclaration(-1, t, nil, nil, lx.lookahead.Pos(), 0)) //TODO
 		}
 	}
 	lx.lexPrev = r

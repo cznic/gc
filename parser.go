@@ -3813,7 +3813,7 @@ yynewstate:
 				Expression:     yyS[yypt-0].node.(*Expression),
 			}
 			yyVAL.node = lhs
-			varDecl(lx, lhs.ExpressionList, lhs.Expression, nil, ":=", 2, 1)
+			varDecl(lx, lhs.ExpressionList, lhs.Expression, nil, ":=", 2, 1, varDeclRange)
 		}
 	case 175:
 		{
@@ -3926,7 +3926,7 @@ yynewstate:
 			}
 			yyVAL.node = lhs
 			lhs.resolutionScope = lx.resolutionScope
-			lhs.idlist = varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1)
+			lhs.idlist = varDecl(lx, lhs.ExpressionList, lhs.ExpressionList2, nil, ":=", -1, -1, 0)
 		}
 	case 191:
 		{
@@ -4296,7 +4296,7 @@ yynewstate:
 				Token3:       yyS[yypt-0].Token,
 			}
 			yyVAL.node = lhs
-			varDecl(lx, lhs.ArgumentList, lhs.Expression, nil, ":=", 2, 1)
+			varDecl(lx, lhs.ArgumentList, lhs.Expression, nil, ":=", 2, 1, 0)
 		}
 	case 233:
 		{
@@ -4780,7 +4780,7 @@ yynewstate:
 				ExpressionList: yyS[yypt-0].node.(*ExpressionList).reverse(),
 			}
 			yyVAL.node = lhs
-			varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, nil, "=", -1, -1)
+			varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, nil, "=", -1, -1, 0)
 		}
 	case 293:
 		{
@@ -4791,7 +4791,7 @@ yynewstate:
 				Typ:            yyS[yypt-0].node.(*Typ),
 			}
 			yyVAL.node = lhs
-			varDecl(lx, lhs.IdentifierList, nil, lhs.Typ, "", -1, -1)
+			varDecl(lx, lhs.IdentifierList, nil, lhs.Typ, "", -1, -1, 0)
 		}
 	case 294:
 		{
@@ -4804,7 +4804,7 @@ yynewstate:
 				ExpressionList: yyS[yypt-0].node.(*ExpressionList).reverse(),
 			}
 			yyVAL.node = lhs
-			varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, lhs.Typ, "=", -1, -1)
+			varDecl(lx, lhs.IdentifierList, lhs.ExpressionList, lhs.Typ, "=", -1, -1, 0)
 		}
 	case 295:
 		{

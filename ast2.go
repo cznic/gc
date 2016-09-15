@@ -319,7 +319,7 @@ func (n *Assignment) check0(ctx *context, f func(*context)) {
 			}
 
 			if !rv.AssignableTo(ctx.Context, lt) {
-				todo(n, true) // type mismatch
+				ctx.err(n, "cannot use type %s as type %s in assignment", rv.Type(), lt)
 				return
 			}
 		}
@@ -354,8 +354,8 @@ func (n *Assignment) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	if n.ExpressionList.check(ctx) ||
-		n.ExpressionList2.check(ctx) {
+	if n.ExpressionList.check(ctx, true) ||
+		n.ExpressionList2.check(ctx, false) {
 		return true
 	}
 
@@ -799,7 +799,10 @@ func (*CompLitValue) check(ctx *context, n CompositeLiteralValue, t Type) (stop 
 
 					field = tt.FieldByName(fn.Val)
 					if field == nil {
-						todo(e, true) // unknown field
+						if ctx.err(e, "unknown %s field '%s' in struct literal", tt, fn.S()) {
+							return true
+						}
+
 						continue
 					}
 
@@ -1013,7 +1016,7 @@ func (n *Expression) isCall() bool {
 	return n.UnaryExpression.isCall()
 }
 
-func (n *Expression) isIdentifier() (xc.Token, bool) {
+func (n *Expression) isIdentifier() (xc.Token, bool) { //TODO remove, use .ident()
 	if n.Case != 0 {
 		return xc.Token{}, false
 	}
@@ -1122,7 +1125,7 @@ func (n *Expression) ident() (t xc.Token) {
 
 // ------------------------------------------------------------- ExpressionList
 
-func (n *ExpressionList) check(ctx *context) (stop bool) {
+func (n *ExpressionList) check(ctx *context, ignoreBlank bool) (stop bool) {
 	if n == nil {
 		return false
 	}
@@ -1135,8 +1138,11 @@ func (n *ExpressionList) check(ctx *context) (stop bool) {
 
 	n0 := n
 	for ; n != nil; n = n.ExpressionList {
-		if n.Expression.check(ctx) {
-			return true
+		t := n.Expression.ident()
+		if !ignoreBlank || t.Val != idUnderscore {
+			if n.Expression.check(ctx) {
+				return true
+			}
 		}
 
 		n0.list = append(n0.list, n.Expression)
@@ -1151,7 +1157,7 @@ func (n *ExpressionListOpt) check(ctx *context) (stop bool) {
 		return false
 	}
 
-	return n.ExpressionList.check(ctx)
+	return n.ExpressionList.check(ctx, false)
 }
 
 //--------------------------------------------------------------- ExpressionOpt
@@ -1858,8 +1864,8 @@ func (n *PrimaryExpression) checkConversion(ctx *context, node Node, t Type, arg
 		return
 	}
 
-	if t := arg.Type(); t != nil && !t.ConvertibleTo(t) {
-		ctx.err(node, "cannot convert type %s to %s", arg.Type(), t)
+	if at := arg.Type(); at != nil && !at.ConvertibleTo(t) {
+		ctx.err(node, "cannot convert type %s to %s", at, t)
 		return
 	}
 
@@ -1873,15 +1879,17 @@ func (n *PrimaryExpression) checkConversion(ctx *context, node Node, t Type, arg
 		if n.Value = arg.Convert(ctx.Context, t); n.Value == nil {
 			ctx.mustConvertNil(node, t)
 		}
+	//TODO- case RuntimeValue:
+	//TODO- 	if n.Value = arg.Convert(ctx.Context, t); n.Value == nil {
+	//TODO- 		switch {
+	//TODO- 		case t.Kind() == Interface:
+	//TODO- 			arg.Type().implementsFailed(ctx, node, "cannot convert %s to type %s:", t)
+	//TODO- 		default:
+	//TODO- 			ctx.err(node, "1888: cannot convert %s to type %s", arg.Type(), t)
+	//TODO- 		}
+	//TODO- 	}
 	case RuntimeValue:
-		if n.Value = arg.Convert(ctx.Context, t); n.Value == nil {
-			switch {
-			case t.Kind() == Interface:
-				arg.Type().implementsFailed(ctx, node, "cannot convert %s to type %s:", t)
-			default:
-				ctx.err(node, "cannot convert %s to type %s", arg.Type(), t)
-			}
-		}
+		n.Value = newRuntimeValue(t)
 	case TypeValue:
 		todo(n)
 	default:
@@ -2969,8 +2977,8 @@ func (n *SimpleStatement) check(ctx *context, used bool) (stop bool) {
 
 	if n.Assignment.check(ctx) ||
 		n.Expression.check(ctx) ||
-		n.Case != 4 && (n.ExpressionList.check(ctx) ||
-			n.ExpressionList2.check(ctx)) {
+		n.Case != 4 && (n.ExpressionList.check(ctx, false) ||
+			n.ExpressionList2.check(ctx, false)) {
 		return true
 	}
 
@@ -3714,7 +3722,7 @@ func (n *UnaryExpression) check(ctx *context) (stop bool) {
 				break
 			}
 
-			n.Value = newRuntimeValue(t.Elem())
+			n.Value = newAddressableValue(t.Elem())
 		case TypeValue:
 			n.Value = newTypeValue(newPtrType(ctx, v.Type()))
 		default:

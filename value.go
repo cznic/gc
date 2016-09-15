@@ -2306,11 +2306,6 @@ func (c *intConst) eq(ctx *context, n Node, op Value) Value {
 			break
 		}
 
-		if !ot.Comparable() {
-			ctx.err(n, "invalid operation: == (operator == not defined on %s)", ot)
-			break
-		}
-
 		return newRuntimeValue(untypedBoolType)
 	default:
 		//dbg("", op.Kind())
@@ -2748,7 +2743,7 @@ func (c *intConst) mul(ctx *context, n Node, op Value) Value {
 func (c *intConst) neg(ctx *context, n Node) Value {
 	if c.bigVal != nil {
 		var v big.Int
-		if d := newIntConst(0, v.Neg(v.Set(c.bigVal)), c.Type(), c.Untyped()).normalize(&context{}); d != nil {
+		if d := newIntConst(0, v.Neg(v.Set(c.bigVal)), c.Type(), c.Untyped()).normalize(ctx); d != nil {
 			return newConstValue(d)
 		}
 
@@ -3034,6 +3029,26 @@ func (c *stringConst) ge(ctx *context, n Node, op Value) Value {
 
 func (c *stringConst) gt(ctx *context, n Node, op Value) Value {
 	todo(n)
+	return nil
+}
+
+func (c *stringConst) neq0(ctx *context, n Node, t Type, untyped bool, op Const) Const {
+	return newBoolConst(!c.val.eq(op.(*stringConst).val), ctx.boolType, true)
+}
+
+func (c *stringConst) neq(ctx *context, n Node, op Value) Value {
+	switch op.Kind() {
+	case ConstValue:
+		t, untyped, a, b := ctx.constStringBinOpShape(c, op.Const(), n)
+		if t != nil {
+			if d := a.neq0(ctx, n, t, untyped, b); d != nil {
+				return newConstValue(d)
+			}
+		}
+	default:
+		//dbg("", op.Kind())
+		todo(n)
+	}
 	return nil
 }
 
