@@ -102,9 +102,10 @@ func pretty(v interface{}) string { return strutil.PrettyString(v, "", "", nil) 
 // ============================================================================
 
 const (
-	lexFile   = "testdata/scanner/scanner.l"
-	yaccCover = "testdata/parser/ycover.go"
-	yaccFile  = "testdata/parser/parser.y"
+	lexFile    = "testdata/scanner/scanner.l"
+	yaccCover  = "testdata/parser/ycover.go"
+	yaccFile   = "testdata/parser/parser.y"
+	yaccFile19 = "testdata/parser/parser19.y"
 )
 
 type yParser struct {
@@ -162,7 +163,11 @@ var (
 		}
 		fset := token.NewFileSet()
 		var out bytes.Buffer
-		p, err := y.ProcessFile(fset, yaccFile, &y.Options{
+		yfn := yaccFile
+		if goVersion >= "1.9" {
+			yfn = yaccFile19
+		}
+		p, err := y.ProcessFile(fset, yfn, &y.Options{
 			Closures:  closures,
 			Reducible: true,
 			Report:    &out,
