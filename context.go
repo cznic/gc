@@ -6,66 +6,19 @@ package gc
 
 import (
 	"fmt"
-	"go/scanner"
 	"go/token"
-	"math"
-	"math/big"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
-	"sync/atomic"
 
-	"github.com/cznic/xc"
-)
-
-const (
-	// DefaultIntConstBits is the default maximum untyped integer constant
-	// size.
-	DefaultIntConstBits = 512
-	// DefaultFloatConstPrec is the default maximum untyped floating point
-	// constant precision.
-	DefaultFloatConstPrec = 512
-
-	builtinSrc = `
-
-package builtin
-
-const (
-	true = 0 // Expression does not matter.
-	false
-	iota 
-)
-
-var nil int // Type does not matter.
-
-// Signatures do not matter.
-func append()
-func cap()
-func close()
-func complex()
-func copy()
-func delete()
-func imag()
-func len()
-func make()
-func new()
-func panic()
-func print()
-func println()
-func real()
-func recover()
-	
-type error interface {
-	Error() string
-}
-
-`
+	"github.com/cznic/gc/internal/ftoken"
+	"github.com/edsrzf/mmap-go"
 )
 
 var (
-	// IsValidOS lists valid OS types.
-	IsValidOS = map[string]bool{ // Go 1.7
+	validOS = map[string]bool{ // Go 1.9
 		"android":   true,
 		"darwin":    true,
 		"dragonfly": true,
@@ -77,342 +30,206 @@ var (
 		"plan9":     true,
 		"solaris":   true,
 		"windows":   true,
+		"zos":       true,
 	}
 
-	// ArchMap maps valid CPU architectures to their respective models.
-	ArchMap = map[string]Model{ // Go 1.7
+	archModels = map[string]model{ // Go 1.9
 		"386":         {4, 4},
 		"amd64":       {8, 8},
 		"amd64p32":    {8, 4},
+		"arm":         {4, 4},
 		"arm64":       {8, 8},
 		"arm64be":     {8, 8},
-		"arm":         {4, 4},
 		"armbe":       {4, 4},
+		"mips":        {8, 8}, //TODO ?
 		"mips64":      {8, 8},
 		"mips64le":    {8, 8},
 		"mips64p32":   {8, 4},
 		"mips64p32le": {8, 4},
-		"mips":        {8, 8}, //TODO ?
 		"mipsle":      {8, 8}, //TODO ?
+		"ppc":         {4, 4},
 		"ppc64":       {8, 8},
 		"ppc64le":     {8, 8},
-		"ppc":         {4, 4},
 		"s390":        {4, 4},
 		"s390x":       {8, 8},
-		"sparc64":     {8, 8},
 		"sparc":       {4, 4},
+		"sparc64":     {8, 8},
 	}
-
-	untypedBoolType Type
 )
 
 func isValidArch(s string) bool {
-	_, ok := ArchMap[s]
+	_, ok := archModels[s]
 	return ok
 }
 
-// Model describes CPU architecture details.
-type Model struct {
-	IntBytes int // Size of int.
-	PtrBytes int // Size of *T, unsafe.Pointer and uintptr.
+type model struct {
+	intBytes int // Size of int.
+	ptrBytes int // Size of *T, unsafe.Pointer and uintptr.
 }
 
-type testContext struct {
-	errChecks   []xc.Token
-	errChecksMu sync.Mutex
-	exampleAST  interface{}
-	exampleRule int
-	pkgMap      map[string][]string
+type tweaks struct {
+	declarationXref      bool
+	ignoreImports        bool // Test hook.
+	ignoreRedeclarations bool
 }
 
-type contextOptions struct {
-	disableNoBuildableFilesError bool
-	enableGenerics               bool
-	errLimit                     int32
-	errLimit0                    int32
+// Option amends Context.
+type Option func(c *Context) error
+
+// DeclarationXref enables keeping a declaration cross reference.
+func DeclarationXref() Option {
+	return func(c *Context) error {
+		c.tweaks.declarationXref = true
+		return nil
+	}
 }
 
-// Context represents data shared by all packages loaded by LoadPackages.
+// IgnoreRedeclarations disables reporting redeclarations as errors.
+func IgnoreRedeclarations() Option {
+	return func(c *Context) error {
+		c.tweaks.ignoreRedeclarations = true
+		return nil
+	}
+}
+
+// Context describes the context of loaded packages.
 type Context struct {
-	bigIntMaxInt        *big.Int
-	bigIntMaxUint       *big.Int
-	bigIntMaxUintptr    *big.Int
-	bigIntMinInt        *big.Int
-	boolType            Type
-	complex128Type      Type
-	falseValue          *constValue
-	fileCentral         *xc.FileCentral
-	float32Type         Type
-	float64Type         Type
-	floatConstPrec      uint
-	floatMaxInt         float64
-	floatMaxUint        float64
-	floatMaxUintptr     float64
-	floatMinInt         float64
-	goarch              string
-	goos                string
-	gopaths             []string
-	goroot              string
-	int32Type           Type
-	intConstBits        uint
-	intType             Type
-	maxInt              int64
-	maxUint             uint64
-	maxUintptr          uint64
-	minInt              int64
-	model               Model
-	nilValue            *nilValue
-	options             *contextOptions
-	report              *xc.Report
-	searchPaths         []string
-	stringType          Type
-	tags                map[string]struct{}
-	test                *testContext
-	trueValue           *constValue
-	uint8Type           Type
-	uintptrType         Type
-	universe            *Scope
-	untypedBoolType     Type
-	untypedBoolTypeOnce sync.Once
-	voidType            Type
+	FileSet     *ftoken.FileSet // Contains all loaded files.
+	goarch      string
+	goos        string
+	model       model
+	packages    map[string]*Package // Key: import path.
+	packagesMu  sync.Mutex
+	searchPaths []string
+	tags        map[string]struct{}
+	tweaks      tweaks
+	universe    *Scope
 }
 
-// NewContext returns a newly created Context.
-func NewContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt) (*Context, error) {
-	if err := sanitizeContext(goos, goarch, goroot, gopaths); err != nil {
-		return nil, err
+// NewContext returns a newly created Context. tags are the build tags
+// considered when loading packages having build directives (see
+// https://golang.org/pkg/go/build/#hdr-Build_Constraints for details).
+// searchPaths are examined when looking for a package to load.
+func NewContext(goos, goarch string, tags, searchPaths []string, options ...Option) (*Context, error) {
+	if !validOS[goos] {
+		return nil, fmt.Errorf("unknown operating system: %s", goos)
 	}
 
-	return newContext(goos, goarch, goroot, gopaths, tags, opts...)
-}
+	model, ok := archModels[goarch]
+	if !ok {
+		return nil, fmt.Errorf("unknown architecture: %s", goarch)
+	}
 
-func newContext(goos, goarch, goroot string, gopaths, tags []string, opts ...Opt) (*Context, error) {
-	gopaths = dedup(gopaths)
-	searchPaths := []string{filepath.Join(goroot, "src")}
-	for _, v := range gopaths {
-		searchPaths = append(searchPaths, filepath.Join(v, "src"))
-	}
-	report := xc.NewReport()
-	report.ErrLimit = -1
-	model := ArchMap[goarch]
-	c := &Context{
-		fileCentral:    xc.NewFileCentral(),
-		floatConstPrec: DefaultFloatConstPrec,
-		goarch:         goarch,
-		goos:           goos,
-		gopaths:        gopaths,
-		goroot:         goroot,
-		intConstBits:   DefaultIntConstBits,
-		model:          model,
-		options:        &contextOptions{errLimit: 10},
-		report:         report,
-		searchPaths:    searchPaths,
-		tags:           map[string]struct{}{},
-		universe:       newScope(UniverseScope, nil),
-	}
-	c.setupLimits()
+	tm := make(map[string]struct{}, len(tags))
 	for _, v := range tags {
-		c.tags[v] = struct{}{}
+		tm[v] = struct{}{}
 	}
-	c.tags[goos] = struct{}{}
-	c.tags[goarch] = struct{}{}
-	for _, v := range opts {
-		if err := v(c); err != nil {
+	tm[goos] = struct{}{}
+	tm[goarch] = struct{}{}
+	c := &Context{
+		FileSet:     ftoken.NewFileSet(),
+		goarch:      goarch,
+		goos:        goos,
+		model:       model,
+		packages:    map[string]*Package{},
+		searchPaths: append([]string(nil), searchPaths...),
+		tags:        tm,
+	}
+	for _, o := range options {
+		if err := o(c); err != nil {
 			return nil, err
 		}
 	}
-	c.options.errLimit0 = c.options.errLimit
-	if err := c.declareBuiltins(); err != nil {
+	pkg, err := c.Load("builtin")
+	if err != nil {
 		return nil, err
 	}
+
+	c.universe = pkg.Scope
+	c.universe.Kind = UniverseScope
 	return c, nil
 }
 
-func (c *Context) setupLimits() {
-	switch c.model.IntBytes {
-	case 4:
-		c.bigIntMaxInt = bigIntMaxInt32
-		c.bigIntMaxUint = bigIntMaxUint32
-		c.bigIntMinInt = bigIntMinInt32
-		c.floatMaxInt = math.MaxInt32
-		c.floatMaxUint = math.MaxUint32
-		c.floatMinInt = math.MinInt32
-		c.maxInt = math.MaxInt32
-		c.maxUint = math.MaxUint32
-		c.minInt = math.MinInt32
-	case 8:
-		c.bigIntMaxInt = bigIntMaxInt64
-		c.bigIntMaxUint = bigIntMaxUint64
-		c.bigIntMinInt = bigIntMinInt64
-		c.floatMaxInt = math.MaxInt64
-		c.floatMaxUint = math.MaxUint64
-		c.floatMinInt = math.MinInt64
-		c.maxInt = math.MaxInt64
-		c.maxUint = math.MaxUint64
-		c.minInt = math.MinInt64
-	default:
-		panic("invalid model IntBytes")
-	}
-	switch c.model.PtrBytes {
-	case 4:
-		c.bigIntMaxUintptr = bigIntMaxUint32
-		c.floatMaxUintptr = math.MaxUint32
-		c.maxUintptr = math.MaxUint32
-	case 8:
-		c.bigIntMaxUintptr = bigIntMaxUint64
-		c.floatMaxUintptr = math.MaxUint64
-		c.maxUintptr = math.MaxUint64
-	default:
-		panic("invalid model PtrBytes")
-	}
-}
+/*
 
-func (c *Context) declareBuiltins() error {
-	for _, v := range []struct {
-		name              int
-		kind              Kind
-		align, fieldAlign int
-		size              uint64
-		dst               *Type
-	}{
-		{idBool, Bool, 1, 1, 1, &c.boolType},
-		{idBool, UntypedBool, 1, 1, 1, &c.untypedBoolType},
-		{idComplex128, Complex128, 8, 8, 16, &c.complex128Type},
-		{idComplex64, Complex64, 8, 8, 8, nil},
-		{idFloat32, Float32, 4, 4, 4, &c.float32Type},
-		{idFloat64, Float64, 8, 8, 8, &c.float64Type},
-		{idInt, Int, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes), &c.intType},
-		{idInt16, Int16, 2, 2, 2, nil},
-		{idInt32, Int32, 4, 4, 4, &c.int32Type},
-		{idInt64, Int64, 8, 8, 8, nil},
-		{idInt8, Int8, 1, 1, 1, nil},
-		{idString, String, c.model.PtrBytes, c.model.PtrBytes, uint64(2 * c.model.PtrBytes), &c.stringType},
-		{idUint, Uint, c.model.IntBytes, c.model.IntBytes, uint64(c.model.IntBytes), nil},
-		{idUint16, Uint16, 2, 2, 2, nil},
-		{idUint32, Uint32, 4, 4, 4, nil},
-		{idUint64, Uint64, 8, 8, 8, nil},
-		{idUint8, Uint8, 1, 1, 1, &c.uint8Type},
-		{idUintptr, Uintptr, c.model.PtrBytes, c.model.PtrBytes, uint64(c.model.PtrBytes), &c.uintptrType},
-	} {
-		t := xc.Token{Val: v.name}
-		d := newTypeDeclaration(nil, t, nil)
-		base := d.base()
-		base.align = v.align
-		base.fieldAlign = v.fieldAlign
-		base.kind = v.kind
-		base.size = v.size
-		base.typ = d
-		if v.dst != nil {
-			*v.dst = d
-		}
-		if v.dst != &c.untypedBoolType {
-			c.universe.declare(nil, d)
-		}
-	}
+Vendor Directories
 
-	c.untypedBoolTypeOnce.Do(func() {
-		untypedBoolType = c.untypedBoolType
-	})
-	b := c.universe.Bindings
-	b[idByte] = b[idUint8]
-	b[idRune] = b[idInt32]
+Go 1.6 includes support for using local copies of external dependencies
+to satisfy imports of those dependencies, often referred to as vendoring.
 
-	c.voidType = newTupleType(nil)
+Code below a directory named "vendor" is importable only
+by code in the directory tree rooted at the parent of "vendor",
+and only using an import path that omits the prefix up to and
+including the vendor element.
 
-	p := c.newPackage("", "")
-	p.Scope = c.universe
-	if err := p.loadString("", builtinSrc); err != nil {
-		return err
-	}
+Here's the example from the previous section,
+but with the "internal" directory renamed to "vendor"
+and a new foo/vendor/crash/bang directory added:
 
-	if t := c.test; t != nil && t.exampleRule != 0 {
-		return nil
-	}
+    /home/user/gocode/
+        src/
+            crash/
+                bang/              (go code in package bang)
+                    b.go
+            foo/                   (go code in package foo)
+                f.go
+                bar/               (go code in package bar)
+                    x.go
+                vendor/
+                    crash/
+                        bang/      (go code in package bang)
+                            b.go
+                    baz/           (go code in package baz)
+                        z.go
+                quux/              (go code in package main)
+                    y.go
 
-	b[idFalse].(*ConstDeclaration).Value = newConstValue(newBoolConst(false, c.boolType, true))
-	b[idTrue].(*ConstDeclaration).Value = newConstValue(newBoolConst(true, c.boolType, true))
+The same visibility rules apply as for internal, but the code
+in z.go is imported as "baz", not as "foo/vendor/baz".
 
-	c.falseValue = newConstValue(newBoolConst(false, c.boolType, true))
-	c.nilValue = newNilValue()
-	c.trueValue = newConstValue(newBoolConst(true, c.boolType, true))
+Code in vendor directories deeper in the source tree shadows
+code in higher directories. Within the subtree rooted at foo, an import
+of "crash/bang" resolves to "foo/vendor/crash/bang", not the
+top-level "crash/bang".
 
-	p.Scope.check(&context{Context: c, pkg: p})
-	return nil
-}
+Code in vendor directories is not subject to import path
+checking (see 'go help importpath').
 
-func (c *Context) newPackage(importPath, directory string) *Package {
-	return newPackage(c, importPath, directory)
-}
+When 'go get' checks out or updates a git repository, it now also
+updates submodules.
 
-func (c *context) err(n Node, format string, arg ...interface{}) bool {
-	if c.errNode != nil {
-		n = c.errNode
-	}
-	if n == nil {
-		panic("internal error")
-	}
+Vendor directories do not affect the placement of new repositories
+being checked out for the first time by 'go get': those are always
+placed in the main GOPATH, never in a vendor subtree.
 
-	return c.errPos(n.Pos(), format, arg...)
-}
+See https://golang.org/s/go15vendor for details.
 
-func (c *Context) errPos(pos token.Pos, format string, arg ...interface{}) bool {
-	if atomic.AddInt32(&c.options.errLimit, -1) < 0 {
-		return true // Close
-	}
-
-	c.report.Err(pos, format, arg...)
-	return false
-}
-
-func (c *Context) errors(err ...error) error {
-	for _, v := range err {
-		switch v.(type) {
-		case nil, scanner.ErrorList:
-			// nop
-		default:
-			c.errPos(0, "%s", v)
-		}
-	}
-	return c.report.Errors(false)
-}
-
-func (c *Context) clearErrors() {
-	c.report.ClearErrors()
-	c.options.errLimit = c.options.errLimit0
-}
-
-// DirectoryFromImportPath returns the directory where the source files of
-// package importPath are to be searched for.  Optional vendor paths are
-// examined before any context's search paths.
-func (c *Context) DirectoryFromImportPath(importPath string) (string, error) {
-	for _, v := range c.searchPaths {
-		dir := filepath.Join(v, "vendor", importPath)
-		fi, err := os.Stat(dir)
-		if err == nil && fi.IsDir() {
-			return dir, nil
-		}
-
-		if err != nil && !os.IsNotExist(err) {
-			return "", err
-		}
-
-		dir = filepath.Join(v, importPath)
-		if fi, err = os.Stat(dir); err != nil {
-			if !os.IsNotExist(err) {
-				return "", err
+*/
+func (c *Context) dirForImportPath(importPath string) (string, error) {
+	var a []string
+	if importPath != "C" {
+		s := importPath
+		a = []string{filepath.Join(s, "vendor")}
+		for s != "" {
+			s = filepath.Dir(s)
+			if s == "." {
+				s = ""
 			}
-
-			continue
+			a = append(a, filepath.Join(s, "vendor"))
 		}
-
-		if !fi.IsDir() {
-			continue
+	}
+	a = append(a, "")
+	for _, v := range c.searchPaths {
+		for _, w := range a {
+			dir := filepath.Join(v, w, importPath)
+			ok, err := checkDir(dir)
+			if ok || err != nil {
+				return dir, err
+			}
 		}
-
-		return dir, nil
 	}
 
-	a := []string{fmt.Sprintf("cannot find package %q in any of:", importPath)}
+	a = []string{fmt.Sprintf("cannot find package %q in any of:", importPath)}
 	for i, v := range c.searchPaths {
 		switch i {
 		case 0:
@@ -426,22 +243,42 @@ func (c *Context) DirectoryFromImportPath(importPath string) (string, error) {
 	return "", fmt.Errorf("%s", strings.Join(a, "\n"))
 }
 
-// FilesFromImportPath returns the directory where the source files for package
-// importPath are; a list of normal and testing (*_test.go) go source files or
-// an error, if any. Optional vendor paths are examined before any context's
-// search paths.
-func (c *Context) FilesFromImportPath(importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
-	if t := c.test; t != nil {
-		if sf, ok := t.pkgMap[importPath]; ok {
-			return filepath.Dir(sf[0]), sf, nil, nil
+// NumPackages returns the number of loaded packages.
+//
+// The method is safe for concurrent use by multiple goroutines.
+func (c *Context) NumPackages() int {
+	c.packagesMu.Lock()
+	n := len(c.packages)
+	c.packagesMu.Unlock()
+	return n
+}
+
+// SourceFileForPath searches loaded packages for the one containing the file
+// at path and returns the corresponding SourceFile.  The result is nil if the
+// file is not considered for build by any of the loaded packages.
+//
+// The method is safe for concurrent use by multiple goroutines.
+func (c *Context) SourceFileForPath(path string) *SourceFile {
+	c.packagesMu.Lock()
+	defer c.packagesMu.Unlock()
+
+	for _, p := range c.packages {
+		for _, f := range p.SourceFiles {
+			if f.Path == path {
+				return f
+			}
 		}
 	}
 
+	return nil
+}
+
+func (c *Context) filesForImportPath(importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
 	if importPath == "C" {
 		return "", nil, nil, nil
 	}
 
-	if dir, err = c.DirectoryFromImportPath(importPath); err != nil {
+	if dir, err = c.dirForImportPath(importPath); err != nil {
 		return "", nil, nil, err
 	}
 
@@ -466,12 +303,12 @@ func (c *Context) FilesFromImportPath(importPath string) (dir string, sourceFile
 				continue
 			}
 
-			if s := a[len(a)-1]; IsValidOS[s] && s != c.goos {
+			if s := a[len(a)-1]; validOS[s] && s != c.goos {
 				continue
 			}
 		}
 		if len(a) > 2 { //  *_GOOS_GOARCH
-			if s := a[len(a)-2]; IsValidOS[s] && s != c.goos {
+			if s := a[len(a)-2]; validOS[s] && s != c.goos {
 				continue
 			}
 		}
@@ -483,362 +320,215 @@ func (c *Context) FilesFromImportPath(importPath string) (dir string, sourceFile
 		}
 
 	}
-	if len(sourceFiles) == 0 {
-		var err error
-		if !c.options.disableNoBuildableFilesError {
-			err = fmt.Errorf("package %s: no buildable Go source files in %s", importPath, dir)
-		}
-		return "", nil, nil, err
-	}
-
-	return dir, sourceFiles, testFiles, err
+	return dir, sourceFiles, testFiles, nil
 }
 
-func (c *Context) oncePackage(n Node, importPath string) *xc.Once {
-	var pos token.Pos
-	if n != nil {
-		pos = n.Pos()
-	}
-	return c.fileCentral.Once(
-		importPath,
-		func() interface{} {
-			dir, sourceFiles, _, err := c.FilesFromImportPath(importPath)
-			p := c.newPackage(importPath, dir)
-			if err != nil {
-				c.errPos(pos, "%s", err)
-				return p
-			}
+func (c *Context) load(position token.Position, importPath string, syntaxError func(*parser), errList *errorList) *Package {
+	c.packagesMu.Lock()
 
-			p.SourceFiles = sourceFiles
-			if err := p.load(); err != nil {
-				c.errPos(0, "%v", err)
+	p := c.packages[importPath]
+	if p != nil {
+		c.packagesMu.Unlock()
+		return p
+	}
+
+	p = newPackage(c, importPath, "", errList)
+	c.packages[importPath] = p
+	c.packagesMu.Unlock()
+
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				errList.Add(token.Position{}, fmt.Sprintf("%s\nPANIC: %v", debug.Stack(), err))
 			}
-			return p
-		},
+		}()
+
+		dir, files, _, err := c.filesForImportPath(importPath)
+		if err != nil {
+			close(p.ready)
+			errList.Add(position, err.Error())
+			return
+		}
+
+		p.Dir = dir
+		p.load(position, files, syntaxError)
+	}()
+
+	return p
+}
+
+// Load finds the package in importPath and returns the resulting Package or an
+// error if any.
+//
+// The method is safe for concurrent use by multiple goroutines.
+func (c *Context) Load(importPath string) (*Package, error) {
+	err := newErrorList(10)
+	p := c.load(token.Position{}, importPath, nil, err).waitFor()
+	if err := err.error(); err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+// SourceFile describes a source file.
+type SourceFile struct {
+	File          *ftoken.File
+	ImportSpecs   []*ImportSpec
+	InitFunctions []Declaration
+	Package       *Package
+	Path          string
+	Scope         *Scope // File scope.
+	TopLevelDecls []Declaration
+	Xref          map[token.Pos]token.Pos // Identifier position: declaration position.
+	Xref0         map[Token]*Scope        // Token: Resolution scope. Enabled by DeclarationXref.
+
+	build bool
+	f     *os.File  // Underlying src file.
+	src   mmap.MMap // Valid only during parsing and checking.
+	srcMu sync.Mutex
+}
+
+func newSourceFile(pkg *Package, path string, f *os.File, src mmap.MMap) *SourceFile {
+	var (
+		s     *Scope
+		fset  *ftoken.FileSet
+		xref0 map[Token]*Scope
 	)
-}
-
-func (c *Context) pkgMap() map[string]*Package {
-	m := map[string]*Package{}
-	c.fileCentral.Map(func(s string, o *xc.Once) bool {
-		m[s] = o.Value().(*Package)
-		return true
-	})
-	return m
-}
-
-func (c *Context) loadPackageFiles(importPath, dir string, sourceFiles []string) (map[string]*Package, error) {
-	p := c.newPackage(importPath, dir)
-	p.SourceFiles = append([]string(nil), sourceFiles...)
-	err := p.load()
-	return c.pkgMap(), c.errors(err)
-}
-
-func (c *Context) loadPackage(importPath string, sourceFiles []string) (map[string]*Package, error) {
-	c.clearErrors()
-	var dir string
-	if len(sourceFiles) != 0 {
-		dir = filepath.Dir(sourceFiles[0])
+	if pkg != nil {
+		s = newScope(FileScope, pkg.Scope)
+		fset = pkg.ctx.FileSet
+		if pkg.ctx.tweaks.declarationXref {
+			xref0 = map[Token]*Scope{}
+		}
+	} else {
+		fset = ftoken.NewFileSet()
 	}
-	return c.loadPackageFiles(importPath, dir, sourceFiles)
-}
-
-func (c *Context) loadPackages(importPaths []string) (map[string]*Package, error) {
-	c.clearErrors()
-	importPaths = dedup(importPaths)
-	onces := make([]*xc.Once, len(importPaths))
-	for i, v := range importPaths {
-		onces[i] = c.oncePackage(nil, v)
+	var nm string
+	if f != nil {
+		nm = f.Name()
 	}
-
-	// Wait for all packages to load.
-	for _, once := range onces {
-		once.Value()
-	}
-
-	return c.pkgMap(), c.errors()
-}
-
-func (c *Context) isPredeclared(d Declaration) bool {
-	return d != nil && d == c.universe.Bindings[d.Name()]
-}
-
-// Except for shift operations, if the operands of a binary operation are
-// different kinds of untyped constants, the operation and, for non-boolean
-// operations, the result use the kind that appears later in this list:
-// integer, rune, floating-point, complex.
-var untypedArithmeticBinOpTab = [maxKind][maxKind]Kind{
-	Int:        {Int: Int},
-	Int32:      {Int: Int32, Int32: Int32},
-	Float64:    {Int: Float64, Int32: Float64, Float64: Float64},
-	Complex128: {Int: Complex128, Int32: Complex128, Float64: Complex128, Complex128: Complex128},
-}
-
-func (c *Context) untypedArithmeticBinOpType(a, b Type) Type {
-	ak := a.Kind()
-	bk := b.Kind()
-	if ak > bk {
-		ak, bk = bk, ak
-	}
-	switch untypedArithmeticBinOpTab[bk][ak] {
-	case Int32:
-		return c.int32Type
-	case Int:
-		return c.intType
-	case Float64:
-		return c.float64Type
-	case Complex128:
-		return c.complex128Type
-	default:
-		return nil
+	file := fset.AddFile(nm, -1, len(src))
+	return &SourceFile{
+		File:    file,
+		Package: pkg,
+		Path:    path,
+		Scope:   s,
+		build:   true,
+		f:       f,
+		src:     src,
+		Xref0:   xref0,
 	}
 }
 
-func (c *context) valueAssignmentFail(n Node, t Type, v Value) bool {
-	switch v.Kind() {
-	case ConstValue:
-		return c.constAssignmentFail(n, t, v.Const())
-	default:
+func (s *SourceFile) init(pkg *Package, path string) {
+	s.Package = pkg
+	s.ImportSpecs = s.ImportSpecs[:0]
+	s.TopLevelDecls = s.TopLevelDecls[:0]
+	s.Path = path
+	s.build = true
+	s.Xref0 = nil
+	s.Xref = nil
+	if pkg != nil && pkg.ctx.tweaks.declarationXref {
+		s.Xref0 = map[Token]*Scope{}
+	}
+}
+
+func (s *SourceFile) finit() {
+	s.srcMu.Lock()
+	if s.src != nil {
+		s.src.Unmap()
+		s.src = nil
+	}
+	if s.f != nil {
+		s.f.Close()
+		s.f = nil
+	}
+	s.srcMu.Unlock()
+}
+
+// Package describes a package.
+type Package struct {
+	Dir            string
+	ImportPath     string
+	ImportedBy     map[string]struct{} // R/O, key: import path.
+	Imports        map[string]struct{} // R/O, key: import path.
+	Name           string
+	Scope          *Scope // Package scope.
+	SourceFiles    []*SourceFile
+	ctx            *Context
+	errorList      *errorList
+	fileScopeNames map[string]token.Pos
+	importedByMu   sync.Mutex
+	named          token.Pos
+	ready          chan struct{}
+}
+
+func newPackage(ctx *Context, importPath, nm string, errorList *errorList) *Package {
+	var s *Scope
+	if ctx != nil {
+		s = newScope(PackageScope, ctx.universe)
+	}
+	p := &Package{
+		ImportPath:     importPath,
+		ImportedBy:     map[string]struct{}{},
+		Imports:        map[string]struct{}{},
+		Name:           nm,
+		Scope:          s,
+		ctx:            ctx,
+		errorList:      errorList,
+		fileScopeNames: map[string]token.Pos{},
+		ready:          make(chan struct{}),
+	}
+	if s != nil {
+		s.pkg = p
+	}
+	return p
+}
+
+func (p *Package) load(position token.Position, paths []string, syntaxError func(*parser)) {
+	defer func() {
+		for _, v := range p.SourceFiles {
+			v.finit()
+		}
+		close(p.ready)
+	}()
+
+	l := NewLexer(nil, nil)
+	y := newParser(nil, nil)
+	l.errHandler = y.err
+	l.CommentHandler = y.commentHandler
+	y.syntaxError = syntaxError
+
+	for _, path := range paths {
+		f, err := os.Open(path)
+		if err != nil {
+			p.errorList.Add(position, err.Error())
+			return
+		}
+
+		src, err := mmap.Map(f, 0, 0)
+		if err != nil {
+			f.Close()
+			p.errorList.Add(position, err.Error())
+			return
+		}
+
+		sf := newSourceFile(p, path, f, src)
+		l.init(sf.File, src)
+		y.init(sf, l)
+		y.file()
 		switch {
-		case t.Kind() == Interface:
-			return v.Type().implementsFailed(c, n, "cannot use type %s as type %s in assignment:", t)
+		case sf.build:
+			p.SourceFiles = append(p.SourceFiles, sf)
 		default:
-			return c.err(n, "cannot use type %s as type %s in assignment", v.Type(), t)
+			sf.finit()
 		}
 	}
+	//TODO p.check()
 }
 
-func (c *context) constAssignmentFail(n Node, t Type, d Const) bool {
-	if d.Untyped() && d.Type().ConvertibleTo(t) &&
-		!(d.Type().Kind() == String && t.Kind() == Slice && (t.Elem().Kind() == Uint8 || t.Elem().Kind() == Int32)) &&
-		!(d.Integral() && t.Kind() == String) {
-		return c.constConversionFail(n, t, d)
-	}
-
-	return c.err(n, "cannot use %s (type %s) as type %s in assignment", d, d.Type(), t)
-}
-
-func (c *context) constConversionFail(n Node, t Type, d Const) bool {
-	fpOverflow := d.Type().FloatingPointType() && t.ComplexType()
-	switch {
-	case t.Kind() == Interface && d.Type().Implements(t):
-		// nop
-		return false
-	case d.Type().ComplexType() && t.Numeric():
-		return c.err(n, "constant %s truncated to real", d)
-	case d.Type().FloatingPointType() && t.IntegerType() && !d.Integral():
-		return c.err(n, "constant %s truncated to integer", d)
-	case !d.Type().ConvertibleTo(t) && !fpOverflow:
-		return c.err(n, "cannot convert type %s to %s", d.Type(), t)
-	default:
-		return c.err(n, "constant %s overflows %s", d, t)
-	}
-}
-
-func (c *context) arithmeticBinOpShape(a, b Const, n Node, op string) (Type, bool /* untyped*/, Const, Const) {
-	switch {
-	case a.Untyped():
-		switch {
-		case b.Untyped():
-			t := c.untypedArithmeticBinOpType(a.Type(), b.Type())
-			if t == nil {
-				todo(n, true)
-				break
-			}
-
-			d := a.convert(c, t)
-			if d == nil {
-				c.constConversionFail(n, t, a)
-				break
-			}
-
-			e := b.convert(c, t)
-			if e == nil {
-				c.constConversionFail(n, t, b)
-				break
-			}
-
-			if d != nil && e != nil {
-				return t, true, d, e
-			}
-		default: // a.Untyped && !b.Untyped
-			t := b.Type()
-			if d := a.mustConvert(c, n, t); d != nil {
-				return t, false, d, b.convert(c, t)
-			}
-		}
-	case b.Untyped(): // !a.Untyped() && b.Untyped()
-		t := a.Type()
-		if d := b.mustConvert(c, n, t); d != nil {
-			return t, false, a.convert(c, t), d
-		}
-	default: // !a.Untyped() && !b.Untyped()
-		t := a.Type()
-		if b.Type() != t {
-			c.err(n, "invalid operation: %s (mismatched types %s and %s)", op, t, b.Type())
-			break
-		}
-
-		d := a.convert(c, t)
-		if d == nil {
-			c.constConversionFail(n, t, a)
-			break
-		}
-
-		e := b.convert(c, t)
-		if e == nil {
-			c.constConversionFail(n, t, b)
-			break
-		}
-
-		if d != nil && e != nil {
-			return t, false, d, e
-		}
-	}
-	return nil, false, nil, nil
-}
-
-func (c *context) mustConvertConst(n Node, t Type, d Const) Const {
-	e := d.normalize(c)
-	if e == nil {
-		todo(n, true)
-		//TODO c.err(n, "constant %s overflows %s", d, d.Type())
-		return nil
-	}
-
-	if t == nil {
-		return e
-	}
-
-	if f := e.Convert(c.Context, t); f != nil {
-		if f.Kind() == ConstValue {
-			return f.Const()
-		}
-	}
-
-	c.constConversionFail(n, t, e)
-	return nil
-}
-
-func (c *context) compositeLiteralValueFail(n Node, v Value, t Type) bool {
-	switch v.Kind() {
-	case ConstValue:
-		return c.err(n, "cannot use %s (type %s) as type %s in array or slice literal", v.Const(), v.Type(), t)
-	default:
-		return c.err(n, "cannot use value of type %s as type %s in array or slice literal", v.Type(), t)
-	}
-}
-
-func (c *context) mustAssignNil(n Node, t Type) (stop bool) {
-	if !c.nilValue.AssignableTo(c.Context, t) {
-		return c.err(n, "cannot use nil as type %s in assignment", t)
-	}
-
-	return false
-}
-
-func (c *context) mustConvertNil(n Node, t Type) (stop bool) {
-	if !c.nilValue.AssignableTo(c.Context, t) {
-		return c.err(n, "cannot convert nil to type %s", t)
-	}
-
-	return false
-}
-
-func (c *Context) constBooleanBinOpShape(a, b Const, n Node) (Type, bool /* untyped*/, Const, Const) {
-	if a.Kind() != BoolConst {
-		todo(n, true) // need bool
-		return nil, false, nil, nil
-	}
-
-	if b.Kind() != BoolConst {
-		todo(n, true) // need bool
-		return nil, false, nil, nil
-	}
-
-	switch {
-	case a.Untyped():
-		switch {
-		case b.Untyped():
-			return c.boolType, true, a, b
-		default: // a.Untyped && !b.Untyped
-			todo(n)
-		}
-	case b.Untyped(): // !a.Untyped() && b.Untyped()
-		todo(n)
-	default: // !a.Untyped() && !b.Untyped()
-		todo(n)
-	}
-	return nil, false, nil, nil
-}
-
-// Boolean and, boolean or.
-func (c *Context) booleanBinOpShape(a, b Type, n Node) Type {
-	switch a.Kind() {
-	case Bool:
-		switch b.Kind() {
-		case Bool:
-			if a.AssignableTo(b) {
-				return a
-			}
-		case UntypedBool:
-			return a
-		default:
-			todo(n, true) // invalid operand
-		}
-	case UntypedBool:
-		switch b.Kind() {
-		case Bool:
-			return b
-		case UntypedBool:
-			return a
-		default:
-			todo(n, true) // invalid operand
-		}
-	default:
-		todo(n, true) // invalid operand
-	}
-	return nil
-}
-
-func (c *context) constStringBinOpShape(a, b Const, n Node) (Type, bool /* untyped*/, Const, Const) {
-	if a.Kind() != StringConst {
-		return nil, false, nil, nil
-	}
-
-	if b.Kind() != StringConst {
-		return nil, false, nil, nil
-	}
-
-	switch {
-	case a.Untyped():
-		switch {
-		case b.Untyped():
-			return c.stringType, true, a, b
-		default: // a.Untyped && !b.Untyped
-			return b.Type(), false, a.mustConvert(c, n, b.Type()), b // Cannot fail.
-		}
-	case b.Untyped(): // !a.Untyped() && b.Untyped()
-		return a.Type(), false, a, b.mustConvert(c, n, a.Type()) // Cannot fail.
-	default: // !a.Untyped() && !b.Untyped()
-		if !a.Type().Identical(b.Type()) {
-			todo(n, true) // type mismatch
-			break
-		}
-
-		return a.Type(), false, a, b
-	}
-	return nil, false, nil, nil
-}
-
-func (c *Context) stringBinOpShape(a, b Value, n Node) Type {
-	if a.Type().Kind() != String {
-		panic("internal error")
-	}
-
-	if !a.AssignableTo(c, b.Type()) && !b.AssignableTo(c, a.Type()) {
-		return nil
-	}
-
-	return a.Type()
+func (p *Package) waitFor() *Package {
+	<-p.ready
+	return p
 }
