@@ -11,6 +11,8 @@
 // TODO(bradfitz): docs of some sort, once we figure out how we're changing
 // headers of files
 
+// Based on http://github.com/golang/go/blob/65c6c88a9442b91d8b2fd0230337b1fda4bb6cdf/test/run.go.
+
 package gc
 
 import (
@@ -459,14 +461,54 @@ func (t *test) goRun(out bool, cmd *exec.Cmd) error {
 }
 
 func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
+	var args []string
+	var optl string
+	for _, v := range cmd.Args {
+		switch {
+		case v == "-l", strings.HasPrefix(v, "-l="):
+			optl = v
+		default:
+			args = append(args, v)
+		}
+	}
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
+	//optl := fs.Int("l", 0, "disable inlining")
+	_ = fs.Bool("N", false, "disable optimizations")
 	_ = fs.String("o", "", "write output to file")
 	optC := fs.Bool("C", false, "disable printing of columns in error messages")
 	optD := fs.String("D", "", "set relative path for local imports")
 	optI := fs.String("I", "", "add directory to import search path")
+	optLive := fs.Bool("live", false, "debug liveness analysis")
+	optPlus := fs.Bool("+", false, "compiling runtime")
+	optRace := fs.Bool("race", false, "enable race detector")
+	optWb := fs.Int("wb", 0, "enable write barrier (default true)")
+	optd := fs.String("d", "", "print debug information about items in list")
 	opte := fs.Bool("e", false, "no limit on number of errors reported")
-	if err := fs.Parse(cmd.Args[3:]); err != nil {
+	optm := fs.Bool("m", false, "print optimization decisions")
+	if err := fs.Parse(args[3:]); err != nil {
 		panic(TODO("%q: %v", cmd.Args, err))
+	}
+
+	if *optd != "" {
+		return t.failCmd(cmd, "TODO -d")
+	}
+	if optl != "" {
+		return t.failCmd(cmd, "TODO -l")
+	}
+	if *optLive {
+		return t.failCmd(cmd, "TODO -live")
+	}
+	if *optm {
+		return t.failCmd(cmd, "TODO -m")
+	}
+	if *optPlus {
+		return t.failCmd(cmd, "TODO -+")
+	}
+	if *optRace {
+		return t.failCmd(cmd, "TODO -race")
+	}
+	if *optWb != 0 {
+		return t.failCmd(cmd, "TODO -wb")
 	}
 
 	var opt []Option
@@ -783,6 +825,9 @@ func (t *test) run() {
 				return
 			}
 			if i == len(pkgs)-1 {
+				t.err = fmt.Errorf("TODO rundir exec %q", gofiles[0])
+				return
+
 				err = linkFile(runcmd1, gofiles[0])
 				if err != nil {
 					t.err = err
