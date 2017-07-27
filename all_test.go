@@ -66,9 +66,9 @@ func dbg(s string, va ...interface{}) {
 	os.Stderr.Sync()
 }
 
-func TODO(...interface{}) string { //TODOOK
+func TODO(s string, args ...interface{}) string { //TODOOK
 	_, fn, fl, _ := runtime.Caller(1)
-	return fmt.Sprintf("// TODO: %s:%d:\n", path.Base(fn), fl) //TODOOK
+	return fmt.Sprintf("// TODO: %s:%d: %v\n", path.Base(fn), fl, fmt.Sprintf(s, args...)) //TODOOK
 }
 
 func stack() []byte { return debug.Stack() }
@@ -918,7 +918,7 @@ func BenchmarkParser(b *testing.B) {
 
 	b.Run("Std", func(b *testing.B) {
 		a := make([]*Package, len(stdLibPackages))
-		errorList := newErrorList(1)
+		errorList := newErrorList(1, false)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
@@ -1279,16 +1279,16 @@ func (p *parser) todo() {
 	p.err(p.position(), "%q=%q: TODO %v:%v", p.c, p.l.lit, fn, fl) //TODOOK
 }
 
-func newTestContext(tags ...string) (*Context, error) {
+func newTestContext(opt ...Option) (*Context, error) {
 	a := strings.Split(strutil.Gopath(), string(os.PathListSeparator))
 	for i, v := range a {
 		a[i] = filepath.Join(v, "src")
 	}
-	tags = append(tags, VersionTags()...)
+	tags := VersionTags()
 	if os.Getenv("CGO_ENABLED") != "0" {
 		tags = append(tags, "cgo")
 	}
-	return NewContext(runtime.GOOS, runtime.GOARCH, tags, append([]string{filepath.Join(runtime.GOROOT(), "src")}, a...))
+	return NewContext(runtime.GOOS, runtime.GOARCH, tags, append([]string{filepath.Join(runtime.GOROOT(), "src")}, a...), opt...)
 }
 
 func testParser(t *testing.T, packages []*Package) {
@@ -1298,7 +1298,7 @@ func testParser(t *testing.T, packages []*Package) {
 		return
 	}
 
-	errorList := newErrorList(0)
+	errorList := newErrorList(0, false)
 	for _, v := range packages {
 		ctx.load(
 			token.Position{},
@@ -1346,7 +1346,7 @@ func testParserRejectFS(t *testing.T) {
 
 			s := s0 + yp.sym2str(sym) + "@"
 			l.init(fset.AddFile("", -1, len(s)), []byte(s))
-			pkg := newPackage(ctx, "", "", newErrorList(-1))
+			pkg := newPackage(ctx, "", "", newErrorList(-1, false))
 			sf := newSourceFile(pkg, "", nil, nil)
 			p := newParser(sf, l)
 			off := int32(-1)
@@ -1516,7 +1516,7 @@ func testParserErrchk(t *testing.T) {
 		}
 
 		l.init(fset.AddFile(fn, -1, len(src)), src)
-		pkg := newPackage(ctx, "", "", newErrorList(-1))
+		pkg := newPackage(ctx, "", "", newErrorList(-1, false))
 		sf := newSourceFile(pkg, fn, nil, nil)
 		p := newParser(sf, l)
 		p.syntaxError = func(*parser) {
@@ -1549,13 +1549,13 @@ func TestParser(t *testing.T) {
 }
 
 // https://github.com/cznic/browse/issues/3
-func TestIssue3(t *testing.T) {
+func TestBrowserIssue3(t *testing.T) {
 	ctx, err := newTestContext() //"noasm")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, _, _, err := ctx.filesForImportPath("github.com/gonum/matrix/mat64"); err != nil {
+	if _, _, _, err := ctx.filesForImportPath(token.Position{}, "github.com/gonum/matrix/mat64"); err != nil {
 		return
 	}
 

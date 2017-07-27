@@ -32,8 +32,7 @@ declarationkind_string.go: enum.go
 	stringer -type DeclarationKind
 
 edit:
-	@2>/dev/null gvim -p Makefile all_test.go log context.go decl.go enum.go \
-		etc.go parser.go scanner.go type.go
+	@2>/dev/null gvim -p Makefile *.go
 
 editor: declarationkind_string.go
 	@echo $(shell LC_TIME=c date) | tee log

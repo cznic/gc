@@ -17,12 +17,13 @@ import (
 )
 
 type errorList struct {
-	limit int
-	list  scanner.ErrorList
-	mu    sync.Mutex
+	limit  int
+	list   scanner.ErrorList
+	mu     sync.Mutex
+	noCols bool
 }
 
-func newErrorList(limit int) *errorList {
+func newErrorList(limit int, noCols bool) *errorList {
 	if limit == 0 {
 		limit = 1
 	}
@@ -55,7 +56,23 @@ func (l *errorList) error() error {
 func (l *errorList) errorString() string {
 	var b bytes.Buffer
 	for _, v := range l.list {
-		b.WriteString(v.Error())
+		switch {
+		case l.noCols:
+			pos := v.Pos
+			s := pos.Filename
+			if pos.IsValid() {
+				if s != "" {
+					s += ":"
+				}
+				s += fmt.Sprintf("%d", pos.Line)
+			}
+			if s == "" {
+				s = "-"
+			}
+			b.WriteString(s)
+		default:
+			b.WriteString(v.Error())
+		}
 		b.WriteByte('\n')
 	}
 	s := b.String()

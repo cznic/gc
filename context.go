@@ -69,8 +69,11 @@ type model struct {
 
 type tweaks struct {
 	declarationXref      bool
+	errLimit             int
 	ignoreImports        bool // Test hook.
 	ignoreRedeclarations bool
+	localImportsPath     string
+	noErrorColumns       bool
 }
 
 // Option amends Context.
@@ -88,6 +91,38 @@ func DeclarationXref() Option {
 func IgnoreRedeclarations() Option {
 	return func(c *Context) error {
 		c.tweaks.ignoreRedeclarations = true
+		return nil
+	}
+}
+
+// NoErrorColumns disable displaying of columns in error messages.
+func NoErrorColumns() Option {
+	return func(c *Context) error {
+		c.tweaks.noErrorColumns = true
+		return nil
+	}
+}
+
+// NoErrorLimit disables limit on number of errors reported.
+func NoErrorLimit() Option {
+	return func(c *Context) error {
+		c.tweaks.errLimit = -1
+		return nil
+	}
+}
+
+// LocalImportsPath sets the relative path for local imports.
+func LocalImportsPath(s string) Option { // gc -D path
+	return func(c *Context) error {
+		c.tweaks.localImportsPath = s
+		return nil
+	}
+}
+
+// Add directory to import search path.
+func addSearchPath(s string) Option { // gc -I path
+	return func(c *Context) error {
+		c.searchPaths = append(c.searchPaths, s)
 		return nil
 	}
 }
@@ -134,6 +169,7 @@ func NewContext(goos, goarch string, tags, searchPaths []string, options ...Opti
 		packages:    map[string]*Package{},
 		searchPaths: append([]string(nil), searchPaths...),
 		tags:        tm,
+		tweaks:      tweaks{errLimit: 10},
 	}
 	for _, o := range options {
 		if err := o(c); err != nil {
@@ -205,7 +241,11 @@ placed in the main GOPATH, never in a vendor subtree.
 See https://golang.org/s/go15vendor for details.
 
 */
-func (c *Context) dirForImportPath(importPath string) (string, error) {
+func (c *Context) dirForImportPath(position token.Position, importPath string) (string, error) {
+	if strings.HasPrefix(importPath, "./") {
+		return filepath.Join(c.tweaks.localImportsPath, importPath), nil
+	}
+
 	var a []string
 	if importPath != "C" {
 		s := importPath
@@ -273,12 +313,12 @@ func (c *Context) SourceFileForPath(path string) *SourceFile {
 	return nil
 }
 
-func (c *Context) filesForImportPath(importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
+func (c *Context) filesForImportPath(position token.Position, importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
 	if importPath == "C" {
 		return "", nil, nil, nil
 	}
 
-	if dir, err = c.dirForImportPath(importPath); err != nil {
+	if dir, err = c.dirForImportPath(position, importPath); err != nil {
 		return "", nil, nil, err
 	}
 
@@ -343,7 +383,7 @@ func (c *Context) load(position token.Position, importPath string, syntaxError f
 			}
 		}()
 
-		dir, files, _, err := c.filesForImportPath(importPath)
+		dir, files, _, err := c.filesForImportPath(position, importPath)
 		if err != nil {
 			close(p.ready)
 			errList.Add(position, err.Error())
@@ -357,13 +397,50 @@ func (c *Context) load(position token.Position, importPath string, syntaxError f
 	return p
 }
 
+func (c *Context) build(files []string, errList *errorList) *Package {
+	dir := filepath.Dir(files[0])
+	ip := dir
+	for _, v := range c.searchPaths {
+		if strings.HasPrefix(dir, v) {
+			ip = ip[len(v):]
+		}
+	}
+	p := newPackage(c, ip, "", errList)
+	p.Dir = dir
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				errList.Add(token.Position{}, fmt.Sprintf("%s\nPANIC: %v", debug.Stack(), err))
+			}
+		}()
+
+		p.load(token.Position{}, files, nil)
+	}()
+
+	return p
+}
+
 // Load finds the package in importPath and returns the resulting Package or an
 // error if any.
 //
 // The method is safe for concurrent use by multiple goroutines.
 func (c *Context) Load(importPath string) (*Package, error) {
-	err := newErrorList(10)
+	err := newErrorList(c.tweaks.errLimit, c.tweaks.noErrorColumns)
 	p := c.load(token.Position{}, importPath, nil, err).waitFor()
+	if err := err.error(); err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+// Build constructs a package from files and returns the resulting Package or
+// an error if any. Build panics if len(files) == 0.
+//
+// The method is safe for concurrent use by multiple goroutines.
+func (c *Context) Build(files []string) (*Package, error) {
+	err := newErrorList(c.tweaks.errLimit, c.tweaks.noErrorColumns)
+	p := c.build(files, err).waitFor()
 	if err := err.error(); err != nil {
 		return nil, err
 	}
