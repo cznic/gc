@@ -29,7 +29,7 @@ func (b *Bindings) declare(p *parser, d Declaration) {
 	}
 	m := *b
 	nm := d.Name()
-	if nm == "" { //TODO-
+	if nm == "" {
 		panic(fmt.Errorf("%s: internal error: Bindings.declare - empty declaration name", p.l.file.Position(d.Pos())))
 	}
 
@@ -41,6 +41,18 @@ func (b *Bindings) declare(p *parser, d Declaration) {
 
 	if p.sourceFile.Package.ctx.tweaks.ignoreRedeclarations {
 		return
+	}
+
+	switch x := d.(type) {
+	case *VarDecl:
+		if x.argument {
+			p.err(
+				p.l.file.Position(d.Pos()),
+				"duplicate argument %v",
+				d.Name(),
+			)
+			return
+		}
 	}
 
 	p.err(
@@ -58,29 +70,11 @@ type declaration struct {
 	visibility token.Pos
 }
 
-// Const implements Declaration.
-func (d *declaration) Const() *ConstDecl { panic("Const of inappropriate Declaration") }
-
-// Func implements Declaration.
-func (d *declaration) Func() *FuncDecl { panic("Func of inappropriate Declaration") }
-
-// ImportSpec implements Declaration.
-func (d *declaration) ImportSpec() *ImportSpec { panic("ImportSpec of inappropriate Declaration") }
-
-// Method implements Declaration.
-func (d *declaration) Method() *MethodDecl { panic("Method of inappropriate Declaration") }
-
 // Name implements Declaration.
 func (d *declaration) Name() string { return d.Val }
 
 // Pos implements Declaration.
 func (d *declaration) Pos() token.Pos { return d.Token.Pos }
-
-// Type implements Declaration.
-func (d *declaration) Type() *TypeDecl { panic("Type of inappropriate Declaration") }
-
-// Var implements Declaration.
-func (d *declaration) Var() *VarDecl { panic("Var of inappropriate Declaration") }
 
 // Visibility implements Declaration.
 func (d *declaration) Visibility() token.Pos { return d.visibility }
@@ -119,7 +113,7 @@ func (s *Scope) declare(p *parser, d Declaration) {
 	case *ConstDecl, *VarDecl, *TypeDecl, *FuncDecl:
 		s.Bindings.declare(p, d)
 	case *ImportSpec:
-		if s.Kind != FileScope { //TODO-
+		if s.Kind != FileScope {
 			panic("internal error")
 		}
 
@@ -127,8 +121,7 @@ func (s *Scope) declare(p *parser, d Declaration) {
 		switch ex, ok := pkg.fileScopeNames[nm]; {
 		case ok:
 			_ = ex
-			panic(p.pos())
-			//TODO p.todo()
+			panic(TODO("%s", p.pos()))
 		default:
 			s.Bindings.declare(p, d)
 		}
@@ -166,9 +159,6 @@ func newConstDecl(tok Token, visibility token.Pos) *ConstDecl {
 	}
 }
 
-// Const implements Declaration.
-func (d *ConstDecl) Const() *ConstDecl { return d }
-
 // Kind implements Declaration.
 func (d *ConstDecl) Kind() DeclarationKind { return ConstDeclaration }
 
@@ -182,9 +172,6 @@ func newFuncDecl(tok Token, visibility token.Pos) *FuncDecl {
 		declaration: declaration{tok, visibility},
 	}
 }
-
-// Func implements Declaration.
-func (d *FuncDecl) Func() *FuncDecl { return d }
 
 // Kind implements Declaration.
 func (d *FuncDecl) Kind() DeclarationKind { return FuncDeclaration }
@@ -203,9 +190,6 @@ func newMethodDecl(tok Token, visibility token.Pos) *MethodDecl {
 // Kind implements Declaration.
 func (d *MethodDecl) Kind() DeclarationKind { return MethodDeclaration }
 
-// Method implements Declaration.
-func (d *MethodDecl) Method() *MethodDecl { return d }
-
 // TypeDecl describes a type declaration.
 type TypeDecl struct {
 	declaration
@@ -220,16 +204,15 @@ func newTypeDecl(tok Token, visibility token.Pos) *TypeDecl {
 // Kind implements Declaration.
 func (d *TypeDecl) Kind() DeclarationKind { return TypeDeclaration }
 
-// Type implements Declaration.
-func (d *TypeDecl) Type() *TypeDecl { return d }
-
 // VarDecl describes a variable declaration.
 type VarDecl struct {
 	declaration
+	argument bool // both in and out
 }
 
-func newVarDecl(tok Token, visibility token.Pos) *VarDecl {
+func newVarDecl(tok Token, visibility token.Pos, argument bool) *VarDecl {
 	return &VarDecl{
+		argument:    argument,
 		declaration: declaration{tok, visibility},
 	}
 }
@@ -237,43 +220,16 @@ func newVarDecl(tok Token, visibility token.Pos) *VarDecl {
 // Kind implements Declaration.
 func (d *VarDecl) Kind() DeclarationKind { return VarDeclaration }
 
-// Var implements Declaration.
-func (d *VarDecl) Var() *VarDecl { return d }
-
-// Declaration describes a constant, function, method, type or variable
-// declaration.
+// Declaration is one of *ConstDecl, *FuncDecl, *ImportSpec, *MethodDecl,
+// *TypeDecl or *VarDecl.
 type Declaration interface {
 	Node
-
-	// Const returns the Declaration's *ConstDecl. It panics if Kind is not
-	// ConstDeclaration.
-	Const() *ConstDecl
-
-	// Func returns the Declaration's  *FuncDecl. It panics if Kind is not
-	// FuncDeclaration.
-	Func() *FuncDecl
-
-	// ImportSpec returns the Declaration's  *ImportSpec. It panics if Kind
-	// is not ImportDeclaration.
-	ImportSpec() *ImportSpec
 
 	// Kind returns the Declarations's kind.
 	Kind() DeclarationKind
 
-	// Method returns the Declaration's  *MethodDecl. It panics if Kind is
-	// not MethodDeclaration.
-	Method() *MethodDecl
-
 	// Name returns the declared name.
 	Name() string
-
-	// Type returns the Declaration's  *TypeDecl. It panics if Kind is not
-	// TypeDeclaration.
-	Type() *TypeDecl
-
-	// Var returns the Declaration's  *VarDecl. It panics if Kind is not
-	// VarDeclaration.
-	Var() *VarDecl
 
 	// Visibility returns the position at which the declaration is visible
 	// in its declaration scope or token.NoPos for declarations in package

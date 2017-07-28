@@ -441,25 +441,18 @@ func (t *test) goBuild(out bool, cmd *exec.Cmd) error {
 		panic(TODO("%q: %v", cmd.Args, err))
 	}
 
-	if !reMatch(fs.Args()) {
-		return nil
-	}
-
 	ctx, err := newTestContext()
 	if err != nil {
 		return err
 	}
 
-	//dbg("goBuild(%q) in %q", cmd.Args, cmd.Dir)
 	if *oTrc {
 		fmt.Printf("goBuild(%q) in %q\n", cmd.Args, cmd.Dir)
 	}
 	if _, err := ctx.Build(fs.Args()); err != nil {
-		//dbg("", errString(err))
 		return t.failCmd(cmd, "%s", errString(err))
 	}
 
-	//dbg("OK")
 	return nil
 }
 
@@ -544,25 +537,18 @@ func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
 		opt = append(opt, NoErrorLimit())
 	}
 
-	if !reMatch(fs.Args()) {
-		return nil
-	}
-
 	ctx, err := newTestContext(opt...)
 	if err != nil {
 		return err
 	}
 
-	//dbg("goToolCompile(%q) in %q", cmd.Args, cmd.Dir)
 	if *oTrc {
 		fmt.Printf("goToolCompile(%q) in %q\n", cmd.Args, cmd.Dir)
 	}
 	if _, err := ctx.Build(fs.Args()); err != nil {
-		//dbg("", errString(err))
 		return t.failCmd(cmd, "%s", errString(err))
 	}
 
-	//dbg("OK")
 	return nil
 }
 

@@ -414,7 +414,8 @@ skip:
 	case '\'':
 		switch l.n() {
 		case '\n', classEOF:
-			l.err(l.position(l.off-1), "rune literal not terminated")
+			l.err(l.position(l.off-1), "invalid character literal (missing closing ')")
+			return off, token.CHAR
 		case '\'':
 			l.err(l.position(l.off-1), "illegal rune literal")
 			l.n()
@@ -912,9 +913,9 @@ skip:
 
 		switch {
 		case l.b < ' ':
-			l.err(l.position(l.off-1), "illegal character %U", l.skip())
+			l.err(l.position(l.off-1), "invalid character %U", l.skip())
 		default:
-			l.err(l.position(l.off-1), "illegal character %#U", l.skip())
+			l.err(l.position(l.off-1), "invalid character %#U", l.skip())
 		}
 		return off, token.ILLEGAL
 	}

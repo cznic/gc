@@ -350,22 +350,6 @@ var (
 	}()
 )
 
-func reMatch(a []string) bool {
-	if re == nil {
-		if *oRE == "" {
-			return true
-		}
-
-		re = regexp.MustCompile(*oRE)
-	}
-	for _, v := range a {
-		if re.MatchString(v) {
-			return true
-		}
-	}
-	return false
-}
-
 func errString(err error) string {
 	var b bytes.Buffer
 	scanner.PrintError(&b, err)
@@ -1582,4 +1566,18 @@ func TestBrowserIssue3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestTmp(t *testing.T) { //TODO-
+	ctx, err := newTestContext(NoErrorLimit())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/syntax/semi3.go")})
+	if err == nil {
+		t.Fatal("unexpected sucess")
+	}
+
+	t.Logf("\n%s", errString(err))
 }

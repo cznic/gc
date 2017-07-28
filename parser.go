@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"fmt"
 	"go/token"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 var (
@@ -41,7 +43,9 @@ type parser struct {
 
 	off int32
 
-	loophack bool
+	loophack          bool
+	noSyntaxErrorFunc bool //TODO later delete
+	errAtEOF          bool
 }
 
 func newParser(src *SourceFile, l *Lexer) *parser {
@@ -64,6 +68,13 @@ func (p *parser) init(src *SourceFile, l *Lexer) {
 }
 
 func (p *parser) err(position token.Position, msg string, args ...interface{}) {
+	if p.c == token.EOF {
+		if p.errAtEOF {
+			return
+		}
+
+		p.errAtEOF = true
+	}
 	p.sourceFile.Package.errorList.Add(position, fmt.Sprintf(msg, args...))
 }
 
@@ -93,6 +104,10 @@ more:
 		}
 	case tokenBOM:
 		goto more
+	case token.ILLEGAL:
+		if p.noSyntaxErrorFunc {
+			goto more
+		}
 	}
 	return p.c
 }
@@ -122,6 +137,7 @@ func (p *parser) must(tok token.Token) (ok bool) {
 	ok = true
 	if p.c != tok {
 		p.syntaxError(p)
+		p.err(p.position(), "syntax error: unexpected %v, expecting (", p.unexpected())
 		ok = false
 	}
 	p.n()
@@ -156,6 +172,26 @@ func (p *parser) not2(toks ...token.Token) bool {
 		}
 	}
 	return true
+}
+
+func (p *parser) unexpected() string {
+	lit := p.l.lit
+	if len(lit) == 1 && lit[0] == '\n' {
+		if p.l.c == classEOF {
+			return "EOF"
+		}
+
+		return "newline"
+	}
+
+	switch p.c {
+	case token.IDENT:
+		return string(lit)
+	case token.INT:
+		return fmt.Sprintf("literal %s", lit)
+	}
+
+	return p.c.String()
 }
 
 func (p *parser) pos() token.Pos           { return p.l.file.Pos(int(p.off)) }
@@ -302,7 +338,58 @@ func (p *parser) importSpec() {
 		ip := p.strLit(string(p.l.lit))
 		if ip == "C" { //TODO
 			p.n()
-			break
+			return
+		}
+
+		if ip == "" {
+			p.err(p.position(), "import path is empty")
+			p.n()
+			return
+		}
+
+		if strings.Contains(ip, "\x00") {
+			p.err(p.position(), "import path contains NUL")
+			p.n()
+			return
+		}
+
+		if strings.Contains(ip, "\\") {
+			p.err(p.position(), "import path contains backslash; use slash: %q", ip)
+			p.n()
+			return
+		}
+
+		if filepath.IsAbs(ip) {
+			p.err(p.position(), "import path cannot be absolute path")
+			p.n()
+			return
+		}
+
+		for _, v := range ip {
+			if unicode.IsControl(v) {
+				p.err(p.position(), "import path contains control character: %q", string(v))
+				p.n()
+				return
+			}
+
+			switch v {
+			case ' ':
+				p.err(p.position(), "import path contains space character: %q", ip)
+				p.n()
+				return
+			case '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', ',', ':', ';', '<', '=', '>', '?', '[', '\\', ']', '^', '`', '{', '|', '}', '\ufffd':
+				p.err(p.position(), "import path contains invalid character %c: %q", v, ip)
+				p.n()
+				return
+			}
+
+			if unicode.IsLetter(v) || unicode.IsMark(v) || unicode.IsNumber(v) || unicode.IsPunct(v) || unicode.IsSymbol(v) {
+				continue
+			}
+
+			p.err(p.position(), "import path contains invalid character %c: %q", v, ip)
+			p.n()
+			return
 		}
 
 		if !p.sourceFile.Package.ctx.tweaks.ignoreImports {
@@ -327,6 +414,10 @@ func (p *parser) importSpec() {
 		p.n()
 	default:
 		p.syntaxError(p)
+		p.err(p.position(), "import path must be a string")
+		if p.noSyntaxErrorFunc {
+			p.skip(token.SEMICOLON)
+		}
 	}
 }
 
@@ -351,6 +442,7 @@ func (p *parser) imports() {
 				p.importSpecList()
 				if p.c == token.COMMA {
 					p.syntaxError(p)
+					p.err(p.position(), "syntax error: unexpected comma, expecting semicolon, newline, or )")
 					p.skip(token.RPAREN)
 				}
 				p.must(token.RPAREN)
@@ -376,11 +468,13 @@ func (p *parser) identList() (l []Token) {
 				l = append(l, p.tok())
 				p.n()
 			default:
+				//TODO p.err()
 				p.syntaxError(p)
 			}
 		}
 	default:
 		p.syntaxError(p)
+		p.err(p.position(), "syntax error: unexpected %v, expecting name", p.c)
 	}
 	return l
 }
@@ -419,6 +513,7 @@ func (p *parser) keyValList() /*TODO return value */ {
 	}
 	if p.c == token.SEMICOLON {
 		p.syntaxError(p)
+		p.err(p.position(), "syntax error: unexpected %v, expecting comma or }", p.unexpected())
 		p.n()
 	}
 }
@@ -435,7 +530,7 @@ func (p *parser) bracedKeyValList() /*TODO return value */ {
 // exprOrType:
 // 	expr
 // |	nonExprType %prec _PreferToRightParen
-func (p *parser) exprOrType() /*TODO return value */ Token {
+func (p *parser) exprOrType(fs string) /*TODO return value */ Token {
 more:
 	var fix bool
 	switch p.c {
@@ -455,7 +550,7 @@ more:
 		p.n()
 		goto more
 	case token.CHAN, token.INTERFACE, token.MAP, token.STRUCT, token.LBRACK:
-		p.otherType()
+		p.otherType(p.c)
 		switch p.c {
 		case token.LBRACE, token.LPAREN:
 			p.primaryExpr2(nil)
@@ -482,6 +577,12 @@ more:
 		}
 	default:
 		p.syntaxError(p)
+		s := "syntax error: unexpected %v"
+		if fs != "" {
+			s = s + ", expecting " + fs
+		}
+		p.err(p.position(), s, p.unexpected())
+
 	}
 	return Token{}
 }
@@ -490,12 +591,12 @@ more:
 // 	exprOrType
 // |	exprOrTypeList ',' exprOrType
 func (p *parser) exprOrTypeList() /*TODO return value */ (r []Token) {
-	tok := p.exprOrType()
+	tok := p.exprOrType("")
 	if tok.Pos.IsValid() {
 		r = []Token{tok}
 	}
 	for p.opt(token.COMMA) && p.not2(token.RPAREN, token.ELLIPSIS) {
-		if tok = p.exprOrType(); r != nil && tok.Pos.IsValid() {
+		if tok = p.exprOrType(") or ..."); r != nil && tok.Pos.IsValid() {
 			r = append(r, tok)
 		}
 	}
@@ -533,10 +634,10 @@ func (p *parser) exprOpt() (isExprPresent bool) /*TODO return value */ {
 func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLitKey bool) {
 	var fix bool
 	var q *Scope
-	switch p.c {
+	switch ch := p.c; ch {
 	case token.LPAREN:
 		p.n()
-		p.exprOrType()
+		p.exprOrType(")")
 		p.must(token.RPAREN)
 	case token.IDENT:
 		tok := p.tok()
@@ -552,7 +653,7 @@ func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLi
 		rt = tok
 		if p.xref != nil {
 			if d := p.scope.Lookup(p.sourceFile.Package, p.sourceFile.Scope, tok); d != nil && d.Kind() == ImportDeclaration {
-				q = d.ImportSpec().Package.Scope
+				q = d.(*ImportSpec).Package.Scope
 			}
 		}
 	case token.FUNC:
@@ -575,12 +676,13 @@ func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLi
 			p.must(token.RPAREN)
 		default:
 			p.pop()
+			//TODO p.err(), needs type info
 			p.syntaxError(p)
 		}
 	case token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING:
 		p.n()
 	case token.CHAN, token.INTERFACE, token.MAP, token.STRUCT, token.LBRACK:
-		p.otherType()
+		p.otherType(ch)
 		switch p.c {
 		case token.LPAREN:
 			p.n()
@@ -596,9 +698,11 @@ func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLi
 			p.loophack = fix
 			p.must(token.RBRACE)
 		default:
+			//TODO p.err()
 			p.syntaxError(p)
 		}
 	default:
+		//TODO p.err()
 		p.syntaxError(p)
 	}
 	if !p.primaryExpr2(q) {
@@ -630,17 +734,19 @@ func (p *parser) primaryExpr2(q *Scope) /*TODO return value */ (empty bool) {
 			case token.LPAREN:
 				p.n()
 				if !p.opt(token.TYPE) {
-					p.exprOrType()
+					p.exprOrType(")")
 				}
 				p.must(token.RPAREN)
 			default:
 				p.syntaxError(p)
+				p.err(p.position(), "syntax error: unexpected %v, expecting name or (", p.unexpected())
 				p.n()
 			}
 		case token.LBRACK:
 			p.n()
 			if !p.exprOpt() && p.c == token.RBRACK {
 				p.syntaxError(p)
+				//TODO p.err()
 				break
 			}
 
@@ -785,6 +891,7 @@ func (p *parser) constSpec() {
 	}
 	if p.not2(token.SEMICOLON, token.RPAREN) {
 		p.syntaxError(p)
+		//TODO p.err()
 		p.skip(token.SEMICOLON, token.RPAREN)
 	}
 }
@@ -839,13 +946,20 @@ func (p *parser) fieldDecl() {
 	case token.MUL:
 		if p.n() == token.LPAREN {
 			p.syntaxError(p)
+			p.err(p.position(), "syntax error: cannot parenthesize embedded type")
 			p.skip(token.SEMICOLON, token.RBRACE)
 			return
 		}
 
 		p.qualifiedIdent()
+	case token.LPAREN:
+		p.syntaxError(p)
+		p.err(p.position(), "syntax error: cannot parenthesize embedded type")
+		p.skip(token.SEMICOLON, token.RBRACE)
+		return
 	default:
 		p.syntaxError(p)
+		//TODO p.err()
 		p.skip(token.SEMICOLON, token.RBRACE)
 		return
 	}
@@ -885,8 +999,13 @@ func (p *parser) interfaceDecl() {
 		p.must(token.IDENT)
 	case token.SEMICOLON, token.RBRACE:
 		// nop
+	case token.COMMA:
+		p.syntaxError(p)
+		p.err(p.position(), "syntax error: name list not allowed in interface type")
+		p.skip(token.SEMICOLON, token.RBRACE)
 	default:
 		p.syntaxError(p)
+		p.err(p.position(), "syntax error: unexpected %v, expecting semicolon, newline, or }", p.unexpected())
 		p.skip(token.SEMICOLON, token.RBRACE)
 	}
 }
@@ -914,7 +1033,7 @@ func (p *parser) interfaceDeclList() {
 // |	"struct" lbrace fieldDeclList semiOpt '}'
 // |	'[' "..." ']' typ
 // |	'[' exprOpt ']' typ
-func (p *parser) otherType() /*TODO return value */ {
+func (p *parser) otherType(ch token.Token) /*TODO return value */ {
 	var fix bool
 	switch p.c {
 	case token.CHAN:
@@ -934,7 +1053,7 @@ func (p *parser) otherType() /*TODO return value */ {
 		case token.MUL:
 			p.ptrType()
 		default:
-			p.otherType()
+			p.otherType(token.CHAN)
 		}
 	case token.INTERFACE:
 		switch p.n() {
@@ -949,6 +1068,7 @@ func (p *parser) otherType() /*TODO return value */ {
 			p.must(token.RBRACE)
 		default:
 			p.syntaxError(p)
+			//TODO p.err()
 		}
 	case token.MAP:
 		p.n()
@@ -969,6 +1089,7 @@ func (p *parser) otherType() /*TODO return value */ {
 			p.must(token.RBRACE)
 		default:
 			p.syntaxError(p)
+			//TODO p.err()
 		}
 	case token.LBRACK:
 		p.n()
@@ -979,6 +1100,12 @@ func (p *parser) otherType() /*TODO return value */ {
 		p.typ()
 	default:
 		p.syntaxError(p)
+		switch ch {
+		case token.CHAN:
+			p.err(p.position(), "syntax error: missing channel element type")
+		default:
+			//TODO p.err()
+		}
 	}
 }
 
@@ -991,7 +1118,7 @@ func (p *parser) qualifiedIdent() (tok, tok2 Token) {
 		tok2, _ = p.mustTok(token.IDENT)
 		if p.xref != nil {
 			if d := p.scope.Lookup(p.sourceFile.Package, p.sourceFile.Scope, tok); d != nil && d.Kind() == ImportDeclaration && isExported(tok2.Val) {
-				p.xref[tok2] = d.ImportSpec().Package.Scope
+				p.xref[tok2] = d.(*ImportSpec).Package.Scope
 			}
 		}
 	}
@@ -1052,7 +1179,7 @@ func (p *parser) genericArgsOpt() /*TODO return value */ {
 // |	ptrType
 // |	rxChanType
 func (p *parser) typ() /*TODO return value */ (tok Token) {
-	switch p.c {
+	switch ch := p.c; ch {
 	case token.LPAREN:
 		p.n()
 		p.typ()
@@ -1067,13 +1194,14 @@ func (p *parser) typ() /*TODO return value */ (tok Token) {
 		p.fnType()
 		p.pop()
 	case token.CHAN, token.INTERFACE, token.MAP, token.STRUCT, token.LBRACK:
-		p.otherType()
+		p.otherType(ch)
 	case token.MUL:
 		p.ptrType()
 	case token.ARROW:
 		p.rxChanType()
 	default:
 		p.syntaxError(p)
+		p.err(p.position(), "syntax error: unexpected %v in type declaration", p.unexpected())
 	}
 	return tok
 }
@@ -1135,7 +1263,7 @@ func (p *parser) varSpec() {
 			pos = p.pos()
 		}
 		for _, v := range l {
-			p.scope.declare(p, newVarDecl(v, pos))
+			p.scope.declare(p, newVarDecl(v, pos, false))
 		}
 	}()
 
@@ -1146,6 +1274,7 @@ func (p *parser) varSpec() {
 		return
 	case token.PERIOD:
 		p.syntaxError(p)
+		p.err(p.position(), "syntax error: unexpected %v, expecting type", p.unexpected())
 		p.skip(token.SEMICOLON, token.RPAREN)
 		return
 	}
@@ -1267,7 +1396,7 @@ func (p *parser) paramTypeList() /*TODO return value */ {
 	}
 	if hasNames {
 		for _, v := range names {
-			p.scope.declare(p, newVarDecl(v, v.Pos))
+			p.scope.declare(p, newVarDecl(v, v.Pos, true))
 		}
 	}
 }
@@ -1289,9 +1418,9 @@ func (p *parser) paramTypeListCommaOptOpt() /*TODO return value */ {
 // |	ptrType
 // |	rxChanType
 func (p *parser) result() /*TODO return value */ {
-	switch p.c {
+	switch ch := p.c; ch {
 	case token.LBRACE, token.RPAREN, token.SEMICOLON, token.COMMA, tokenBODY,
-		token.RBRACE, token.COLON, token.STRING, token.ASSIGN:
+		token.RBRACE, token.COLON, token.STRING, token.ASSIGN, token.RBRACK:
 		// nop
 	case token.LPAREN:
 		p.n()
@@ -1304,13 +1433,14 @@ func (p *parser) result() /*TODO return value */ {
 		p.fnType()
 		p.pop()
 	case token.CHAN, token.INTERFACE, token.MAP, token.STRUCT, token.LBRACK:
-		p.otherType()
+		p.otherType(ch)
 	case token.MUL:
 		p.ptrType()
 	case token.ARROW:
 		p.rxChanType()
 	default:
 		p.syntaxError(p)
+		//TODO p.err()
 	}
 }
 
@@ -1320,7 +1450,7 @@ func (p *parser) shortVarDecl1(tok Token, visibility token.Pos) {
 	}
 
 	if _, ok := p.scope.Bindings[tok.Val]; !ok {
-		p.scope.declare(p, newVarDecl(tok, visibility))
+		p.scope.declare(p, newVarDecl(tok, visibility, false))
 		if p.xref != nil {
 			p.xref[tok] = nil
 		}
@@ -1372,6 +1502,7 @@ more:
 	case token.COMMA:
 		if !first {
 			p.syntaxError(p)
+			//TODO p.err()
 			break
 		}
 
@@ -1414,7 +1545,8 @@ func (p *parser) ifHeader() /*TODO return value */ {
 	}
 	if p.c == token.SEMICOLON {
 		p.syntaxError(p)
-		p.n()
+		p.err(p.position(), "syntax error: unexpected %v, expecting { after if clause", p.unexpected())
+		p.skip(token.LBRACE)
 	}
 }
 
@@ -1445,7 +1577,7 @@ func (p *parser) elseIfList() /*TODO return value */ (isElse bool) {
 
 // compoundStmt:
 // 	'{' stmtList '}'
-func (p *parser) compoundStmt() /*TODO return value */ {
+func (p *parser) compoundStmt(ch token.Token) /*TODO return value */ {
 	switch p.c {
 	case token.LBRACE:
 		p.n()
@@ -1455,8 +1587,15 @@ func (p *parser) compoundStmt() /*TODO return value */ {
 		p.pop()
 	case token.SEMICOLON:
 		p.syntaxError(p)
+		switch ch {
+		case token.ELSE:
+			p.err(p.position(), "syntax error: else must be followed by if or statement block")
+		default:
+			//TODO p.err()
+		}
 	default:
 		p.syntaxError(p)
+		//TODO p.err()
 		p.n()
 	}
 }
@@ -1488,11 +1627,13 @@ func (p *parser) caseBlockList() /*TODO return value */ {
 			p.stmtList()
 		case token.IF:
 			p.syntaxError(p)
+			p.err(p.position(), "syntax error: unexpected if, expecting case or default or }")
 			p.skip(token.COLON)
 		default:
 			p.pop()
 			if p.c != token.RBRACE {
 				p.syntaxError(p)
+				//TODO p.err()
 				p.skip(token.RBRACE)
 			}
 			return
@@ -1570,7 +1711,7 @@ more:
 		p.ifHeader()
 		p.loopBody()
 		if p.elseIfList() {
-			p.compoundStmt()
+			p.compoundStmt(token.ELSE)
 		}
 		p.pop()
 	case token.RETURN:
@@ -1602,7 +1743,7 @@ more:
 	case token.CONST, token.TYPE, token.VAR:
 		p.commonDecl()
 	case token.LBRACE:
-		p.compoundStmt()
+		p.compoundStmt(token.Token(-1))
 	default:
 		if isLabel, _ := p.simpleStmt(false); isLabel && p.opt(token.COLON) {
 			goto more
@@ -1691,7 +1832,8 @@ func (p *parser) topLevelDeclList() {
 // 	"package" IDENT ';' imports topLevelDeclList
 func (p *parser) file() {
 	if p.syntaxError == nil {
-		p.syntaxError = func(*parser) { p.err(p.position(), "syntax error") }
+		p.syntaxError = func(*parser) {}
+		p.noSyntaxErrorFunc = true
 	}
 	p.n()
 	if !p.must(token.PACKAGE) {
@@ -1712,11 +1854,8 @@ func (p *parser) file() {
 		case nm == "":
 			pkg.Name = tok.Val
 			pkg.named = tok.Pos
-		default:
-			if nm != tok.Val {
-				//dbg("", tok, pkg.Name, pkg.named)
-				//TODO p.todo()
-			}
+		case nm != tok.Val:
+			panic(TODO("%v %v %v", tok, pkg.Name, pkg.named))
 		}
 		p.imports()
 		p.topLevelDeclList()
