@@ -68,11 +68,11 @@ type model struct {
 }
 
 type tweaks struct {
-	declarationXref      bool
+	localImportsPath     string
 	errLimit             int
+	declarationXref      bool
 	ignoreImports        bool // Test hook.
 	ignoreRedeclarations bool
-	localImportsPath     string
 	noErrorColumns       bool
 }
 
@@ -242,6 +242,14 @@ See https://golang.org/s/go15vendor for details.
 
 */
 func (c *Context) dirForImportPath(position token.Position, importPath string) (string, error) {
+	if filepath.VolumeName(importPath) != "" {
+		return "", fmt.Errorf("import path contains invalid character")
+	}
+
+	if filepath.IsAbs(importPath) {
+		return "", fmt.Errorf("import path cannot be absolute path")
+	}
+
 	if strings.HasPrefix(importPath, "./") {
 		return filepath.Join(c.tweaks.localImportsPath, importPath), nil
 	}

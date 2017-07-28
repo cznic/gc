@@ -441,12 +441,19 @@ func (t *test) goBuild(out bool, cmd *exec.Cmd) error {
 		panic(TODO("%q: %v", cmd.Args, err))
 	}
 
+	if !reMatch(fs.Args()) {
+		return nil
+	}
+
 	ctx, err := newTestContext()
 	if err != nil {
 		return err
 	}
 
 	//dbg("goBuild(%q) in %q", cmd.Args, cmd.Dir)
+	if *oTrc {
+		fmt.Printf("goBuild(%q) in %q\n", cmd.Args, cmd.Dir)
+	}
 	if _, err := ctx.Build(fs.Args()); err != nil {
 		//dbg("", errString(err))
 		return t.failCmd(cmd, "%s", errString(err))
@@ -474,6 +481,7 @@ func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	//optl := fs.Int("l", 0, "disable inlining")
 	_ = fs.Bool("N", false, "disable optimizations")
+	_ = fs.Int("c", 1, "concurrency during compilation, 1 means no concurrency (default 1)")
 	_ = fs.String("o", "", "write output to file")
 	optC := fs.Bool("C", false, "disable printing of columns in error messages")
 	optD := fs.String("D", "", "set relative path for local imports")
@@ -481,6 +489,7 @@ func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
 	optLive := fs.Bool("live", false, "debug liveness analysis")
 	optPlus := fs.Bool("+", false, "compiling runtime")
 	optRace := fs.Bool("race", false, "enable race detector")
+	optStd := fs.Bool("std", false, "compiling standard library")
 	optWb := fs.Int("wb", 0, "enable write barrier (default true)")
 	optd := fs.String("d", "", "print debug information about items in list")
 	opte := fs.Bool("e", false, "no limit on number of errors reported")
@@ -489,24 +498,34 @@ func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
 		panic(TODO("%q: %v", cmd.Args, err))
 	}
 
+	if *optStd {
+		return t.failCmd(cmd, "TODO -std")
+	}
+
 	if *optd != "" {
 		return t.failCmd(cmd, "TODO -d")
 	}
+
 	if optl != "" {
 		return t.failCmd(cmd, "TODO -l")
 	}
+
 	if *optLive {
 		return t.failCmd(cmd, "TODO -live")
 	}
+
 	if *optm {
 		return t.failCmd(cmd, "TODO -m")
 	}
+
 	if *optPlus {
 		return t.failCmd(cmd, "TODO -+")
 	}
+
 	if *optRace {
 		return t.failCmd(cmd, "TODO -race")
 	}
+
 	if *optWb != 0 {
 		return t.failCmd(cmd, "TODO -wb")
 	}
@@ -525,12 +544,19 @@ func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
 		opt = append(opt, NoErrorLimit())
 	}
 
+	if !reMatch(fs.Args()) {
+		return nil
+	}
+
 	ctx, err := newTestContext(opt...)
 	if err != nil {
 		return err
 	}
 
 	//dbg("goToolCompile(%q) in %q", cmd.Args, cmd.Dir)
+	if *oTrc {
+		fmt.Printf("goToolCompile(%q) in %q\n", cmd.Args, cmd.Dir)
+	}
 	if _, err := ctx.Build(fs.Args()); err != nil {
 		//dbg("", errString(err))
 		return t.failCmd(cmd, "%s", errString(err))
@@ -593,9 +619,7 @@ func (t *test) run() {
 		// skip first line
 		action = action[nl+1:]
 	}
-	if strings.HasPrefix(action, "//") {
-		action = action[2:]
-	}
+	action = strings.TrimPrefix(action, "//")
 
 	// Check for build constraints only up to the actual code.
 	pkgPos := strings.Index(t.src, "\npackage")
@@ -825,8 +849,8 @@ func (t *test) run() {
 				return
 			}
 			if i == len(pkgs)-1 {
-				t.err = fmt.Errorf("TODO rundir exec %q", gofiles[0])
-				return
+				t.err = fmt.Errorf("TODO rundir exec %q", gofiles[0]) //TODO-
+				return                                                //TODO-
 
 				err = linkFile(runcmd1, gofiles[0])
 				if err != nil {
@@ -834,7 +858,6 @@ func (t *test) run() {
 					return
 				}
 				var cmd []string
-				panic(TODO("%q %q", cmd, args))
 				//cmd = append(cmd, findExecCmd()...)
 				cmd = append(cmd, filepath.Join(t.tempDir, "a.exe"))
 				cmd = append(cmd, args...)

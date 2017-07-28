@@ -116,10 +116,13 @@ type yParser struct {
 }
 
 var (
-	_   = flag.Bool("closures", false, "closures")        //TODOOK
-	_   = flag.String("out", "", "where to put y.output") //TODOOK
-	oN  = flag.Int("N", -1, "")
-	oRE = flag.String("re", "", "regexp")
+	_    = flag.Bool("closures", false, "closures")        //TODOOK
+	_    = flag.String("out", "", "where to put y.output") //TODOOK
+	oN   = flag.Int("N", -1, "")
+	oRE  = flag.String("re", "", "regexp")
+	oTrc = flag.Bool("trc", false, "trace")
+
+	re *regexp.Regexp
 
 	selfImportPath string
 
@@ -346,6 +349,22 @@ var (
 		return r[:len(r):len(r)]
 	}()
 )
+
+func reMatch(a []string) bool {
+	if re == nil {
+		if *oRE == "" {
+			return true
+		}
+
+		re = regexp.MustCompile(*oRE)
+	}
+	for _, v := range a {
+		if re.MatchString(v) {
+			return true
+		}
+	}
+	return false
+}
 
 func errString(err error) string {
 	var b bytes.Buffer
