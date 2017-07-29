@@ -102,10 +102,9 @@ func pretty(v interface{}) string { return strutil.PrettyString(v, "", "", nil) 
 // ============================================================================
 
 const (
-	lexFile    = "testdata/scanner/scanner.l"
-	yaccCover  = "testdata/parser/ycover.go"
-	yaccFile   = "testdata/parser/parser.y"
-	yaccFile19 = "testdata/parser/parser19.y"
+	lexFile   = "testdata/scanner/scanner.l"
+	yaccCover = "testdata/parser/ycover.go"
+	yaccFile  = "testdata/parser/parser.y"
 )
 
 type yParser struct {
@@ -166,11 +165,7 @@ var (
 		}
 		fset := token.NewFileSet()
 		var out bytes.Buffer
-		yfn := yaccFile
-		if goVersion >= "1.9" {
-			yfn = yaccFile19
-		}
-		p, err := y.ProcessFile(fset, yfn, &y.Options{
+		p, err := y.ProcessFile(fset, yaccFile, &y.Options{
 			Closures:  closures,
 			Reducible: true,
 			Report:    &out,
@@ -1576,7 +1571,7 @@ func TestTmp(t *testing.T) { //TODO-
 
 	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/syntax/semi3.go")})
 	if err == nil {
-		t.Fatal("unexpected sucess")
+		t.Fatal("unexpected success")
 	}
 
 	t.Logf("\n%s", errString(err))

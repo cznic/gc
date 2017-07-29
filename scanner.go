@@ -185,7 +185,7 @@ func (l *Lexer) exponent(off int32) (int32, token.Token) {
 		case '+', '-':
 			l.n()
 		}
-		if !l.decimals() && goVersion > "1.7" {
+		if !l.decimals() {
 			l.err(l.file.Position(l.file.Pos(int(off))), "illegal floating-point exponent")
 		}
 	}

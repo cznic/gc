@@ -137,7 +137,7 @@ func (p *parser) must(tok token.Token) (ok bool) {
 	ok = true
 	if p.c != tok {
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting (", p.unexpected())
+		p.err(p.position(), "syntax error: unexpected %v, expecting %v", p.unexpected(), tok)
 		ok = false
 	}
 	p.n()
@@ -1229,12 +1229,7 @@ func (p *parser) typeSpec() /*TODO return value */ {
 	}
 	switch p.c {
 	case token.ASSIGN:
-		if goVersion >= "1.9" {
-			p.n()
-			break
-		}
-
-		fallthrough
+		p.n()
 	default:
 		p.genericParamsOpt()
 	}
@@ -1855,7 +1850,7 @@ func (p *parser) file() {
 			pkg.Name = tok.Val
 			pkg.named = tok.Pos
 		case nm != tok.Val:
-			panic(TODO("%v %v %v", tok, pkg.Name, pkg.named))
+			panic(fmt.Errorf("%v %v %v", tok, pkg.Name, pkg.named))
 		}
 		p.imports()
 		p.topLevelDeclList()

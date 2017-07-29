@@ -121,7 +121,7 @@ func (s *Scope) declare(p *parser, d Declaration) {
 		switch ex, ok := pkg.fileScopeNames[nm]; {
 		case ok:
 			_ = ex
-			panic(TODO("%s", p.pos()))
+			panic(fmt.Errorf("%s", p.pos()))
 		default:
 			s.Bindings.declare(p, d)
 		}
