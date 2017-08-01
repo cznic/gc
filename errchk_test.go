@@ -20,6 +20,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/build"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
@@ -74,6 +75,17 @@ var (
 const maxTests = 5000
 
 func TestErrchk(t *testing.T) {
+	tags := build.Default.ReleaseTags
+	sort.Strings(tags)
+	var tag string
+	if len(tags) != 0 {
+		tag = tags[len(tags)-1]
+	}
+	if tag != "go1.9" {
+		t.Logf("detected %v, requires Go 1.9, skipping.", tag)
+		return
+	}
+
 	for _, v := range os.Args {
 		if v == "-test.v=true" {
 			*verbose = true

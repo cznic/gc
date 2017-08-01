@@ -536,7 +536,7 @@ more:
 	switch p.c {
 	case token.IDENT, token.INT, token.FLOAT, token.IMAG, token.CHAR, token.STRING,
 		token.NOT, token.AND, token.ADD, token.SUB, token.XOR, token.LPAREN:
-		tok, _ := p.expr()
+		tok, _, _ := p.expr()
 		return tok
 	case token.ARROW:
 		switch p.n() {
@@ -631,7 +631,7 @@ func (p *parser) exprOpt() (isExprPresent bool) /*TODO return value */ {
 // |	primaryExpr '[' exprOpt ':' exprOpt ':' exprOpt ']'
 // |	primaryExpr '[' exprOpt ':' exprOpt ']'
 // |	primaryExpr '{' bracedKeyValList '}'
-func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLitKey bool) {
+func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLitKey, isCall bool) {
 	var fix bool
 	var q *Scope
 	switch ch := p.c; ch {
@@ -647,7 +647,7 @@ func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLi
 			if p.xref != nil {
 				p.xref[tok] = nil
 			}
-			return rt, true
+			return rt, true, false
 		}
 
 		rt = tok
@@ -705,16 +705,18 @@ func (p *parser) primaryExpr() /*TODO return value */ (rt Token, isLabelOrCompLi
 		//TODO p.err()
 		p.syntaxError(p)
 	}
-	if !p.primaryExpr2(q) {
+	var empty bool
+	if empty, isCall = p.primaryExpr2(q); !empty {
 		rt = Token{Pos: token.NoPos}
 	}
-	return rt, false
+	return rt, false, isCall
 }
 
-func (p *parser) primaryExpr2(q *Scope) /*TODO return value */ (empty bool) {
+func (p *parser) primaryExpr2(q *Scope) /*TODO return value */ (empty, isCall bool) {
 	for empty = true; ; q, empty = nil, false {
 		switch p.c {
 		case token.LPAREN:
+			isCall = true
 			p.n()
 			if p.opt(token.RPAREN) {
 				break
@@ -762,7 +764,7 @@ func (p *parser) primaryExpr2(q *Scope) /*TODO return value */ (empty bool) {
 			p.bracedKeyValList()
 			p.must(token.RBRACE)
 		default:
-			return empty
+			return empty, isCall
 		}
 	}
 }
@@ -776,7 +778,7 @@ func (p *parser) primaryExpr2(q *Scope) /*TODO return value */ (empty bool) {
 // |	'-' unaryExpr
 // |	'^' unaryExpr
 // |	primaryExpr
-func (p *parser) unaryExpr() /*TODO return value */ (rt Token, isLabel bool) {
+func (p *parser) unaryExpr() /*TODO return value */ (rt Token, isLabel, isCall bool) {
 	isLabel = true
 	for {
 		switch p.c {
@@ -785,11 +787,11 @@ func (p *parser) unaryExpr() /*TODO return value */ (rt Token, isLabel bool) {
 			isLabel = false
 			p.n()
 		default:
-			rt, label := p.primaryExpr()
+			rt, label, isCall := p.primaryExpr()
 			if !isLabel { // Not the primaryExpr alone case.
 				rt = Token{}
 			}
-			return rt, label && isLabel
+			return rt, label && isLabel, isCall
 		}
 	}
 }
@@ -816,15 +818,16 @@ func (p *parser) unaryExpr() /*TODO return value */ (rt Token, isLabel bool) {
 // |	expr '^' expr
 // |	expr '|' expr
 // |	unaryExpr
-func (p *parser) expr() /*TODO return value */ (rt Token, isLabel bool) {
-	if rt, isLabel = p.unaryExpr(); isLabel {
-		return rt, true
+func (p *parser) expr() /*TODO return value */ (rt Token, isLabel, isCall bool) {
+	if rt, isLabel, isCall = p.unaryExpr(); isLabel {
+		return rt, true, false
 	}
 
-	if !p.expr2() {
+	empty := p.expr2()
+	if !empty {
 		rt = Token{}
 	}
-	return rt, false
+	return rt, false, isCall
 }
 
 func (p *parser) expr2() (empty bool) {
@@ -846,12 +849,12 @@ func (p *parser) expr2() (empty bool) {
 // 	expr
 // |	exprList ',' expr
 func (p *parser) exprList() /*TODO return value */ (r []Token) {
-	tok, _ := p.expr()
+	tok, _, _ := p.expr()
 	if tok.Pos.IsValid() {
 		r = []Token{tok}
 	}
 	for p.opt(token.COMMA) {
-		if tok, _ = p.expr(); r != nil && tok.Pos.IsValid() {
+		if tok, _, _ = p.expr(); r != nil && tok.Pos.IsValid() {
 			r = append(r, tok)
 		}
 	}
@@ -1479,7 +1482,7 @@ func (p *parser) shortVarDecl(tok Token, l []Token, visibility token.Pos) {
 func (p *parser) simpleStmt(acceptRange bool) /*TODO return value */ (isLabel, isRange bool) {
 	first := true
 	var tok Token
-	if tok, isLabel = p.expr(); isLabel {
+	if tok, isLabel, _ = p.expr(); isLabel {
 		return true, false
 	}
 
@@ -1663,7 +1666,7 @@ func (p *parser) caseBlockList() /*TODO return value */ {
 // |	simpleStmt
 func (p *parser) stmt() /*TODO return value */ {
 more:
-	switch p.c {
+	switch ch := p.c; ch {
 	case token.SEMICOLON, token.RBRACE, token.CASE, token.DEFAULT:
 		// nop
 	case token.BREAK, token.CONTINUE:
@@ -1671,7 +1674,9 @@ more:
 		p.opt(token.IDENT)
 	case token.DEFER, token.GO:
 		p.n()
-		p.expr()
+		if _, _, isCall := p.expr(); ch == token.GO && !isCall {
+			p.err(p.position(), "expression in go must be function call")
+		}
 	case token.FALLTHROUGH:
 		p.n()
 	case token.FOR:
@@ -1830,11 +1835,13 @@ func (p *parser) file() {
 		p.syntaxError = func(*parser) {}
 		p.noSyntaxErrorFunc = true
 	}
-	p.n()
-	if !p.must(token.PACKAGE) {
+	if p.n() != token.PACKAGE {
+		p.syntaxError(p)
+		p.err(p.position(), "syntax error: package statement must be first")
 		return
 	}
 
+	p.n()
 	tok, ok := p.mustTok(token.IDENT)
 	if !ok {
 		return

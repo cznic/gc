@@ -379,7 +379,9 @@ func (c *Context) load(position token.Position, importPath string, syntaxError f
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				errList.Add(token.Position{}, fmt.Sprintf("%s\nPANIC: %v", debug.Stack(), err))
+				errList.mu.Lock()
+				errList.list.Add(token.Position{}, fmt.Sprint(err))
+				errList.mu.Unlock()
 			}
 		}()
 
