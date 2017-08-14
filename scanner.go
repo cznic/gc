@@ -74,9 +74,9 @@ type Lexer struct {
 	commentOfs int32
 	off        int32 // Next byte offset.
 
-	b             byte // Current byte.
-	c             byte // Current class.
-	testingStates bool
+	b              byte // Current byte.
+	c              byte // Current class.
+	testingScanner bool
 }
 
 // NewLexer returns a newly created Lexer.
@@ -418,9 +418,14 @@ skip:
 			l.err(l.position(l.off-1), "invalid character literal (missing closing ')")
 			return off, token.CHAR
 		case '\'':
-			l.err(l.position(l.off-1), "illegal rune literal")
+			if l.testingScanner {
+				l.err(l.position(l.off-1), "illegal rune literal")
+				l.n()
+				return off, token.CHAR
+			}
+
+			l.err(l.position(l.off-1), "empty character literal or unescaped ' in character literal")
 			l.n()
-			return off, token.CHAR
 		case '\\':
 			switch l.n() {
 			case '\n':

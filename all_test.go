@@ -359,7 +359,7 @@ func testScannerStates(t *testing.T) {
 	fset2 := token.NewFileSet()
 	var ss scanner.Scanner
 	l := NewLexer(nil, nil)
-	l.testingStates = true
+	l.testingScanner = true
 	nerr := 0
 
 	var cases, sum int
@@ -677,6 +677,7 @@ func testScanner(t *testing.T, paths []string) {
 	fset2 := token.NewFileSet()
 	var s scanner.Scanner
 	l := NewLexer(nil, nil)
+	l.testingScanner = true
 	sum := 0
 	toks := 0
 	files := 0
