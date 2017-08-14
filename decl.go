@@ -46,7 +46,7 @@ func (b *Bindings) declare(p *parser, d Declaration) {
 	switch x := d.(type) {
 	case *VarDecl:
 		if x.argument {
-			p.err(
+			p.err0(
 				p.l.file.Position(d.Pos()),
 				"duplicate argument %v",
 				d.Name(),
@@ -55,7 +55,7 @@ func (b *Bindings) declare(p *parser, d Declaration) {
 		}
 	}
 
-	p.err(
+	p.err0(
 		p.l.file.Position(d.Pos()),
 		"%v redeclared in this block\n\tprevious declaration at %v",
 		d.Name(),

@@ -1274,7 +1274,7 @@ func (p *parser) fail(nm string) string {
 
 func (p *parser) todo() {
 	_, fn, fl, _ := runtime.Caller(1)
-	p.err(p.position(), "%q=%q: TODO %v:%v", p.c, p.l.lit, fn, fl) //TODOOK
+	p.err("%q=%q: TODO %v:%v", p.c, p.l.lit, fn, fl) //TODOOK
 }
 
 func newTestContext(opt ...Option) (*Context, error) {
@@ -1302,7 +1302,7 @@ func testParser(t *testing.T, packages []*Package) {
 			token.Position{},
 			v.ImportPath,
 			func(p *parser) {
-				p.err(p.position(), "syntax error\n----\n%s", p.fail(p.sourceFile.Path))
+				p.err("syntax error\n----\n%s", p.fail(p.sourceFile.Path))
 			},
 			errorList,
 		).waitFor()
@@ -1569,7 +1569,7 @@ func TestTmp(t *testing.T) { //TODO-
 		t.Fatal(err)
 	}
 
-	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/fixedbugs/issue20789.go")})
+	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/syntax/vareq1.go")})
 	if err == nil {
 		t.Fatal("unexpected success")
 	}

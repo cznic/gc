@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	maxTokenToken = token.VAR
+	maxTokenToken = token.VAR // 85
 )
 
 // Additional tokens.

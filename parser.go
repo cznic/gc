@@ -67,7 +67,7 @@ func (p *parser) init(src *SourceFile, l *Lexer) {
 	p.xref = src.Xref0
 }
 
-func (p *parser) err(position token.Position, msg string, args ...interface{}) {
+func (p *parser) err0(position token.Position, msg string, args ...interface{}) {
 	if p.c == token.EOF {
 		if p.errAtEOF {
 			return
@@ -77,6 +77,8 @@ func (p *parser) err(position token.Position, msg string, args ...interface{}) {
 	}
 	p.sourceFile.Package.errorList.Add(position, fmt.Sprintf(msg, args...))
 }
+
+func (p *parser) err(msg string, args ...interface{}) { p.err0(p.position(), msg, args...) }
 
 func (p *parser) n() token.Token {
 more:
@@ -137,7 +139,9 @@ func (p *parser) must(tok token.Token) (ok bool) {
 	ok = true
 	if p.c != tok {
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting %v", p.unexpected(), tok)
+		if p.c != token.EOF {
+			p.err("syntax error: unexpected %v, expecting %v", p.unexpected(), tok)
+		}
 		ok = false
 	}
 	p.n()
@@ -200,7 +204,7 @@ func (p *parser) position() token.Position { return p.l.file.Position(p.pos()) }
 func (p *parser) strLit(s string) string {
 	value, err := strconv.Unquote(s)
 	if err != nil {
-		p.err(p.position(), "%s: %q", err, s)
+		p.err("%s: %q", err, s)
 		return ""
 	}
 
@@ -342,43 +346,43 @@ func (p *parser) importSpec() {
 		}
 
 		if ip == "" {
-			p.err(p.position(), "import path is empty")
+			p.err("import path is empty")
 			p.n()
 			return
 		}
 
 		if strings.Contains(ip, "\x00") {
-			p.err(p.position(), "import path contains NUL")
+			p.err("import path contains NUL")
 			p.n()
 			return
 		}
 
 		if strings.Contains(ip, "\\") {
-			p.err(p.position(), "import path contains backslash; use slash: %q", ip)
+			p.err("import path contains backslash; use slash: %q", ip)
 			p.n()
 			return
 		}
 
 		if filepath.IsAbs(ip) {
-			p.err(p.position(), "import path cannot be absolute path")
+			p.err("import path cannot be absolute path")
 			p.n()
 			return
 		}
 
 		for _, v := range ip {
 			if unicode.IsControl(v) {
-				p.err(p.position(), "import path contains control character: %q", string(v))
+				p.err("import path contains control character: %q", string(v))
 				p.n()
 				return
 			}
 
 			switch v {
 			case ' ':
-				p.err(p.position(), "import path contains space character: %q", ip)
+				p.err("import path contains space character: %q", ip)
 				p.n()
 				return
 			case '!', '"', '#', '$', '%', '&', '\'', '(', ')', '*', ',', ':', ';', '<', '=', '>', '?', '[', '\\', ']', '^', '`', '{', '|', '}', '\ufffd':
-				p.err(p.position(), "import path contains invalid character %c: %q", v, ip)
+				p.err("import path contains invalid character %c: %q", v, ip)
 				p.n()
 				return
 			}
@@ -387,7 +391,7 @@ func (p *parser) importSpec() {
 				continue
 			}
 
-			p.err(p.position(), "import path contains invalid character %c: %q", v, ip)
+			p.err("import path contains invalid character %c: %q", v, ip)
 			p.n()
 			return
 		}
@@ -414,7 +418,7 @@ func (p *parser) importSpec() {
 		p.n()
 	default:
 		p.syntaxError(p)
-		p.err(p.position(), "import path must be a string")
+		p.err("import path must be a string")
 		if p.noSyntaxErrorFunc {
 			p.skip(token.SEMICOLON)
 		}
@@ -442,7 +446,7 @@ func (p *parser) imports() {
 				p.importSpecList()
 				if p.c == token.COMMA {
 					p.syntaxError(p)
-					p.err(p.position(), "syntax error: unexpected comma, expecting semicolon, newline, or )")
+					p.err("syntax error: unexpected comma, expecting semicolon, newline, or )")
 					p.skip(token.RPAREN)
 				}
 				p.must(token.RPAREN)
@@ -474,7 +478,7 @@ func (p *parser) identList() (l []Token) {
 		}
 	default:
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting name", p.c)
+		p.err("syntax error: unexpected %v, expecting name", p.c)
 	}
 	return l
 }
@@ -513,7 +517,7 @@ func (p *parser) keyValList() /*TODO return value */ {
 	}
 	if p.c == token.SEMICOLON {
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting comma or }", p.unexpected())
+		p.err("syntax error: unexpected %v, expecting comma or }", p.unexpected())
 		p.n()
 	}
 }
@@ -581,7 +585,7 @@ more:
 		if fs != "" {
 			s = s + ", expecting " + fs
 		}
-		p.err(p.position(), s, p.unexpected())
+		p.err(s, p.unexpected())
 
 	}
 	return Token{}
@@ -741,7 +745,7 @@ func (p *parser) primaryExpr2(q *Scope) /*TODO return value */ (empty, isCall bo
 				p.must(token.RPAREN)
 			default:
 				p.syntaxError(p)
-				p.err(p.position(), "syntax error: unexpected %v, expecting name or (", p.unexpected())
+				p.err("syntax error: unexpected %v, expecting name or (", p.unexpected())
 				p.n()
 			}
 		case token.LBRACK:
@@ -949,7 +953,7 @@ func (p *parser) fieldDecl() {
 	case token.MUL:
 		if p.n() == token.LPAREN {
 			p.syntaxError(p)
-			p.err(p.position(), "syntax error: cannot parenthesize embedded type")
+			p.err("syntax error: cannot parenthesize embedded type")
 			p.skip(token.SEMICOLON, token.RBRACE)
 			return
 		}
@@ -957,7 +961,7 @@ func (p *parser) fieldDecl() {
 		p.qualifiedIdent()
 	case token.LPAREN:
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: cannot parenthesize embedded type")
+		p.err("syntax error: cannot parenthesize embedded type")
 		p.skip(token.SEMICOLON, token.RBRACE)
 		return
 	default:
@@ -1004,11 +1008,11 @@ func (p *parser) interfaceDecl() {
 		// nop
 	case token.COMMA:
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: name list not allowed in interface type")
+		p.err("syntax error: name list not allowed in interface type")
 		p.skip(token.SEMICOLON, token.RBRACE)
 	default:
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting semicolon, newline, or }", p.unexpected())
+		p.err("syntax error: unexpected %v, expecting semicolon, newline, or }", p.unexpected())
 		p.skip(token.SEMICOLON, token.RBRACE)
 	}
 }
@@ -1105,7 +1109,7 @@ func (p *parser) otherType(ch token.Token) /*TODO return value */ {
 		p.syntaxError(p)
 		switch ch {
 		case token.CHAN:
-			p.err(p.position(), "syntax error: missing channel element type")
+			p.err("syntax error: missing channel element type")
 		default:
 			//TODO p.err()
 		}
@@ -1204,7 +1208,7 @@ func (p *parser) typ() /*TODO return value */ (tok Token) {
 		p.rxChanType()
 	default:
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v in type declaration", p.unexpected())
+		p.err("syntax error: unexpected %v in type declaration", p.unexpected())
 	}
 	return tok
 }
@@ -1272,7 +1276,7 @@ func (p *parser) varSpec() {
 		return
 	case token.PERIOD:
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting type", p.unexpected())
+		p.err("syntax error: unexpected %v, expecting type", p.unexpected())
 		p.skip(token.SEMICOLON, token.RPAREN)
 		return
 	}
@@ -1536,14 +1540,19 @@ func (p *parser) simpleStmtOpt(acceptRange bool) /*TODO return value */ (isRange
 // ifHeader:
 // 	simpleStmtOpt
 // |	simpleStmtOpt ';' simpleStmtOpt
-func (p *parser) ifHeader() /*TODO return value */ {
+func (p *parser) ifHeader(s string) /*TODO return value */ {
 	p.simpleStmtOpt(false)
 	if p.opt(token.SEMICOLON) {
 		p.simpleStmtOpt(false)
 	}
 	if p.c == token.SEMICOLON {
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: unexpected %v, expecting { after if clause", p.unexpected())
+		switch {
+		case s != "":
+			p.err(s)
+		default:
+			p.err("syntax error: unexpected %v, expecting { after if clause", p.unexpected())
+		}
 		p.skip(token.LBRACE)
 	}
 }
@@ -1563,7 +1572,7 @@ func (p *parser) loopBody() /*TODO return value */ {
 func (p *parser) elseIfList() /*TODO return value */ (isElse bool) {
 	for p.opt(token.ELSE) {
 		if p.opt(token.IF) {
-			p.ifHeader()
+			p.ifHeader("")
 			p.loopBody()
 			continue
 		}
@@ -1587,7 +1596,7 @@ func (p *parser) compoundStmt(ch token.Token) /*TODO return value */ {
 		p.syntaxError(p)
 		switch ch {
 		case token.ELSE:
-			p.err(p.position(), "syntax error: else must be followed by if or statement block")
+			p.err("syntax error: else must be followed by if or statement block")
 		default:
 			//TODO p.err()
 		}
@@ -1625,7 +1634,7 @@ func (p *parser) caseBlockList() /*TODO return value */ {
 			p.stmtList()
 		case token.IF:
 			p.syntaxError(p)
-			p.err(p.position(), "syntax error: unexpected if, expecting case or default or }")
+			p.err("syntax error: unexpected if, expecting case or default or }")
 			p.skip(token.COLON)
 		default:
 			p.pop()
@@ -1664,7 +1673,7 @@ func (p *parser) caseBlockList() /*TODO return value */ {
 // |	commonDecl
 // |	compoundStmt
 // |	simpleStmt
-func (p *parser) stmt() /*TODO return value */ {
+func (p *parser) stmt() /*TODO return value */ (ok bool) {
 more:
 	switch ch := p.c; ch {
 	case token.SEMICOLON, token.RBRACE, token.CASE, token.DEFAULT:
@@ -1673,24 +1682,35 @@ more:
 		p.n()
 		p.opt(token.IDENT)
 	case token.DEFER, token.GO:
+		ok = true
 		p.n()
 		if _, _, isCall := p.expr(); ch == token.GO && !isCall {
-			p.err(p.position(), "expression in go must be function call")
+			p.err("expression in go must be function call")
 		}
 	case token.FALLTHROUGH:
 		p.n()
 	case token.FOR:
+		ok = true
 		p.push(newScope(BlockScope, nil))
 		switch p.n() {
 		case token.RANGE:
 			p.n()
 			p.expr()
+		case token.VAR:
+			p.err("syntax error: var declaration not allowed in for initializer")
+			p.n()
+			fallthrough
 		default:
 			if p.simpleStmtOpt(true) { // range
 				break
 			}
 
 			if p.opt(token.SEMICOLON) {
+				if p.c == tokenBODY {
+					p.err("unexpected {, expecting for loop condition")
+					break
+				}
+
 				p.simpleStmtOpt(false)
 				p.must(token.SEMICOLON)
 				p.simpleStmtOpt(false)
@@ -1703,18 +1723,25 @@ more:
 		p.loopBody()
 		p.pop()
 	case token.GOTO:
+		ok = true
 		p.n()
 		p.must(token.IDENT)
 	case token.IF:
+		ok = true
 		p.n()
 		p.push(newScope(BlockScope, nil))
-		p.ifHeader()
+		if p.c == token.VAR {
+			p.err("syntax error: var declaration not allowed in if initializer")
+			p.n()
+		}
+		p.ifHeader("")
 		p.loopBody()
 		if p.elseIfList() {
 			p.compoundStmt(token.ELSE)
 		}
 		p.pop()
 	case token.RETURN:
+		ok = true
 		p.n()
 		if p.not2(token.SEMICOLON, token.RBRACE) {
 			p.exprList()
@@ -1724,6 +1751,7 @@ more:
 			}
 		}
 	case token.SELECT:
+		ok = true
 		p.n()
 		p.must(tokenBODY)
 		p.push(newScope(BlockScope, nil))
@@ -1731,9 +1759,14 @@ more:
 		p.must(token.RBRACE)
 		p.pop()
 	case token.SWITCH:
+		ok = true
 		p.n()
 		p.push(newScope(BlockScope, nil))
-		p.ifHeader()
+		if p.c == token.VAR {
+			p.err("syntax error: var declaration not allowed in switch initializer")
+			p.n()
+		}
+		p.ifHeader("syntax error: missing { after switch clause")
 		p.must(tokenBODY)
 		p.push(newScope(BlockScope, nil))
 		p.caseBlockList()
@@ -1745,7 +1778,10 @@ more:
 	case token.LBRACE:
 		p.compoundStmt(token.Token(-1))
 	default:
-		if isLabel, _ := p.simpleStmt(false); isLabel && p.opt(token.COLON) {
+		p0 := p.pos()
+		isLabel, _ := p.simpleStmt(false)
+		ok = p.pos() != p0
+		if isLabel && p.opt(token.COLON) {
 			goto more
 		}
 	}
@@ -1753,6 +1789,7 @@ more:
 		p.syntaxError(p)
 		p.n()
 	}
+	return ok
 }
 
 // stmtList:
@@ -1760,7 +1797,19 @@ more:
 // |	stmtList ';' stmt
 func (p *parser) stmtList() /*TODO return value */ {
 	for p.stmt(); p.opt(token.SEMICOLON) && p.not2(token.RBRACE, token.CASE, token.DEFAULT); {
+		if p.c == token.ELSE {
+			p.err("syntax error: unexpected else, expecting }")
+			if p.elseIfList() {
+				p.compoundStmt(token.ELSE)
+			}
+			continue
+		}
+
 		p.stmt()
+	}
+	if p.c == token.LBRACE {
+		p.err("syntax error: unexpected { at end of statement")
+		p.skip(token.RBRACE)
 	}
 }
 
@@ -1819,10 +1868,27 @@ func (p *parser) topLevelDeclList() {
 			p.must(token.RPAREN)
 			p.result()
 			p.fnBody()
+			switch p.c {
+			case token.SEMICOLON:
+				if p.n() != token.LBRACE {
+					continue
+				}
+
+				p.err("syntax error: unexpected semicolon or newline before {")
+				p.skip(token.SEMICOLON)
+			}
 		case token.CONST, token.TYPE, token.VAR:
 			p.commonDecl()
 		default:
 			p.syntaxError(p)
+			if p.stmt() {
+				p.err("syntax error: non-declaration statement outside function body")
+			}
+		}
+		if p.c == token.LBRACE {
+			p.err("syntax error: unexpected { after top level declaration")
+			p.skip(token.RBRACE)
+			p.n()
 		}
 		p.must(token.SEMICOLON)
 	}
@@ -1837,7 +1903,7 @@ func (p *parser) file() {
 	}
 	if p.n() != token.PACKAGE {
 		p.syntaxError(p)
-		p.err(p.position(), "syntax error: package statement must be first")
+		p.err("syntax error: package statement must be first")
 		return
 	}
 

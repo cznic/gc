@@ -575,7 +575,7 @@ func (p *Package) load(position token.Position, paths []string, syntaxError func
 
 	l := NewLexer(nil, nil)
 	y := newParser(nil, nil)
-	l.errHandler = y.err
+	l.errHandler = y.err0
 	l.CommentHandler = y.commentHandler
 	y.syntaxError = syntaxError
 
