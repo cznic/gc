@@ -74,8 +74,9 @@ type Lexer struct {
 	commentOfs int32
 	off        int32 // Next byte offset.
 
-	b byte // Current byte.
-	c byte // Current class.
+	b             byte // Current byte.
+	c             byte // Current class.
+	testingStates bool
 }
 
 // NewLexer returns a newly created Lexer.

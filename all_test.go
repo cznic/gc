@@ -359,6 +359,7 @@ func testScannerStates(t *testing.T) {
 	fset2 := token.NewFileSet()
 	var ss scanner.Scanner
 	l := NewLexer(nil, nil)
+	l.testingStates = true
 	nerr := 0
 
 	var cases, sum int
@@ -1569,7 +1570,7 @@ func TestTmp(t *testing.T) { //TODO-
 		t.Fatal(err)
 	}
 
-	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/syntax/vareq1.go")})
+	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/fixedbugs/bug169.go")})
 	if err == nil {
 		t.Fatal("unexpected success")
 	}
