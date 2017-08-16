@@ -1571,7 +1571,7 @@ func TestTmp(t *testing.T) { //TODO-
 		t.Fatal(err)
 	}
 
-	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/fixedbugs/bug169.go")})
+	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/fixedbugs/bug228.go")})
 	if err == nil {
 		t.Fatal("unexpected success")
 	}
