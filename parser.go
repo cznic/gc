@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"go/token"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -292,6 +293,7 @@ type ImportSpec struct {
 	Package    *Package // The imported package, if exists.
 	Qualifier  string   // `baz` in `import baz "foo/bar"`.
 	declaration
+	used bool
 }
 
 func newImportSpec(tok Token, off int32, dot bool, qualifier, importPath string) *ImportSpec {
@@ -1122,9 +1124,13 @@ func (p *parser) otherType(ch token.Token) /*TODO return value */ {
 func (p *parser) qualifiedIdent() (tok, tok2 Token) {
 	tok, _ = p.mustTok(token.IDENT)
 	if p.opt(token.PERIOD) {
+		d := p.scope.Lookup(p.sourceFile.Package, p.sourceFile.Scope, tok)
+		if d != nil && d.Kind() == ImportDeclaration {
+			d.(*ImportSpec).used = true
+		}
 		tok2, _ = p.mustTok(token.IDENT)
 		if p.xref != nil {
-			if d := p.scope.Lookup(p.sourceFile.Package, p.sourceFile.Scope, tok); d != nil && d.Kind() == ImportDeclaration && isExported(tok2.Val) {
+			if d != nil && d.Kind() == ImportDeclaration && isExported(tok2.Val) {
 				p.xref[tok2] = d.(*ImportSpec).Package.Scope
 			}
 		}
@@ -1404,7 +1410,7 @@ func (p *parser) paramTypeList() /*TODO return value */ (ddd bool) {
 	}
 	for p.opt(token.COMMA) && p.c != token.RPAREN {
 		t, hasName, ellipsis, hasTyp2 := p.paramType()
-		if !hasTyp && hasName && ellipsis  || ddd {
+		if !hasTyp && hasName && ellipsis || ddd {
 			p.err("can only use ... with final parameter in list")
 		}
 		if ellipsis {
@@ -1956,5 +1962,20 @@ func (p *parser) file() {
 		if p.scope != nil && p.scope.Kind != PackageScope {
 			panic("internal error")
 		}
+	}
+	var a []*ImportSpec
+	for _, v := range p.sourceFile.Scope.Bindings {
+		if x := v.(*ImportSpec); !x.used {
+			a = append(a, x)
+		}
+	}
+	sort.Slice(a, func(i, j int) bool { return a[i].Pos() < a[j].Pos() })
+	for _, v := range a {
+		pos := p.l.file.Position(v.Pos())
+		s := ""
+		if v.Qualifier != "" {
+			s = " as " + v.Qualifier
+		}
+		p.err0(pos, "imported and not used: %q%s", v.Package.Name, s)
 	}
 }
