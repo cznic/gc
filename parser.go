@@ -1365,6 +1365,7 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd boo
 		case tokenLTLT:
 			p.genericArgsOpt()
 		case token.ELLIPSIS:
+			hasName = true
 			p.n()
 			p.typ()
 		default:
@@ -1867,7 +1868,9 @@ func (p *parser) topLevelDeclList() {
 				}
 			case token.LPAREN:
 				p.n()
-				p.paramTypeListCommaOptOpt()
+				if p.paramTypeListCommaOptOpt() {
+					p.err("cannot use ... in receiver or result parameter list")
+				}
 				p.must(token.RPAREN)
 				p.must(token.IDENT)
 				p.genericParamsOpt()
