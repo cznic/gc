@@ -1373,6 +1373,11 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName bool) {
 		}
 	case token.ELLIPSIS:
 		p.n()
+		if p.c == token.RPAREN {
+			p.err("syntax error: final argument in variadic function missing type")
+			break
+		}
+
 		p.typ()
 	default:
 		tok = p.typ()
