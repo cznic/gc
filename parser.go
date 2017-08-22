@@ -1350,7 +1350,7 @@ func (p *parser) commonDecl() {
 // |	IDENT typ
 // |	dddType
 // |	typ
-func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd bool) {
+func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd, hasTyp bool) {
 	switch p.c {
 	case token.IDENT:
 		tok = p.tok()
@@ -1365,11 +1365,14 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd boo
 		case tokenLTLT:
 			p.genericArgsOpt()
 		case token.ELLIPSIS:
+			ddd = true
 			hasName = true
+			hasTyp = true
 			p.n()
 			p.typ()
 		default:
 			hasName = true
+			hasTyp = true
 			p.typ()
 		}
 	case token.ELLIPSIS:
@@ -1384,7 +1387,7 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd boo
 	default:
 		tok = p.typ()
 	}
-	return tok, hasName, ddd
+	return tok, hasName, ddd, hasTyp
 }
 
 // paramTypeList:
@@ -1392,7 +1395,7 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd boo
 // |	paramTypeList ',' paramType
 func (p *parser) paramTypeList() /*TODO return value */ (ddd bool) {
 	var names []Token
-	tok, hasNames, ellipsis := p.paramType()
+	tok, hasNames, ellipsis, hasTyp := p.paramType()
 	if ellipsis {
 		ddd = true
 	}
@@ -1400,7 +1403,10 @@ func (p *parser) paramTypeList() /*TODO return value */ (ddd bool) {
 		names = []Token{tok}
 	}
 	for p.opt(token.COMMA) && p.c != token.RPAREN {
-		t, hasName, ellipsis := p.paramType()
+		t, hasName, ellipsis, hasTyp2 := p.paramType()
+		if !hasTyp && hasName && ellipsis  || ddd {
+			p.err("can only use ... with final parameter in list")
+		}
 		if ellipsis {
 			ddd = true
 		}
@@ -1408,6 +1414,7 @@ func (p *parser) paramTypeList() /*TODO return value */ (ddd bool) {
 		if t.Pos.IsValid() {
 			names = append(names, t)
 		}
+		hasTyp = hasTyp2
 	}
 	if hasNames {
 		for _, v := range names {
