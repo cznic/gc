@@ -1350,7 +1350,7 @@ func (p *parser) commonDecl() {
 // |	IDENT typ
 // |	dddType
 // |	typ
-func (p *parser) paramType() /*TODO return value */ (tok Token, hasName bool) {
+func (p *parser) paramType() /*TODO return value */ (tok Token, hasName, ddd bool) {
 	switch p.c {
 	case token.IDENT:
 		tok = p.tok()
@@ -1372,6 +1372,7 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName bool) {
 			p.typ()
 		}
 	case token.ELLIPSIS:
+		ddd = true
 		p.n()
 		if p.c == token.RPAREN {
 			p.err("syntax error: final argument in variadic function missing type")
@@ -1382,20 +1383,26 @@ func (p *parser) paramType() /*TODO return value */ (tok Token, hasName bool) {
 	default:
 		tok = p.typ()
 	}
-	return tok, hasName
+	return tok, hasName, ddd
 }
 
 // paramTypeList:
 // 	paramType
 // |	paramTypeList ',' paramType
-func (p *parser) paramTypeList() /*TODO return value */ {
+func (p *parser) paramTypeList() /*TODO return value */ (ddd bool) {
 	var names []Token
-	tok, hasNames := p.paramType()
+	tok, hasNames, ellipsis := p.paramType()
+	if ellipsis {
+		ddd = true
+	}
 	if tok.Pos.IsValid() {
 		names = []Token{tok}
 	}
 	for p.opt(token.COMMA) && p.c != token.RPAREN {
-		t, hasName := p.paramType()
+		t, hasName, ellipsis := p.paramType()
+		if ellipsis {
+			ddd = true
+		}
 		hasNames = hasNames || hasName
 		if t.Pos.IsValid() {
 			names = append(names, t)
@@ -1406,14 +1413,16 @@ func (p *parser) paramTypeList() /*TODO return value */ {
 			p.scope.declare(p, newVarDecl(v, v.Pos, true))
 		}
 	}
+	return ddd
 }
 
 // paramTypeListCommaOptOpt:
 // |	paramTypeList commaOpt
-func (p *parser) paramTypeListCommaOptOpt() /*TODO return value */ {
+func (p *parser) paramTypeListCommaOptOpt() /*TODO return value */ (ddd bool) {
 	if p.c != token.RPAREN {
-		p.paramTypeList()
+		ddd = p.paramTypeList()
 	}
+	return ddd
 }
 
 // result:
@@ -1431,7 +1440,9 @@ func (p *parser) result() /*TODO return value */ {
 		// nop
 	case token.LPAREN:
 		p.n()
-		p.paramTypeListCommaOptOpt()
+		if p.paramTypeListCommaOptOpt() {
+			p.err("cannot use ... in receiver or result parameter list")
+		}
 		p.must(token.RPAREN)
 	case token.IDENT:
 		p.qualifiedIdent()
