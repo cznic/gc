@@ -282,6 +282,10 @@ var (
 				return err
 			}
 
+			if len(p.GoFiles) == 0 && strings.Contains(p.ImportPath, "/internal/") { // ImportDir does not return the file list for internal packages
+				return nil
+			}
+
 			ctx := &Context{FileSet: ftoken.NewFileSet()}
 			pkg := newPackage(ctx, p.ImportPath, p.Name, nil)
 			for _, v := range p.GoFiles {
@@ -336,6 +340,9 @@ var (
 			}
 		}
 		for _, v := range gorootPackages {
+			if len(v.SourceFiles) == 0 { //TODO-
+				panic(fmt.Errorf("%+v", v))
+			}
 			if !strings.HasPrefix(v.SourceFiles[0].Path, cmd) {
 				stdLibPackages = append(stdLibPackages, v)
 			}
