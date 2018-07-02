@@ -11,7 +11,7 @@
 // TODO(bradfitz): docs of some sort, once we figure out how we're changing
 // headers of files
 
-// Based on http://github.com/golang/go/blob/65c6c88a9442b91d8b2fd0230337b1fda4bb6cdf/test/run.go.
+// Based on https://github.com/golang/go/blob/fe8a0d12b14108cbe2408b417afcaab722b0727c/test/run.go
 
 package gc
 
@@ -20,10 +20,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go/build"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -39,16 +39,18 @@ import (
 )
 
 var (
-	verbose        = flag.Bool("v", false, "verbose. if set, parallelism is set to 1.")
-	keep           = flag.Bool("k", false, "keep. keep temporary directory.")
-	numParallel    = flag.Int("n", 1, "number of parallel tests to run")
-	showSkips      = flag.Bool("show_skips", false, "show skipped tests")
-	runSkips       = flag.Bool("run_skips", false, "run skipped tests (ignore skip and build tags)")
-	linkshared     = flag.Bool("linkshared", false, "")
-	runoutputLimit = flag.Int("l", defaultRunOutputLimit(), "number of parallel runoutput tests to run")
+	verbose        = flag.Bool("chk.v", false, "verbose. if set, parallelism is set to 1.")
+	keep           = flag.Bool("chk.k", false, "keep. keep temporary directory.")
+	numParallel    = flag.Int("chk.n", runtime.NumCPU(), "number of parallel tests to run")
+	summary        = flag.Bool("chk.summary", false, "show summary of results")
+	showSkips      = flag.Bool("chk.show_skips", false, "show skipped tests")
+	runSkips       = flag.Bool("chk.run_skips", false, "run skipped tests (ignore skip and build tags)")
+	linkshared     = flag.Bool("chk.linkshared", false, "")
+	updateErrors   = flag.Bool("chk.update_errors", false, "update error messages in test file based on compiler output")
+	runoutputLimit = flag.Int("chk.l", defaultRunOutputLimit(), "number of parallel runoutput tests to run")
 
-	shard  = flag.Int("shard", 0, "shard index to run. Only applicable if -shards is non-zero.")
-	shards = flag.Int("shards", 0, "number of shards. If 0, all tests are run. This is used by the continuous build.")
+	shard  = flag.Int("chk.shard", 0, "shard index to run. Only applicable if -shards is non-zero.")
+	shards = flag.Int("chk.shards", 0, "number of shards. If 0, all tests are run. This is used by the continuous build.")
 )
 
 var (
@@ -74,42 +76,16 @@ var (
 // It is used as a channel buffer size to make sure sends don't block.
 const maxTests = 5000
 
-func TestErrchk(t *testing.T) {
-	tags := build.Default.ReleaseTags
-	sort.Strings(tags)
-	var tag string
-	if len(tags) != 0 {
-		tag = tags[len(tags)-1]
-	}
-	if tag != "go1.9" {
-		t.Logf("detected %v, requires Go 1.9, skipping.", tag)
-		return
-	}
-
-	for _, v := range os.Args {
-		if v == "-test.v=true" {
-			*verbose = true
-			break
-		}
-	}
-	wd0 := cwd
-	wd := filepath.Join(runtime.GOROOT(), "test")
-	cwd = wd
-	if err := os.Chdir(wd); err != nil {
-		t.Fatal(err)
-	}
-
-	defer func() {
-		if err := os.Chdir(wd0); err != nil {
-			panic("cannot restore working directory")
-		}
-	}()
+func errchkMain() error {
+	// flag.Parse() // We're not more in main()
 
 	goos = getenv("GOOS", runtime.GOOS)
 	goarch = getenv("GOARCH", runtime.GOARCH)
 
+	findExecCmd()
+
 	// Disable parallelism if printing or if using a simulator.
-	if *verbose {
+	if *verbose || len(findExecCmd()) > 0 {
 		*numParallel = 1
 	}
 
@@ -117,9 +93,32 @@ func TestErrchk(t *testing.T) {
 	rungatec = make(chan bool, *runoutputLimit)
 
 	var tests []*test
-	for _, dir := range dirs {
-		for _, baseGoFile := range goFiles(t, dir) {
-			tests = append(tests, startTest(t, dir, baseGoFile))
+	if flag.NArg() > 0 {
+		for _, arg := range flag.Args() {
+			if arg == "-" || arg == "--" {
+				// Permit running:
+				// $ go run run.go - env.go
+				// $ go run run.go -- env.go
+				// $ go run run.go - ./fixedbugs
+				// $ go run run.go -- ./fixedbugs
+				continue
+			}
+			if fi, err := os.Stat(arg); err == nil && fi.IsDir() {
+				for _, baseGoFile := range goFiles(arg) {
+					tests = append(tests, startTest(arg, baseGoFile))
+				}
+			} else if strings.HasSuffix(arg, ".go") {
+				dir, file := filepath.Split(arg)
+				tests = append(tests, startTest(dir, file))
+			} else {
+				log.Fatalf("can't yet deal with non-directory and non-go file %q", arg)
+			}
+		}
+	} else {
+		for _, dir := range dirs {
+			for _, baseGoFile := range goFiles(dir) {
+				tests = append(tests, startTest(dir, baseGoFile))
+			}
 		}
 	}
 
@@ -144,29 +143,39 @@ func TestErrchk(t *testing.T) {
 		resCount[status]++
 		dt := fmt.Sprintf("%.3fs", test.dt.Seconds())
 		if status == "FAIL" {
-			t.Errorf("# go run run.go -- %s\n%s\nFAIL\t%s\t%s\n",
+			//fmt.Printf("# go run run.go -- %s\n%s\nFAIL\t%s\t%s\n",
+			fmt.Printf("# go run run.go -- %s\n%s\nFAIL\t%s\n",
 				path.Join(test.dir, test.gofile),
-				errStr, test.goFileName(), dt)
+				// errStr, test.goFileName(), dt)
+				errStr, test.goFileName())
 			continue
 		}
 		if !*verbose {
 			continue
 		}
-		t.Logf("%s\t%s\t%s\n", status, test.goFileName(), dt)
+		fmt.Printf("%s\t%s\t%s\n", status, test.goFileName(), dt)
 	}
 
-	var a []string
-	for k := range resCount {
-		a = append(a, k)
-	}
-	sort.Strings(a)
-	for _, k := range a {
-		t.Logf("%5d %s\n", resCount[k], k)
+	if *summary {
+		for k, v := range resCount {
+			fmt.Printf("%5d %s\n", v, k)
+		}
 	}
 
 	if failed {
-		t.Logf("failed")
+		// os.Exit(1)
+		return fmt.Errorf("os.Exit(1)")
 	}
+
+	return nil
+}
+
+func toolPath(name string) string {
+	p := filepath.Join(os.Getenv("GOROOT"), "bin", "tool", name)
+	if _, err := os.Stat(p); err != nil {
+		log.Fatalf("didn't find binary at %s", p)
+	}
+	return p
 }
 
 func shardMatch(name string) bool {
@@ -178,11 +187,11 @@ func shardMatch(name string) bool {
 	return int(h.Sum32()%uint32(*shards)) == *shard
 }
 
-func goFiles(t *testing.T, dir string) []string {
+func goFiles(dir string) []string {
 	f, err := os.Open(dir)
-	check(t, err)
+	check(err)
 	dirnames, err := f.Readdirnames(-1)
-	check(t, err)
+	check(err)
 	names := []string{}
 	for _, name := range dirnames {
 		if !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go") && shardMatch(name) {
@@ -233,9 +242,9 @@ type skipError string
 
 func (s skipError) Error() string { return string(s) }
 
-func check(t *testing.T, err error) {
+func check(err error) {
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 }
 
@@ -249,16 +258,16 @@ type test struct {
 
 	tempDir string
 	err     error
-	tt      *testing.T
+
+	ctx *Context
 }
 
 // startTest
-func startTest(tt *testing.T, dir, gofile string) *test {
+func startTest(dir, gofile string) *test {
 	t := &test{
 		dir:    dir,
 		gofile: gofile,
 		donec:  make(chan bool, 1),
-		tt:     tt,
 	}
 	if toRun == nil {
 		toRun = make(chan *test, maxTests)
@@ -421,175 +430,18 @@ func (ctxt *context) match(name string) bool {
 
 func init() { checkShouldTest() }
 
-var exitFail *exec.ExitError
-
-func init() {
-	switch x := exec.Command("sh", "-c", "exit 1").Run().(type) { //TODO Windows
-	case *exec.ExitError:
-		exitFail = x
-	default:
-		panic(fmt.Errorf("%T(%v)", x, x))
-	}
-}
-
-func (t *test) failCmd(cmd *exec.Cmd, msg string, args ...interface{}) error {
-	var b bytes.Buffer
-	fmt.Fprintf(&b, msg, args...)
-	cmd.Stderr.Write(b.Bytes())
-	return &exec.ExitError{
-		ProcessState: exitFail.ProcessState,
-		Stderr:       b.Bytes(),
-	}
-}
-
-func (t *test) failExec(out bool, cmd *exec.Cmd) error {
-	return t.failCmd(cmd, "TODO %v %q in %q\n", out, cmd.Args, cmd.Dir)
-}
-
-func (t *test) goBuild(out bool, cmd *exec.Cmd) error {
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	_ = fs.String("o", "", "write output to file")
-	if err := fs.Parse(cmd.Args[2:]); err != nil {
-		panic(TODO("%q: %v", cmd.Args, err))
-	}
-
-	ctx, err := newTestContext()
-	if err != nil {
-		return err
-	}
-
-	if *oTrc {
-		fmt.Printf("goBuild(%q) in %q\n", cmd.Args, cmd.Dir)
-	}
-	if _, err := ctx.Build(fs.Args()); err != nil {
-		return t.failCmd(cmd, "%s", errString(err))
-	}
-
-	return nil
-}
-
-func (t *test) goRun(out bool, cmd *exec.Cmd) error {
-	return t.failExec(out, cmd)
-}
-
-func (t *test) goToolCompile(out bool, cmd *exec.Cmd) error {
-	var args []string
-	var optl string
-	for _, v := range cmd.Args {
-		switch {
-		case v == "-l", strings.HasPrefix(v, "-l="):
-			optl = v
-		default:
-			args = append(args, v)
-		}
-	}
-	fs := flag.NewFlagSet("", flag.ContinueOnError)
-	//optl := fs.Int("l", 0, "disable inlining")
-	_ = fs.Bool("N", false, "disable optimizations")
-	_ = fs.Int("c", 1, "concurrency during compilation, 1 means no concurrency (default 1)")
-	_ = fs.String("o", "", "write output to file")
-	optC := fs.Bool("C", false, "disable printing of columns in error messages")
-	optD := fs.String("D", "", "set relative path for local imports")
-	optI := fs.String("I", "", "add directory to import search path")
-	optLive := fs.Bool("live", false, "debug liveness analysis")
-	optPlus := fs.Bool("+", false, "compiling runtime")
-	optRace := fs.Bool("race", false, "enable race detector")
-	optStd := fs.Bool("std", false, "compiling standard library")
-	optWb := fs.Int("wb", 0, "enable write barrier (default true)")
-	optd := fs.String("d", "", "print debug information about items in list")
-	opte := fs.Bool("e", false, "no limit on number of errors reported")
-	optm := fs.Bool("m", false, "print optimization decisions")
-	if err := fs.Parse(args[3:]); err != nil {
-		panic(TODO("%q: %v", cmd.Args, err))
-	}
-
-	if *optStd {
-		return t.failCmd(cmd, "TODO -std")
-	}
-
-	if *optd != "" {
-		return t.failCmd(cmd, "TODO -d")
-	}
-
-	if optl != "" {
-		return t.failCmd(cmd, "TODO -l")
-	}
-
-	if *optLive {
-		return t.failCmd(cmd, "TODO -live")
-	}
-
-	if *optm {
-		return t.failCmd(cmd, "TODO -m")
-	}
-
-	if *optPlus {
-		return t.failCmd(cmd, "TODO -+")
-	}
-
-	if *optRace {
-		return t.failCmd(cmd, "TODO -race")
-	}
-
-	if *optWb != 0 {
-		return t.failCmd(cmd, "TODO -wb")
-	}
-
-	var opt []Option
-	if *optC {
-		opt = append(opt, NoErrorColumns())
-	}
-	if s := *optD; s != "" {
-		opt = append(opt, LocalImportsPath(s))
-	}
-	if s := *optI; s != "" {
-		opt = append(opt, addSearchPath(s))
-	}
-	if *opte {
-		opt = append(opt, NoErrorLimit())
-	}
-
-	ctx, err := newTestContext(opt...)
-	if err != nil {
-		return err
-	}
-
-	if *oTrc {
-		fmt.Printf("goToolCompile(%q) in %q\n", cmd.Args, cmd.Dir)
-	}
-	if _, err := ctx.Build(fs.Args()); err != nil {
-		return t.failCmd(cmd, "%s", errString(err))
-	}
-
-	return nil
-}
-
-func (t *test) runCmd(out bool, cmd *exec.Cmd) error {
-	switch cmd.Args[0] {
-	case "go":
-		switch cmd.Args[1] {
-		case "build":
-			return t.goBuild(out, cmd)
-		case "run":
-			return t.goRun(out, cmd)
-		case "tool":
-			switch cmd.Args[2] {
-			case "compile":
-				return t.goToolCompile(out, cmd)
-			default:
-				//TODO t.tt.Logf("TODO %v %q, %q in %q", out, cmd.Args[2], cmd.Args, cmd.Dir)
-				return nil
-			}
-		default:
-			panic(TODO("%v %q in %q", out, cmd.Args[1], cmd.Dir))
-		}
-	default:
-		panic(TODO("%v %q in %q", out, cmd.Args[0], cmd.Dir))
-	}
+// goGcflags returns the -gcflags argument to use with go build / go run.
+// This must match the flags used for building the standard library,
+// or else the commands will rebuild any needed packages (like runtime)
+// over and over.
+func goGcflags() string {
+	return "-gcflags=" + os.Getenv("GO_GCFLAGS")
 }
 
 // run runs a test.
 func (t *test) run() {
+	defer func() { t.ctx = nil }()
+
 	start := time.Now()
 	defer func() {
 		t.dt = time.Since(start)
@@ -696,7 +548,7 @@ func (t *test) run() {
 	}
 
 	err = ioutil.WriteFile(filepath.Join(t.tempDir, t.gofile), srcBytes, 0644)
-	check(t.tt, err)
+	check(err)
 
 	// A few tests (of things like the environment) require these to be set.
 	if os.Getenv("GOOS") == "" {
@@ -707,7 +559,7 @@ func (t *test) run() {
 	}
 
 	useTmp := true
-	runcmd0 := func(out bool, args ...string) ([]byte, error) {
+	runcmd := func(args ...string) ([]byte, error) {
 		cmd := exec.Command(args[0], args[1:]...)
 		var buf bytes.Buffer
 		cmd.Stdout = &buf
@@ -722,11 +574,13 @@ func (t *test) run() {
 		var err error
 
 		if tim != 0 {
+			panic("XTODO569")
 			err = cmd.Start()
 			// This command-timeout code adapted from cmd/go/test.go
 			if err == nil {
 				tick := time.NewTimer(time.Duration(tim) * time.Second)
 				done := make(chan error)
+				panic("XTODO575")
 				go func() {
 					done <- cmd.Wait()
 				}()
@@ -741,15 +595,14 @@ func (t *test) run() {
 				tick.Stop()
 			}
 		} else {
-			err = t.runCmd(out, cmd)
+			// err = cmd.Run()
+			err = proc(t, cmd).Run()
 		}
 		if err != nil {
 			err = fmt.Errorf("%s\n%s", err, buf.Bytes())
 		}
 		return buf.Bytes(), err
 	}
-	runcmd1 := func(args ...string) ([]byte, error) { return runcmd0(false, args...) }
-	runcmd2 := func(args ...string) ([]byte, error) { return runcmd0(true, args...) }
 
 	long := filepath.Join(cwd, t.goFileName())
 	switch action {
@@ -762,7 +615,7 @@ func (t *test) run() {
 		// No need to add -dynlink even if linkshared if we're just checking for errors...
 		cmdline = append(cmdline, flags...)
 		cmdline = append(cmdline, long)
-		out, err := runcmd2(cmdline...)
+		out, err := runcmd(cmdline...)
 		if wantError {
 			if err == nil {
 				t.err = fmt.Errorf("compilation succeeded unexpectedly\n%s", out)
@@ -774,11 +627,14 @@ func (t *test) run() {
 				return
 			}
 		}
+		if *updateErrors {
+			t.updateErrors(string(out), long)
+		}
 		t.err = t.errorCheck(string(out), wantAuto, long, t.gofile)
 		return
 
 	case "compile":
-		_, t.err = compileFile(runcmd1, long, flags)
+		_, t.err = compileFile(runcmd, long, flags)
 
 	case "compiledir":
 		// Compile all files in the directory in lexicographic order.
@@ -789,7 +645,7 @@ func (t *test) run() {
 			return
 		}
 		for _, gofiles := range pkgs {
-			_, t.err = compileInDir(runcmd1, longdir, flags, gofiles...)
+			_, t.err = compileInDir(runcmd, longdir, flags, gofiles...)
 			if t.err != nil {
 				return
 			}
@@ -805,7 +661,7 @@ func (t *test) run() {
 			return
 		}
 		for i, gofiles := range pkgs {
-			out, err := compileInDir(runcmd2, longdir, flags, gofiles...)
+			out, err := compileInDir(runcmd, longdir, flags, gofiles...)
 			if i == len(pkgs)-1 {
 				if wantError && err == nil {
 					t.err = fmt.Errorf("compilation succeeded unexpectedly\n%s", out)
@@ -842,25 +698,22 @@ func (t *test) run() {
 			return
 		}
 		for i, gofiles := range pkgs {
-			_, err := compileInDir(runcmd1, longdir, flags, gofiles...)
+			_, err := compileInDir(runcmd, longdir, flags, gofiles...)
 			if err != nil {
 				t.err = err
 				return
 			}
 			if i == len(pkgs)-1 {
-				t.err = fmt.Errorf("TODO rundir exec %q", gofiles[0]) //TODO-
-				return                                                //TODO-
-
-				err = linkFile(runcmd1, gofiles[0])
+				err = linkFile(runcmd, gofiles[0])
 				if err != nil {
 					t.err = err
 					return
 				}
 				var cmd []string
-				//cmd = append(cmd, findExecCmd()...)
+				cmd = append(cmd, findExecCmd()...)
 				cmd = append(cmd, filepath.Join(t.tempDir, "a.exe"))
 				cmd = append(cmd, args...)
-				out, err := runcmd2(cmd...)
+				out, err := runcmd(cmd...)
 				if err != nil {
 					t.err = err
 					return
@@ -872,7 +725,7 @@ func (t *test) run() {
 		}
 
 	case "build":
-		_, err := runcmd1("go", "build", "-o", "a.exe", long)
+		_, err := runcmd("go", "build", goGcflags(), "-o", "a.exe", long)
 		if err != nil {
 			t.err = err
 		}
@@ -899,10 +752,13 @@ func (t *test) run() {
 		}
 		var objs []string
 		cmd := []string{"go", "tool", "compile", "-e", "-D", ".", "-I", ".", "-o", "go.o"}
+		if len(asms) > 0 {
+			cmd = append(cmd, "-asmhdr", "go_asm.h")
+		}
 		for _, file := range gos {
 			cmd = append(cmd, filepath.Join(longdir, file.Name()))
 		}
-		_, err := runcmd1(cmd...)
+		_, err := runcmd(cmd...)
 		if err != nil {
 			t.err = err
 			break
@@ -913,7 +769,7 @@ func (t *test) run() {
 			for _, file := range asms {
 				cmd = append(cmd, filepath.Join(longdir, file.Name()))
 			}
-			_, err = runcmd1(cmd...)
+			_, err = runcmd(cmd...)
 			if err != nil {
 				t.err = err
 				break
@@ -922,13 +778,13 @@ func (t *test) run() {
 		}
 		cmd = []string{"go", "tool", "pack", "c", "all.a"}
 		cmd = append(cmd, objs...)
-		_, err = runcmd1(cmd...)
+		_, err = runcmd(cmd...)
 		if err != nil {
 			t.err = err
 			break
 		}
 		cmd = []string{"go", "tool", "link", "all.a"}
-		_, err = runcmd1(cmd...)
+		_, err = runcmd(cmd...)
 		if err != nil {
 			t.err = err
 			break
@@ -937,20 +793,20 @@ func (t *test) run() {
 	case "buildrun": // build binary, then run binary, instead of go run. Useful for timeout tests where failure mode is infinite loop.
 		// TODO: not supported on NaCl
 		useTmp = true
-		cmd := []string{"go", "build", "-o", "a.exe"}
+		cmd := []string{"go", "build", goGcflags(), "-o", "a.exe"}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
 		longdirgofile := filepath.Join(filepath.Join(cwd, t.dir), t.gofile)
 		cmd = append(cmd, flags...)
 		cmd = append(cmd, longdirgofile)
-		out, err := runcmd2(cmd...)
+		out, err := runcmd(cmd...)
 		if err != nil {
 			t.err = err
 			return
 		}
 		cmd = []string{"./a.exe"}
-		out, err = runcmd2(append(cmd, args...)...)
+		out, err = runcmd(append(cmd, args...)...)
 		if err != nil {
 			t.err = err
 			return
@@ -962,13 +818,38 @@ func (t *test) run() {
 
 	case "run":
 		useTmp = false
-		cmd := []string{"go", "run"}
-		if *linkshared {
-			cmd = append(cmd, "-linkshared")
+		var out []byte
+		var err error
+		if len(flags)+len(args) == 0 && goGcflags() == "" && !*linkshared {
+			// If we're not using special go command flags,
+			// skip all the go command machinery.
+			// This avoids any time the go command would
+			// spend checking whether, for example, the installed
+			// package runtime is up to date.
+			// Because we run lots of trivial test programs,
+			// the time adds up.
+			pkg := filepath.Join(t.tempDir, "pkg.a")
+			if _, err := runcmd("go", "tool", "compile", "-o", pkg, t.goFileName()); err != nil {
+				t.err = err
+				return
+			}
+			exe := filepath.Join(t.tempDir, "test.exe")
+			cmd := []string{"go", "tool", "link", "-s", "-w"}
+			cmd = append(cmd, "-o", exe, pkg)
+			if _, err := runcmd(cmd...); err != nil {
+				t.err = err
+				return
+			}
+			out, err = runcmd(append([]string{exe}, args...)...)
+		} else {
+			cmd := []string{"go", "run", goGcflags()}
+			if *linkshared {
+				cmd = append(cmd, "-linkshared")
+			}
+			cmd = append(cmd, flags...)
+			cmd = append(cmd, t.goFileName())
+			out, err = runcmd(append(cmd, args...)...)
 		}
-		cmd = append(cmd, flags...)
-		cmd = append(cmd, t.goFileName())
-		out, err := runcmd2(append(cmd, args...)...)
 		if err != nil {
 			t.err = err
 			return
@@ -983,12 +864,12 @@ func (t *test) run() {
 			<-rungatec
 		}()
 		useTmp = false
-		cmd := []string{"go", "run"}
+		cmd := []string{"go", "run", goGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
 		cmd = append(cmd, t.goFileName())
-		out, err := runcmd2(append(cmd, args...)...)
+		out, err := runcmd(append(cmd, args...)...)
 		if err != nil {
 			t.err = err
 			return
@@ -998,12 +879,12 @@ func (t *test) run() {
 			t.err = fmt.Errorf("write tempfile:%s", err)
 			return
 		}
-		cmd = []string{"go", "run"}
+		cmd = []string{"go", "run", goGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
 		cmd = append(cmd, tfile)
-		out, err = runcmd2(cmd...)
+		out, err = runcmd(cmd...)
 		if err != nil {
 			t.err = err
 			return
@@ -1014,12 +895,12 @@ func (t *test) run() {
 
 	case "errorcheckoutput":
 		useTmp = false
-		cmd := []string{"go", "run"}
+		cmd := []string{"go", "run", goGcflags()}
 		if *linkshared {
 			cmd = append(cmd, "-linkshared")
 		}
 		cmd = append(cmd, t.goFileName())
-		out, err := runcmd2(append(cmd, args...)...)
+		out, err := runcmd(append(cmd, args...)...)
 		if err != nil {
 			t.err = err
 			return
@@ -1033,7 +914,7 @@ func (t *test) run() {
 		cmdline := []string{"go", "tool", "compile", "-e", "-o", "a.o"}
 		cmdline = append(cmdline, flags...)
 		cmdline = append(cmdline, tfile)
-		out, err = runcmd2(cmdline...)
+		out, err = runcmd(cmdline...)
 		if wantError {
 			if err == nil {
 				t.err = fmt.Errorf("compilation succeeded unexpectedly\n%s", out)
@@ -1050,6 +931,23 @@ func (t *test) run() {
 	}
 }
 
+var execCmd []string
+
+func findExecCmd() []string {
+	if execCmd != nil {
+		return execCmd
+	}
+	execCmd = []string{} // avoid work the second time
+	if goos == runtime.GOOS && goarch == runtime.GOARCH {
+		return execCmd
+	}
+	path, err := exec.LookPath(fmt.Sprintf("go_%s_%s_exec", goos, goarch))
+	if err == nil {
+		execCmd = []string{path}
+	}
+	return execCmd
+}
+
 func (t *test) String() string {
 	return filepath.Join(t.dir, t.gofile)
 }
@@ -1057,9 +955,9 @@ func (t *test) String() string {
 func (t *test) makeTempDir() {
 	var err error
 	t.tempDir, err = ioutil.TempDir("", "")
-	check(t.tt, err)
+	check(err)
 	if *keep {
-		t.tt.Logf("Temporary directory is %s", t.tempDir)
+		log.Printf("Temporary directory is %s", t.tempDir)
 	}
 }
 
@@ -1094,7 +992,7 @@ func splitOutput(out string, wantAuto bool) []string {
 func (t *test) errorCheck(outStr string, wantAuto bool, fullshort ...string) (err error) {
 	defer func() {
 		if *verbose && err != nil {
-			t.tt.Logf("%s gc output:\n%s", t, outStr)
+			log.Printf("%s gc output:\n%s", t, outStr)
 		}
 	}()
 	var errs []error
@@ -1167,6 +1065,76 @@ func (t *test) errorCheck(outStr string, wantAuto bool, fullshort ...string) (er
 	return errors.New(buf.String())
 }
 
+func (t *test) updateErrors(out, file string) {
+	base := path.Base(file)
+	// Read in source file.
+	src, err := ioutil.ReadFile(file)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	lines := strings.Split(string(src), "\n")
+	// Remove old errors.
+	for i, ln := range lines {
+		pos := strings.Index(ln, " // ERROR ")
+		if pos >= 0 {
+			lines[i] = ln[:pos]
+		}
+	}
+	// Parse new errors.
+	errors := make(map[int]map[string]bool)
+	tmpRe := regexp.MustCompile(`autotmp_[0-9]+`)
+	for _, errStr := range splitOutput(out, false) {
+		colon1 := strings.Index(errStr, ":")
+		if colon1 < 0 || errStr[:colon1] != file {
+			continue
+		}
+		colon2 := strings.Index(errStr[colon1+1:], ":")
+		if colon2 < 0 {
+			continue
+		}
+		colon2 += colon1 + 1
+		line, err := strconv.Atoi(errStr[colon1+1 : colon2])
+		line--
+		if err != nil || line < 0 || line >= len(lines) {
+			continue
+		}
+		msg := errStr[colon2+2:]
+		msg = strings.Replace(msg, file, base, -1) // normalize file mentions in error itself
+		msg = strings.TrimLeft(msg, " \t")
+		for _, r := range []string{`\`, `*`, `+`, `[`, `]`, `(`, `)`} {
+			msg = strings.Replace(msg, r, `\`+r, -1)
+		}
+		msg = strings.Replace(msg, `"`, `.`, -1)
+		msg = tmpRe.ReplaceAllLiteralString(msg, `autotmp_[0-9]+`)
+		if errors[line] == nil {
+			errors[line] = make(map[string]bool)
+		}
+		errors[line][msg] = true
+	}
+	// Add new errors.
+	for line, errs := range errors {
+		var sorted []string
+		for e := range errs {
+			sorted = append(sorted, e)
+		}
+		sort.Strings(sorted)
+		lines[line] += " // ERROR"
+		for _, e := range sorted {
+			lines[line] += fmt.Sprintf(` "%s$"`, e)
+		}
+	}
+	// Write new file.
+	err = ioutil.WriteFile(file, []byte(strings.Join(lines, "\n")), 0640)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	// Polish.
+	panic("XTODO1123")
+	exec.Command("go", "fmt", file).CombinedOutput()
+}
+
 // matchPrefix reports whether s is of the form ^(.*/)?prefix(:|[),
 // That is, it needs the file name prefix followed by a : or a [,
 // and possibly preceded by a directory name.
@@ -1237,7 +1205,7 @@ func (t *test) wantedErrors(file, short string) (errs []wantedError) {
 		all := m[1]
 		mm := errQuotesRx.FindAllStringSubmatch(all, -1)
 		if mm == nil {
-			t.tt.Fatalf("%s:%d: invalid errchk line: %s", t.goFileName(), lineNum, line)
+			log.Fatalf("%s:%d: invalid errchk line: %s", t.goFileName(), lineNum, line)
 		}
 		for _, m := range mm {
 			rx := lineRx.ReplaceAllStringFunc(m[1], func(m string) string {
@@ -1256,7 +1224,7 @@ func (t *test) wantedErrors(file, short string) (errs []wantedError) {
 				var err error
 				re, err = regexp.Compile(rx)
 				if err != nil {
-					t.tt.Fatalf("%s:%d: invalid regexp \"%s\" in ERROR line: %v", t.goFileName(), lineNum, rx, err)
+					log.Fatalf("%s:%d: invalid regexp \"%s\" in ERROR line: %v", t.goFileName(), lineNum, rx, err)
 				}
 				cache[rx] = re
 			}
@@ -1342,4 +1310,262 @@ func getenv(key, def string) string {
 		return value
 	}
 	return def
+}
+
+// ============================================================================
+
+func TestErrchk(t *testing.T) {
+	if *oNoErrchk {
+		t.Log("disabled by -noerrchk")
+		return
+	}
+
+	const dir = "testdata/errchk/test/"
+	dir0, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		if err := os.Chdir(dir0); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	cwd, err = os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := errchkMain(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type vm struct {
+	cmd *exec.Cmd
+	t   *test
+}
+
+func proc(t *test, cmd *exec.Cmd) *vm {
+	if t.ctx == nil {
+		var err error
+		if t.ctx, err = newTestContext(); err != nil {
+			panic(err)
+		}
+
+		t.ctx.tweaks.errchk = true
+	}
+	return &vm{t: t, cmd: cmd}
+}
+
+func (v *vm) opt(list []Option) {
+	ctx := v.t.ctx
+	ctx.tweaks = tweaks{}
+	for _, v := range list {
+		if err := v(ctx); err != nil {
+			panic(err)
+		}
+	}
+	ctx.tweaks.errchk = true
+}
+
+func (v *vm) Run() error {
+	if *oTrc {
+		fmt.Println(v.cmd.Args)
+	}
+	args := v.cmd.Args
+	if len(args) == 0 {
+		panic("not enough arguments to exec.Run")
+	}
+
+	switch arg := args[0]; arg {
+	case "go":
+		return v.Go(args[1:])
+	default:
+		panic(arg)
+	}
+}
+
+func (v *vm) Go(args []string) error {
+	if len(args) == 0 {
+		panic("not enough arguments to 'go'")
+	}
+
+	switch arg := args[0]; arg {
+	case "build":
+		return v.GoBuild(args[1:])
+	case "run":
+		return v.GoRun(args[1:])
+	case "tool":
+		return v.GoTool(args[1:])
+	default:
+		panic(arg)
+	}
+}
+
+func (v *vm) GoBuild(args []string) error {
+	if len(args) == 0 {
+		panic("not enough arguments to 'go build'")
+	}
+
+	flags := flag.NewFlagSet("go build", flag.ContinueOnError)
+	gcflags := flags.String("gcflags", "", "'[pattern=]arg list' arguments to pass on each go tool compile invocation.")
+	_ = flags.String("o", "", "forces build to write the resulting executable or object to the named output file.")
+	if err := flags.Parse(args); err != nil {
+		panic(err)
+	}
+
+	if flags.NArg() == 0 {
+		panic("not enough qrguments to 'go build'")
+	}
+
+	var opts []Option
+
+	if s := *gcflags; s != "" {
+		panic(s)
+	}
+
+	v.opt(opts)
+	if _, err := v.t.ctx.Build(flags.Args()); err != nil {
+		fmt.Fprintf(v.cmd.Stdout, "%s", err)
+		return err
+	}
+
+	return nil
+}
+
+func (v *vm) GoRun(args []string) error {
+	if len(args) == 0 {
+		panic("not enough arguments to 'go run'")
+	}
+
+	flags := flag.NewFlagSet("go run", flag.ContinueOnError)
+	gcflags := flags.String("gcflags", "", "'[pattern=]arg list' arguments to pass on each go tool compile invocation.")
+	if err := flags.Parse(args); err != nil {
+		panic(err)
+	}
+
+	if flags.NArg() == 0 {
+		panic("not enough arguments to 'go run'")
+	}
+
+	var opts []Option
+
+	if s := *gcflags; s != "" {
+		switch s {
+		case "-l=4":
+		default:
+			panic(fmt.Sprintf("%q", s))
+		}
+	}
+
+	v.opt(opts)
+	if _, err := v.t.ctx.Build(flags.Args()); err != nil {
+		fmt.Fprintf(v.cmd.Stdout, "%s", err)
+	}
+
+	//TODO ctx.Build ok, actually execute
+	return nil
+}
+
+func (v *vm) GoTool(args []string) error {
+	if len(args) == 0 {
+		panic("not enough arguments 'go tool'")
+	}
+
+	switch arg := args[0]; arg {
+	case "asm":
+		return fmt.Errorf("XTODO 1469 %v", v.cmd.Args)
+	case "compile":
+		return v.GoToolCompile(args[1:])
+	case "link":
+		return fmt.Errorf("XTODO 1472 %v", v.cmd.Args)
+	default:
+		panic(arg)
+	}
+	return nil
+}
+
+func (v *vm) GoToolCompile(args []string) error {
+	if len(args) == 0 {
+		panic("not enough arguments 'go tool compile'")
+	}
+
+	flags := flag.NewFlagSet("go tool compile", flag.ContinueOnError)
+
+	C := flags.Bool("C", false, "disable printing of columns in error messages")
+	D := flags.String("D", "", "set relative path for local imports")
+	I := flags.String("I", "", "add directory to import search path")
+	_ = flags.Bool("+", false, "compiling runtime")
+	_ = flags.Bool("N", false, "disable optimizations")
+	_ = flags.Bool("l", false, "disable inlining")
+	_ = flags.Bool("live", false, "debug liveness analysis")
+	_ = flags.Bool("m", false, "print optimization decisions")
+	_ = flags.Bool("race", false, "enable race detector")
+	_ = flags.Bool("std", false, "compiling standard library")
+	_ = flags.Bool("wb", true, "enable write barrier")
+	_ = flags.Int("c", 1, "concurrency during compilation, 1 means no concurrency (default 1)")
+	_ = flags.String("asmhdr", "", "write assembly header to file")
+	_ = flags.String("d", "", "print debug information about items in list; try -d help")
+	_ = flags.String("o", "", "write output to file")
+	e := flags.Bool("e", false, "no limit on number of errors reported")
+
+	w := 0
+	for _, v := range args {
+		if strings.HasPrefix(v, "-l=") {
+			continue
+		}
+
+		args[w] = v
+		w++
+	}
+	args = args[:w]
+
+	if err := flags.Parse(args); err != nil {
+		panic(err)
+	}
+
+	var opts []Option
+
+	if *C {
+		opts = append(opts, NoErrorColumns())
+	}
+	if s := *D; s != "" {
+		opts = append(opts, LocalImportsPath(s))
+	}
+	if s := *I; s != "" {
+		opts = append(opts, addSearchPath(s))
+	}
+	if *e {
+		opts = append(opts, NoErrorLimit())
+	}
+
+	v.opt(opts)
+	p, err := v.t.ctx.Build(flags.Args())
+	if err != nil {
+		fmt.Fprintf(v.cmd.Stdout, "%s", err)
+		return err
+	}
+
+	switch {
+	case flags.NArg() == 1:
+		ip := filepath.Join(filepath.Dir(flags.Arg(0)), p.Name)
+		ctx := v.t.ctx
+		ctx.packagesMu.Lock()
+		if _, ok := ctx.packages[ip]; ok {
+			ctx.packagesMu.Unlock()
+			return fmt.Errorf("XTODO 1561 %v", v.cmd.Args)
+		}
+
+		ctx.packages[ip] = p
+		ctx.packagesMu.Unlock()
+	default:
+		return fmt.Errorf("XTODO 1567 %v", v.cmd.Args)
+	}
+	return nil
 }

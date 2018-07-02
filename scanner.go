@@ -6,10 +6,10 @@ package gc
 
 import (
 	"bytes"
-	"go/token"
+	gotoken "go/token"
 	"unicode/utf8"
 
-	"github.com/cznic/gc/internal/ftoken"
+	"github.com/cznic/token"
 )
 
 // Non ASCII character classes.
@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	maxTokenToken = token.VAR // 85
+	maxTokenToken = gotoken.VAR // 85
 )
 
 // Additional tokens.
@@ -41,57 +41,58 @@ var (
 	nlLit         = []byte{'\n'}
 
 	semiTriggerTokens = [...]bool{
-		token.BREAK:       true,
-		token.CHAR:        true,
-		token.CONTINUE:    true,
-		token.DEC:         true,
-		token.FALLTHROUGH: true,
-		token.FLOAT:       true,
-		token.IDENT:       true,
-		token.IMAG:        true,
-		token.INC:         true,
-		token.INT:         true,
-		token.RBRACE:      true,
-		token.RBRACK:      true,
-		token.RETURN:      true,
-		token.RPAREN:      true,
-		token.STRING:      true,
-		tokenGTGT:         true,
+		gotoken.BREAK:       true,
+		gotoken.CHAR:        true,
+		gotoken.CONTINUE:    true,
+		gotoken.DEC:         true,
+		gotoken.FALLTHROUGH: true,
+		gotoken.FLOAT:       true,
+		gotoken.IDENT:       true,
+		gotoken.IMAG:        true,
+		gotoken.INC:         true,
+		gotoken.INT:         true,
+		gotoken.RBRACE:      true,
+		gotoken.RBRACK:      true,
+		gotoken.RETURN:      true,
+		gotoken.RPAREN:      true,
+		gotoken.STRING:      true,
+		tokenGTGT:           true,
 	}
 )
 
-// Lexer tokenizes source code.
-type Lexer struct {
-	CommentHandler func(off int32, lit []byte)
+type lexer struct {
+	commentHandler func(off int, lit []byte)
+	commentOfs     int
 	errHandler     func(position token.Position, msg string, args ...interface{})
 	errorCount     int // Number of errors encountered.
-	file           *ftoken.File
-	fname          *string
+	file           *token.File
+	fname          string
 	lit            []byte
-	prev           token.Token
+	off            int // Next byte offset.
+	prev           gotoken.Token
+	sourceFile     *SourceFile
 	src            []byte
-
-	commentOfs int32
-	off        int32 // Next byte offset.
 
 	b byte // Current byte.
 	c byte // Current class.
 }
 
-// NewLexer returns a newly created Lexer.
-func NewLexer(file *ftoken.File, src []byte) *Lexer {
-	l := &Lexer{
-		file: file,
-		src:  src,
+func newLexer(sourceFile *SourceFile, src []byte) *lexer {
+	l := &lexer{
+		sourceFile: sourceFile,
+		src:        src,
+	}
+	if sourceFile != nil {
+		l.file = sourceFile.File
 	}
 	if bytes.HasPrefix(src, bom) {
-		l.off = int32(len(bom))
+		l.off = len(bom)
 	}
 	l.n()
 	return l
 }
 
-func (l *Lexer) init(file *ftoken.File, src []byte) *Lexer {
+func (l *lexer) init(file *token.File, src []byte) *lexer {
 	l.commentOfs = -1
 	l.errorCount = 0
 	l.lit = nil
@@ -99,8 +100,11 @@ func (l *Lexer) init(file *ftoken.File, src []byte) *Lexer {
 	l.prev = tokenNL
 	l.src = src
 	l.c = classNext
-	l.fname = nil
+	l.fname = ""
 	l.file = file
+	if l.sourceFile == nil {
+		l.sourceFile = &SourceFile{File: file}
+	}
 	if bytes.HasPrefix(src, bom) {
 		l.off = 3
 	}
@@ -108,24 +112,26 @@ func (l *Lexer) init(file *ftoken.File, src []byte) *Lexer {
 	return l
 }
 
-func (l *Lexer) err(position token.Position, msg string, args ...interface{}) {
+func (l *lexer) err(position token.Position, msg string, args ...interface{}) {
 	l.errorCount++
 	if l.errHandler != nil {
 		l.errHandler(position, msg, args...)
 	}
 }
 
-func (l *Lexer) pos(off int32) token.Pos { return l.file.Pos(int(off)) }
+func (l *lexer) pos(off int) token.Pos { return l.file.Pos(off) }
 
-func (l *Lexer) position(off int32) token.Position { return l.file.Position(l.pos(off)) }
+func (l *lexer) position(off int) token.Position { return l.file.Position(l.pos(off)) }
 
 // Token returns the last scanned Token. 'off' must be the offset returned from
 // last call to Scan().
-func (l *Lexer) Token(off int32) Token { return Token{l.pos(off), string(l.lit)} }
+func (l *lexer) Token(off int) Token {
+	return Token{npos: npos{tpos: l.pos(off), sf: l.sourceFile}, Val: string(l.lit)}
+}
 
 // Returns class.
-func (l *Lexer) n() byte { // n == next
-	if l.off == int32(len(l.src)) {
+func (l *lexer) n() byte { // n == next
+	if l.off == len(l.src) {
 		if l.c != classEOF {
 		}
 		l.c = classEOF
@@ -141,7 +147,7 @@ func (l *Lexer) n() byte { // n == next
 		l.c = classNonASCII
 		switch l.b {
 		case 0xc2: // {"«","»"}[0]
-			if l.off < int32(len(l.src)) {
+			if l.off < len(l.src) {
 				switch l.src[l.off] {
 				case 0xab:
 					l.c = classLTLT
@@ -150,7 +156,7 @@ func (l *Lexer) n() byte { // n == next
 				}
 			}
 		case 0xef: // BOM[0]
-			if l.off+1 < int32(len(l.src)) && l.src[l.off] == 0xbb && l.src[l.off+1] == 0xbf {
+			if l.off+1 < len(l.src) && l.src[l.off] == 0xbb && l.src[l.off+1] == 0xbf {
 				l.err(l.position(l.off-1), "illegal BOM")
 				l.c = classBOM
 			}
@@ -161,7 +167,7 @@ func (l *Lexer) n() byte { // n == next
 	return l.c
 }
 
-func (l *Lexer) octals(max int) (n int) {
+func (l *lexer) octals(max int) (n int) {
 	for max != 0 && l.c >= '0' && l.c <= '7' {
 		l.n()
 		n++
@@ -170,7 +176,7 @@ func (l *Lexer) octals(max int) (n int) {
 	return n
 }
 
-func (l *Lexer) decimals() (r bool) {
+func (l *lexer) decimals() (r bool) {
 	for l.c >= '0' && l.c <= '9' {
 		r = true
 		l.n()
@@ -178,7 +184,7 @@ func (l *Lexer) decimals() (r bool) {
 	return r
 }
 
-func (l *Lexer) exponent(off int32) (int32, token.Token) {
+func (l *lexer) exponent(off int) (int, gotoken.Token) {
 	switch l.c {
 	case 'e', 'E':
 		switch l.n() {
@@ -186,19 +192,19 @@ func (l *Lexer) exponent(off int32) (int32, token.Token) {
 			l.n()
 		}
 		if !l.decimals() {
-			l.err(l.file.Position(l.file.Pos(int(off))), "illegal floating-point exponent")
+			l.err(l.file.Position(l.file.Pos(off)), "illegal floating-point exponent")
 		}
 	}
 	switch l.c {
 	case 'i':
 		l.n()
-		return off, token.IMAG
+		return off, gotoken.IMAG
 	}
 
-	return off, token.FLOAT
+	return off, gotoken.FLOAT
 }
 
-func (l *Lexer) hexadecimals(max int) (n int) {
+func (l *lexer) hexadecimals(max int) (n int) {
 	for max != 0 && (l.c >= '0' && l.c <= '9' || l.c >= 'a' && l.c <= 'f' || l.c >= 'A' && l.c <= 'F') {
 		l.n()
 		n++
@@ -211,14 +217,14 @@ func isIdentNext(c byte) bool {
 	return c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_' || c >= '0' && c <= '9' || c == classNonASCII
 }
 
-func (l *Lexer) ident() token.Token {
+func (l *lexer) ident() gotoken.Token {
 	for l.c >= 'a' && l.c <= 'z' || l.c >= 'A' && l.c <= 'Z' || l.c == '_' || l.c >= '0' && l.c <= '9' || l.c == classNonASCII {
 		l.n()
 	}
-	return token.IDENT
+	return gotoken.IDENT
 }
 
-func (l *Lexer) skip() rune {
+func (l *lexer) skip() rune {
 	if c := l.c; c < 0x80 {
 		l.n()
 		return rune(c)
@@ -229,13 +235,13 @@ func (l *Lexer) skip() rune {
 	}
 
 	r, sz := utf8.DecodeRune(l.src[l.off-1:])
-	n := int32(sz) - 1
+	n := sz - 1
 	l.off += n
 	l.n()
 	return r
 }
 
-func (l *Lexer) stringEscFail() bool {
+func (l *lexer) stringEscFail() bool {
 	switch l.c {
 	case '\n':
 		l.err(l.position(l.off-1), "illegal character %#U in escape sequence", l.c)
@@ -254,7 +260,7 @@ func (l *Lexer) stringEscFail() bool {
 	return false
 }
 
-func (l *Lexer) charEscFail() {
+func (l *lexer) charEscFail() {
 	switch l.c {
 	case '\n':
 		l.err(l.position(l.off-1), "illegal character %#U in escape sequence", l.c)
@@ -270,16 +276,16 @@ func (l *Lexer) charEscFail() {
 }
 
 // Scan returns the next token and its offset.
-func (l *Lexer) Scan() (off int32, tok token.Token) {
+func (l *lexer) Scan() (off int, tok gotoken.Token) {
 skip:
 	off, tok = l.scan0()
-	if tok == token.COMMENT {
-		if l.CommentHandler != nil {
+	if tok == gotoken.COMMENT {
+		if l.commentHandler != nil {
 			end := l.off
 			if l.c != classEOF {
 				end--
 			}
-			l.CommentHandler(off, l.src[off:end])
+			l.commentHandler(off, l.src[off:end])
 		}
 		if l.commentOfs < 0 {
 			l.commentOfs = off
@@ -289,28 +295,28 @@ skip:
 
 	co := l.commentOfs
 	l.commentOfs = -1
-	if tok == tokenNL || tok == token.EOF {
+	if tok == tokenNL || tok == gotoken.EOF {
 		if p := int(l.prev); p >= 0 && p < len(semiTriggerTokens) && semiTriggerTokens[l.prev] {
 			if co >= 0 {
 				off = co
 			}
 			l.prev = tok
 			l.lit = nlLit
-			if tok == token.EOF && co < 0 {
+			if tok == gotoken.EOF && co < 0 {
 				off = l.off
 			}
-			return off, token.SEMICOLON
+			return off, gotoken.SEMICOLON
 		}
 
-		if tok == token.EOF {
+		if tok == gotoken.EOF {
 			l.lit = nil
-			return l.off, token.EOF
+			return l.off, gotoken.EOF
 		}
 
 		goto skip
 	}
 
-	if tok != token.ILLEGAL {
+	if tok != gotoken.ILLEGAL {
 		l.prev = tok
 	}
 	end := l.off
@@ -321,7 +327,7 @@ skip:
 	return off, tok
 }
 
-func (l *Lexer) scan0() (off int32, tok token.Token) {
+func (l *lexer) scan0() (off int, tok gotoken.Token) {
 skip:
 	off = l.off - 1
 	switch l.c {
@@ -329,18 +335,18 @@ skip:
 		l.n()
 		goto skip
 	case '\n':
-		if l.off != int32(len(l.src)) {
-			l.file.AddLine(int(l.off))
+		if l.off != len(l.src) {
+			l.file.AddLine(l.off)
 		}
 		l.n()
 		return off, tokenNL
 	case '!':
 		if l.n() == '=' {
 			l.n()
-			return off, token.NEQ
+			return off, gotoken.NEQ
 		}
 
-		return off, token.NOT
+		return off, gotoken.NOT
 	case '"':
 		l.n()
 	more:
@@ -355,19 +361,19 @@ skip:
 				l.err(l.position(l.off-1), "unknown escape sequence")
 			case '0', '1', '2', '3', '4', '5', '6', '7':
 				if l.octals(3) < 3 && l.stringEscFail() {
-					return off, token.STRING
+					return off, gotoken.STRING
 				}
 			case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', '"':
 				l.n()
 			case 'u':
 				l.n()
 				if l.hexadecimals(4) < 4 && l.stringEscFail() {
-					return off, token.STRING
+					return off, gotoken.STRING
 				}
 			case 'U':
 				l.n()
 				if l.hexadecimals(8) < 8 && l.stringEscFail() {
-					return off, token.STRING
+					return off, gotoken.STRING
 				}
 			case 'x':
 				l.n()
@@ -385,50 +391,50 @@ skip:
 			l.skip()
 			goto more
 		}
-		return off, token.STRING
+		return off, gotoken.STRING
 	case '%':
 		if l.n() == '=' {
 			l.n()
-			return off, token.REM_ASSIGN
+			return off, gotoken.REM_ASSIGN
 		}
 
-		return off, token.REM
+		return off, gotoken.REM
 	case '&':
 		switch l.n() {
 		case '^':
 			if l.n() == '=' {
 				l.n()
-				return off, token.AND_NOT_ASSIGN
+				return off, gotoken.AND_NOT_ASSIGN
 			}
 
-			return off, token.AND_NOT
+			return off, gotoken.AND_NOT
 		case '=':
 			l.n()
-			return off, token.AND_ASSIGN
+			return off, gotoken.AND_ASSIGN
 		case '&':
 			l.n()
-			return off, token.LAND
+			return off, gotoken.LAND
 		}
 
-		return off, token.AND
+		return off, gotoken.AND
 	case '\'':
 		switch l.n() {
 		case '\n', classEOF:
 			l.err(l.position(l.off-1), "invalid character literal (missing closing ')")
-			return off, token.CHAR
+			return off, gotoken.CHAR
 		case '\'':
 			l.err(l.position(l.off-1), "illegal rune literal")
 			l.n()
-			return off, token.CHAR
+			return off, gotoken.CHAR
 		case '\\':
 			switch l.n() {
 			case '\n':
 				l.err(l.position(l.off-1), "unknown escape sequence")
-				return off, token.CHAR
+				return off, gotoken.CHAR
 			case '0', '1', '2', '3', '4', '5', '6', '7':
 				if l.octals(3) < 3 {
 					l.charEscFail()
-					return off, token.CHAR
+					return off, gotoken.CHAR
 				}
 			case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', '\'':
 				l.n()
@@ -436,27 +442,27 @@ skip:
 				l.n()
 				if l.hexadecimals(4) < 4 {
 					l.charEscFail()
-					return off, token.CHAR
+					return off, gotoken.CHAR
 				}
 			case 'U':
 				l.n()
 				if l.hexadecimals(8) < 8 {
 					l.charEscFail()
-					return off, token.CHAR
+					return off, gotoken.CHAR
 				}
 			case 'x':
 				l.n()
 				if l.hexadecimals(2) < 2 {
 					l.charEscFail()
-					return off, token.CHAR
+					return off, gotoken.CHAR
 				}
 			case classEOF:
 				l.err(l.position(l.off-1), "escape sequence not terminated")
-				return off, token.CHAR
+				return off, gotoken.CHAR
 			default:
 				l.err(l.position(l.off-1), "unknown escape sequence")
 				l.skip()
-				return off, token.CHAR
+				return off, gotoken.CHAR
 			}
 		default:
 			l.skip()
@@ -484,45 +490,45 @@ skip:
 				}
 			}
 		}
-		return off, token.CHAR
+		return off, gotoken.CHAR
 	case '(':
 		l.n()
-		return off, token.LPAREN
+		return off, gotoken.LPAREN
 	case ')':
 		l.n()
-		return off, token.RPAREN
+		return off, gotoken.RPAREN
 	case '*':
 		if l.n() == '=' {
 			l.n()
-			return off, token.MUL_ASSIGN
+			return off, gotoken.MUL_ASSIGN
 		}
 
-		return off, token.MUL
+		return off, gotoken.MUL
 	case '+':
 		switch l.n() {
 		case '=':
 			l.n()
-			return off, token.ADD_ASSIGN
+			return off, gotoken.ADD_ASSIGN
 		case '+':
 			l.n()
-			return off, token.INC
+			return off, gotoken.INC
 		}
 
-		return off, token.ADD
+		return off, gotoken.ADD
 	case ',':
 		l.n()
-		return off, token.COMMA
+		return off, gotoken.COMMA
 	case '-':
 		switch l.n() {
 		case '=':
 			l.n()
-			return off, token.SUB_ASSIGN
+			return off, gotoken.SUB_ASSIGN
 		case '-':
 			l.n()
-			return off, token.DEC
+			return off, gotoken.DEC
 		}
 
-		return off, token.SUB
+		return off, gotoken.SUB
 	case '.':
 		switch l.n() {
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
@@ -532,28 +538,29 @@ skip:
 			switch l.n() {
 			case '.':
 				l.n()
-				return off, token.ELLIPSIS
+				return off, gotoken.ELLIPSIS
 			default:
 				l.off--
-				return off, token.PERIOD
+				l.c = '.'
+				return off, gotoken.PERIOD
 			}
 		default:
-			return off, token.PERIOD
+			return off, gotoken.PERIOD
 		}
 	case '/':
 		switch l.n() {
 		case '/':
 			for l.n() != '\n' && l.c != classEOF {
 			}
-			return off, token.COMMENT
+			return off, gotoken.COMMENT
 		case '*':
 			var hasNL bool
 			for l.n(); l.c != classEOF; l.n() {
 				switch l.c {
 				case '\n':
 					hasNL = true
-					if l.off != int32(len(l.src)) {
-						l.file.AddLine(int(l.off))
+					if l.off != len(l.src) {
+						l.file.AddLine(l.off)
 					}
 				case '*':
 				more2:
@@ -562,33 +569,33 @@ skip:
 						goto more2
 					case '\n':
 						hasNL = true
-						if l.off != int32(len(l.src)) {
-							l.file.AddLine(int(l.off) - 1)
+						if l.off != len(l.src) {
+							l.file.AddLine(l.off - 1)
 						}
 					case '/':
 						l.n()
 						if hasNL {
-							if l.CommentHandler != nil {
+							if l.commentHandler != nil {
 								end := l.off
 								if l.c != classEOF {
 									end--
 								}
-								l.CommentHandler(off, l.src[off:end])
+								l.commentHandler(off, l.src[off:end])
 							}
 							return off, tokenNL
 						}
 
-						return off, token.COMMENT
+						return off, gotoken.COMMENT
 					}
 				}
 			}
 			l.err(l.position(l.off-1), "comment not terminated")
-			return off, token.COMMENT
+			return off, gotoken.COMMENT
 		case '=':
 			l.n()
-			return off, token.QUO_ASSIGN
+			return off, gotoken.QUO_ASSIGN
 		default:
-			return off, token.QUO
+			return off, gotoken.QUO
 		}
 	case '0':
 		n := l.octals(-1)
@@ -608,7 +615,7 @@ skip:
 				return l.exponent(off)
 			case 'i':
 				l.n()
-				return off, token.IMAG
+				return off, gotoken.IMAG
 			default:
 				l.err(l.position(l.off-1), "illegal octal number")
 			}
@@ -616,7 +623,7 @@ skip:
 			return l.exponent(off)
 		case 'i':
 			l.n()
-			return off, token.IMAG
+			return off, gotoken.IMAG
 		case 'x', 'X':
 			if n != 1 {
 				break
@@ -628,7 +635,7 @@ skip:
 			}
 		}
 
-		return off, token.INT
+		return off, gotoken.INT
 	case '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		l.decimals()
 		switch l.c {
@@ -640,90 +647,90 @@ skip:
 			return l.exponent(off)
 		case 'i':
 			l.n()
-			return off, token.IMAG
+			return off, gotoken.IMAG
 		}
-		return off, token.INT
+		return off, gotoken.INT
 	case ':':
 		if l.n() == '=' {
 			l.n()
-			return off, token.DEFINE
+			return off, gotoken.DEFINE
 		}
 
-		return off, token.COLON
+		return off, gotoken.COLON
 	case ';':
 		l.n()
-		return off, token.SEMICOLON
+		return off, gotoken.SEMICOLON
 	case '<':
 		switch l.n() {
 		case '<':
 			if l.n() == '=' {
 				l.n()
-				return off, token.SHL_ASSIGN
+				return off, gotoken.SHL_ASSIGN
 			}
 
-			return off, token.SHL
+			return off, gotoken.SHL
 		case '=':
 			l.n()
-			return off, token.LEQ
+			return off, gotoken.LEQ
 		case '-':
 			l.n()
-			return off, token.ARROW
+			return off, gotoken.ARROW
 		}
 
-		return off, token.LSS
+		return off, gotoken.LSS
 	case '=':
 		if l.n() == '=' {
 			l.n()
-			return off, token.EQL
+			return off, gotoken.EQL
 		}
 
-		return off, token.ASSIGN
+		return off, gotoken.ASSIGN
 	case '>':
 		switch l.n() {
 		case '>':
 			if l.n() == '=' {
 				l.n()
-				return off, token.SHR_ASSIGN
+				return off, gotoken.SHR_ASSIGN
 			}
 
-			return off, token.SHR
+			return off, gotoken.SHR
 		case '=':
 			l.n()
-			return off, token.GEQ
+			return off, gotoken.GEQ
 		}
 
-		return off, token.GTR
+		return off, gotoken.GTR
 	case '[':
 		l.n()
-		return off, token.LBRACK
+		return off, gotoken.LBRACK
 	case ']':
 		l.n()
-		return off, token.RBRACK
+		return off, gotoken.RBRACK
 	case '^':
 		if l.n() == '=' {
 			l.n()
-			return off, token.XOR_ASSIGN
+			return off, gotoken.XOR_ASSIGN
 		}
 
-		return off, token.XOR
+		return off, gotoken.XOR
 	case '`':
 	more3:
 		switch l.n() {
 		case '`':
 			l.n()
-			return off, token.STRING
+			return off, gotoken.STRING
 		case '\n':
-			if l.off != int32(len(l.src)) {
-				l.file.AddLine(int(l.off))
+			if l.off != len(l.src) {
+				l.file.AddLine(l.off)
 			}
 		case classEOF:
 			l.err(l.position(l.off-1), "raw string literal not terminated")
-			return off, token.STRING
+			return off, gotoken.STRING
 		}
 		goto more3
 	case 'b':
 		if l.n() == 'r' && l.n() == 'e' && l.n() == 'a' && l.n() == 'k' && !isIdentNext(l.n()) {
-			return off, token.BREAK
+			return off, gotoken.BREAK
 		}
 
 		return off, l.ident()
@@ -731,22 +738,22 @@ skip:
 		switch l.n() {
 		case 'a':
 			if l.n() == 's' && l.n() == 'e' && !isIdentNext(l.n()) {
-				return off, token.CASE
+				return off, gotoken.CASE
 			}
 		case 'h':
 			if l.n() == 'a' && l.n() == 'n' && !isIdentNext(l.n()) {
-				return off, token.CHAN
+				return off, gotoken.CHAN
 			}
 		case 'o':
 			if l.n() == 'n' {
 				switch l.n() {
 				case 's':
 					if l.n() == 't' && !isIdentNext(l.n()) {
-						return off, token.CONST
+						return off, gotoken.CONST
 					}
 				case 't':
 					if l.n() == 'i' && l.n() == 'n' && l.n() == 'u' && l.n() == 'e' && !isIdentNext(l.n()) {
-						return off, token.CONTINUE
+						return off, gotoken.CONTINUE
 					}
 				}
 			}
@@ -758,11 +765,11 @@ skip:
 			switch l.n() {
 			case 'a':
 				if l.n() == 'u' && l.n() == 'l' && l.n() == 't' && !isIdentNext(l.n()) {
-					return off, token.DEFAULT
+					return off, gotoken.DEFAULT
 				}
 			case 'e':
 				if l.n() == 'r' && !isIdentNext(l.n()) {
-					return off, token.DEFER
+					return off, gotoken.DEFER
 				}
 			}
 		}
@@ -770,7 +777,7 @@ skip:
 		return off, l.ident()
 	case 'e':
 		if l.n() == 'l' && l.n() == 's' && l.n() == 'e' && !isIdentNext(l.n()) {
-			return off, token.ELSE
+			return off, gotoken.ELSE
 		}
 
 		return off, l.ident()
@@ -778,15 +785,15 @@ skip:
 		switch l.n() {
 		case 'a':
 			if l.n() == 'l' && l.n() == 'l' && l.n() == 't' && l.n() == 'h' && l.n() == 'r' && l.n() == 'o' && l.n() == 'u' && l.n() == 'g' && l.n() == 'h' && !isIdentNext(l.n()) {
-				return off, token.FALLTHROUGH
+				return off, gotoken.FALLTHROUGH
 			}
 		case 'o':
 			if l.n() == 'r' && !isIdentNext(l.n()) {
-				return off, token.FOR
+				return off, gotoken.FOR
 			}
 		case 'u':
 			if l.n() == 'n' && l.n() == 'c' && !isIdentNext(l.n()) {
-				return off, token.FUNC
+				return off, gotoken.FUNC
 			}
 		}
 
@@ -794,11 +801,11 @@ skip:
 	case 'g':
 		if l.n() == 'o' {
 			if !isIdentNext(l.n()) {
-				return off, token.GO
+				return off, gotoken.GO
 			}
 
 			if l.c == 't' && l.n() == 'o' && !isIdentNext(l.n()) {
-				return off, token.GOTO
+				return off, gotoken.GOTO
 			}
 		}
 
@@ -807,28 +814,28 @@ skip:
 		switch l.n() {
 		case 'f':
 			if !isIdentNext(l.n()) {
-				return off, token.IF
+				return off, gotoken.IF
 			}
 		case 'm':
 			if l.n() == 'p' && l.n() == 'o' && l.n() == 'r' && l.n() == 't' && !isIdentNext(l.n()) {
-				return off, token.IMPORT
+				return off, gotoken.IMPORT
 			}
 		case 'n':
 			if l.n() == 't' && l.n() == 'e' && l.n() == 'r' && l.n() == 'f' && l.n() == 'a' && l.n() == 'c' && l.n() == 'e' && !isIdentNext(l.n()) {
-				return off, token.INTERFACE
+				return off, gotoken.INTERFACE
 			}
 		}
 
 		return off, l.ident()
 	case 'm':
 		if l.n() == 'a' && l.n() == 'p' && !isIdentNext(l.n()) {
-			return off, token.MAP
+			return off, gotoken.MAP
 		}
 
 		return off, l.ident()
 	case 'p':
 		if l.n() == 'a' && l.n() == 'c' && l.n() == 'k' && l.n() == 'a' && l.n() == 'g' && l.n() == 'e' && !isIdentNext(l.n()) {
-			return off, token.PACKAGE
+			return off, gotoken.PACKAGE
 		}
 
 		return off, l.ident()
@@ -836,11 +843,11 @@ skip:
 		switch l.n() {
 		case 'a':
 			if l.n() == 'n' && l.n() == 'g' && l.n() == 'e' && !isIdentNext(l.n()) {
-				return off, token.RANGE
+				return off, gotoken.RANGE
 			}
 		case 'e':
 			if l.n() == 't' && l.n() == 'u' && l.n() == 'r' && l.n() == 'n' && !isIdentNext(l.n()) {
-				return off, token.RETURN
+				return off, gotoken.RETURN
 			}
 		}
 
@@ -849,50 +856,50 @@ skip:
 		switch l.n() {
 		case 'e':
 			if l.n() == 'l' && l.n() == 'e' && l.n() == 'c' && l.n() == 't' && !isIdentNext(l.n()) {
-				return off, token.SELECT
+				return off, gotoken.SELECT
 			}
 		case 't':
 			if l.n() == 'r' && l.n() == 'u' && l.n() == 'c' && l.n() == 't' && !isIdentNext(l.n()) {
-				return off, token.STRUCT
+				return off, gotoken.STRUCT
 			}
 		case 'w':
 			if l.n() == 'i' && l.n() == 't' && l.n() == 'c' && l.n() == 'h' && !isIdentNext(l.n()) {
-				return off, token.SWITCH
+				return off, gotoken.SWITCH
 			}
 		}
 
 		return off, l.ident()
 	case 't':
 		if l.n() == 'y' && l.n() == 'p' && l.n() == 'e' && !isIdentNext(l.n()) {
-			return off, token.TYPE
+			return off, gotoken.TYPE
 		}
 
 		return off, l.ident()
 	case 'v':
 		if l.n() == 'a' && l.n() == 'r' && !isIdentNext(l.n()) {
-			return off, token.VAR
+			return off, gotoken.VAR
 		}
 
 		return off, l.ident()
 	case '{':
 		l.n()
-		return off, token.LBRACE
+		return off, gotoken.LBRACE
 	case '|':
 		switch l.n() {
 		case '=':
 			l.n()
-			return off, token.OR_ASSIGN
+			return off, gotoken.OR_ASSIGN
 		case '|':
 			l.n()
-			return off, token.LOR
+			return off, gotoken.LOR
 		}
 
-		return off, token.OR
+		return off, gotoken.OR
 	case '}':
 		l.n()
-		return off, token.RBRACE
+		return off, gotoken.RBRACE
 	case classEOF:
-		return off, token.EOF
+		return off, gotoken.EOF
 	case classLTLT:
 		l.skip()
 		return off, tokenLTLT
@@ -908,7 +915,7 @@ skip:
 			for l.c >= 'a' && l.c <= 'z' || l.c >= 'A' && l.c <= 'Z' || l.c == '_' || l.c >= '0' && l.c <= '9' || l.c == classNonASCII {
 				l.n()
 			}
-			return off, token.IDENT
+			return off, gotoken.IDENT
 		}
 
 		switch {
@@ -917,6 +924,6 @@ skip:
 		default:
 			l.err(l.position(l.off-1), "invalid character %#U", l.skip())
 		}
-		return off, token.ILLEGAL
+		return off, gotoken.ILLEGAL
 	}
 }

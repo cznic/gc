@@ -14,7 +14,11 @@ import (
 )
 
 func main() {
-	const lex = "testdata/fuzz/lexer/"
+	log.SetFlags(log.Lshortfile)
+	const lex = "testdata/fuzz/lexer"
+	if err := os.MkdirAll(lex, 0777); err != nil {
+		log.Fatal(err)
+	}
 	for i := 0; i < 512; i++ {
 		f, err := os.Create(filepath.Join(lex, fmt.Sprintf("%d.go", i)))
 		if err != nil {

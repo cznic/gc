@@ -1,0 +1,11 @@
+commit fe8a0d12b14108cbe2408b417afcaab722b0727c (HEAD, tag: go1.10.3, origin/release-branch.go1.10)
+Author: Filippo Valsorda <filippo@golang.org>
+Date:   Wed Jun 6 18:35:19 2018 -0400
+
+    [release-branch.go1.10] go1.10.3
+    
+    Change-Id: If2abf35c922737d48ec72881428dc3353b016f7f
+    Reviewed-on: https://go-review.googlesource.com/116763
+    Run-TryBot: Filippo Valsorda <filippo@golang.org>
+    TryBot-Result: Gobot Gobot <gobot@golang.org>
+    Reviewed-by: Filippo Valsorda <filippo@golang.org>

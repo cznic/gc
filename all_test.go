@@ -9,14 +9,18 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/build"
+	"go/importer"
 	goparser "go/parser"
 	"go/scanner"
-	"go/token"
+	gotoken "go/token"
+	"go/types"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -26,12 +30,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/cznic/gc/internal/ftoken"
 	"github.com/cznic/lex"
 	dfa "github.com/cznic/lexer"
 	"github.com/cznic/mathutil"
 	"github.com/cznic/sortutil"
 	"github.com/cznic/strutil"
+	"github.com/cznic/token"
 	"github.com/cznic/y"
 	"github.com/edsrzf/mmap-go"
 )
@@ -68,7 +72,7 @@ func dbg(s string, va ...interface{}) {
 
 func TODO(s string, args ...interface{}) string { //TODOOK
 	_, fn, fl, _ := runtime.Caller(1)
-	return fmt.Sprintf("// TODO: %s:%d: %v\n", path.Base(fn), fl, fmt.Sprintf(s, args...)) //TODOOK
+	return fmt.Sprintf("// XTODO: %s:%d: %v\n", path.Base(fn), fl, fmt.Sprintf(s, args...)) //TODOOK
 }
 
 func stack() []byte { return debug.Stack() }
@@ -79,7 +83,7 @@ func init() {
 	use(caller, dbg, TODO, (*parser).todo, stack) //TODOOK
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
-		panic("internal error: cannot determine self import path")
+		panic("internal error 001: cannot determine self import path")
 	}
 
 	gopaths := filepath.SplitList(os.Getenv("GOPATH"))
@@ -94,10 +98,60 @@ func init() {
 		return
 	}
 
-	panic("internal error: cannot determine self import path")
+	panic("internal error 002: cannot determine self import path")
 }
 
-func pretty(v interface{}) string { return strutil.PrettyString(v, "", "", nil) }
+var (
+	printHooks = strutil.PrettyPrintHooks{
+		reflect.TypeOf(Token{}): func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+			t := v.(Token)
+			f.Format(prefix)
+			f.Format("%s: %q", t.Position(), t.Val)
+			f.Format(suffix)
+		},
+	}
+
+	printHooks2 = strutil.PrettyPrintHooks{
+		reflect.TypeOf(Token{}): func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+			t := v.(Token)
+			f.Format(prefix)
+			pos := t.Position()
+			pos.Filename = filepath.Base(pos.Filename)
+			if pos.Filename == "." {
+				pos.Filename = ""
+			}
+			f.Format("%s: %q", pos, t.Val)
+			f.Format(suffix)
+		},
+
+		reflect.TypeOf(Ident{}): func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+			t := v.(Ident).Token
+			f.Format(prefix)
+			pos := t.Position()
+			pos.Filename = filepath.Base(pos.Filename)
+			if pos.Filename == "." {
+				pos.Filename = ""
+			}
+			f.Format("%s: %q", pos, t.Val)
+			f.Format(suffix)
+		},
+		reflect.TypeOf(TypeKind(0)): func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+			t := v.(TypeKind)
+			f.Format(prefix)
+			f.Format("%v", t)
+			f.Format(suffix)
+		},
+		reflect.TypeOf(ChanDir(0)): func(f strutil.Formatter, v interface{}, prefix, suffix string) {
+			t := v.(ChanDir)
+			f.Format(prefix)
+			f.Format("%v", t)
+			f.Format(suffix)
+		},
+	}
+)
+
+func pretty(v interface{}) string  { return strutil.PrettyString(v, "", "", printHooks) }
+func pretty2(v interface{}) string { return strutil.PrettyString(v, "", "", printHooks2) }
 
 // ============================================================================
 
@@ -111,15 +165,16 @@ type yParser struct {
 	*y.Parser
 	reports   [][]byte
 	terminals []*y.Symbol
-	tok2sym   map[token.Token]*y.Symbol
+	tok2sym   map[gotoken.Token]*y.Symbol
 }
 
 var (
-	_    = flag.Bool("closures", false, "closures")        //TODOOK
-	_    = flag.String("out", "", "where to put y.output") //TODOOK
-	oN   = flag.Int("N", -1, "")
-	oRE  = flag.String("re", "", "regexp")
-	oTrc = flag.Bool("trc", false, "trace")
+	_         = flag.Bool("closures", false, "closures")        //TODOOK
+	_         = flag.String("out", "", "where to put y.output") //TODOOK
+	oN        = flag.Int("N", -1, "")
+	oNoErrchk = flag.Bool("noerrchk", false, "")
+	oRE       = flag.String("re", "", "regexp")
+	oTrc      = flag.Bool("trc", false, "trace")
 
 	re *regexp.Regexp
 
@@ -163,7 +218,7 @@ var (
 				fn = os.Args[i+1]
 			}
 		}
-		fset := token.NewFileSet()
+		fset := gotoken.NewFileSet()
 		var out bytes.Buffer
 		p, err := y.ProcessFile(fset, yaccFile, &y.Options{
 			Closures:  closures,
@@ -193,7 +248,7 @@ var (
 			s = s + e + 1
 		}
 
-		m := make(map[token.Token]*y.Symbol, len(p.Syms))
+		m := make(map[gotoken.Token]*y.Symbol, len(p.Syms))
 		for k, v := range p.Syms {
 			if !v.IsTerminal || k == "BODY" || k[0] == '_' {
 				continue
@@ -223,7 +278,7 @@ var (
 			default:
 			}
 		}
-		m[token.EOF] = p.Syms["$end"]
+		m[gotoken.EOF] = p.Syms["$end"]
 		m[tokenBODY] = p.Syms["BODY"]
 		var t []*y.Symbol
 		for _, v := range p.Syms {
@@ -239,17 +294,17 @@ var (
 		}
 	}()
 
-	str2token = func() map[string]token.Token {
-		m := map[string]token.Token{}
-		for i := token.IDENT; i <= maxTokenToken; i++ {
+	str2token = func() map[string]gotoken.Token {
+		m := map[string]gotoken.Token{}
+		for i := gotoken.IDENT; i <= maxTokenToken; i++ {
 			s := strings.ToUpper(i.String())
 			if _, ok := m[s]; ok {
-				panic(fmt.Errorf("internal error %q", s))
+				panic(fmt.Errorf("internal error 003: %q", s))
 			}
 
 			m[s] = i
 		}
-		m["ILLEGAL"] = token.ILLEGAL
+		m["ILLEGAL"] = gotoken.ILLEGAL
 		m["«"] = tokenLTLT
 		m["»"] = tokenGTGT
 		return m
@@ -286,7 +341,7 @@ var (
 				return nil
 			}
 
-			ctx := &Context{FileSet: ftoken.NewFileSet()}
+			ctx := &Context{}
 			pkg := newPackage(ctx, p.ImportPath, p.Name, nil)
 			for _, v := range p.GoFiles {
 				path := filepath.Join(p.Dir, v)
@@ -362,10 +417,9 @@ func testScannerStates(t *testing.T) {
 	mn := len(lexL.Dfa)
 	mn0 := mn
 	m := make([]bool, mn+1) // 1-based state.Index.
-	fset := ftoken.NewFileSet()
-	fset2 := token.NewFileSet()
+	fset2 := gotoken.NewFileSet()
 	var ss scanner.Scanner
-	l := NewLexer(nil, nil)
+	l := newLexer(nil, nil)
 	nerr := 0
 
 	var cases, sum int
@@ -382,7 +436,7 @@ func testScannerStates(t *testing.T) {
 		m[s.Index] = true
 
 		if len(s.NonConsuming) != 0 {
-			panic("internal error")
+			panic("internal error 004")
 		}
 
 		next := make([]*dfa.NfaState, classNext)
@@ -390,7 +444,7 @@ func testScannerStates(t *testing.T) {
 			switch x := e.(type) {
 			case *dfa.RangesEdge:
 				if x.Invert {
-					panic("internal error")
+					panic("internal error 005")
 				}
 
 				for _, v := range x.Ranges.R16 {
@@ -400,7 +454,7 @@ func testScannerStates(t *testing.T) {
 						}
 
 						if next[c] != nil {
-							panic("internal error")
+							panic("internal error 006")
 						}
 
 						next[c] = x.Targ
@@ -413,7 +467,7 @@ func testScannerStates(t *testing.T) {
 						}
 
 						if next[c] != nil {
-							panic("internal error")
+							panic("internal error 007")
 						}
 
 						next[c] = x.Targ
@@ -426,12 +480,12 @@ func testScannerStates(t *testing.T) {
 				}
 
 				if next[c] != nil {
-					panic("internal error")
+					panic("internal error 008")
 				}
 
 				next[c] = x.Targ
 			default:
-				panic(fmt.Errorf("internal error: %T", x))
+				panic(fmt.Errorf("internal error 009: %T", x))
 			}
 		}
 		for c, nx := range next {
@@ -449,7 +503,7 @@ func testScannerStates(t *testing.T) {
 				src += string(c)
 			}
 
-			fi := fset.AddFile("", -1, len(src))
+			fi := token.NewFile("", len(src))
 			fi2 := fset2.AddFile("", -1, len(src))
 			errCnt := 0
 			b := []byte(src)
@@ -457,9 +511,9 @@ func testScannerStates(t *testing.T) {
 			l.init(fi, b)
 			l.errHandler = func(position token.Position, msg string, args ...interface{}) {
 				errCnt++
-				errs.Add(position, fmt.Sprintf(msg, args...))
+				errs.Add(gotoken.Position(position), fmt.Sprintf(msg, args...))
 			}
-			ss.Init(fi2, b, func(pos token.Position, msg string) {
+			ss.Init(fi2, b, func(pos gotoken.Position, msg string) {
 				errs2.Add(pos, msg)
 			}, 0)
 			sum += len(src)
@@ -498,8 +552,8 @@ func testScannerStates(t *testing.T) {
 						t.Errorf("%6d: pos.Offset[%d] %q(|% x|), %v %v (%v %v)", iCase, i, src, src, g, e, pos, pos2)
 					}
 					if g, e := tok, tok2; g != e {
-						// Whitelist cases like "f..3", go/scanner differs from the compiler lexer.
-						if tok == token.PERIOD && tok2 == token.ILLEGAL && lit == "." && strings.Contains(src, "..") {
+						// Whitelist cases like "f..3".
+						if g == gotoken.PERIOD && e == gotoken.ILLEGAL && strings.Contains(src, "..") {
 							break
 						}
 
@@ -507,11 +561,11 @@ func testScannerStates(t *testing.T) {
 						t.Errorf("%6d: tok[%d] %q(|% x|) %s %s", iCase, i, src, src, g, e)
 
 					}
-					if l.errorCount+ss.ErrorCount != 0 || tok == token.ILLEGAL {
+					if l.errorCount+ss.ErrorCount != 0 || tok == gotoken.ILLEGAL {
 						continue
 					}
 
-					if lit2 == "" && tok2 != token.EOF {
+					if lit2 == "" && tok2 != gotoken.EOF {
 						lit2 = tok2.String()
 					}
 					if g, e := lit, lit2; g != e {
@@ -522,7 +576,7 @@ func testScannerStates(t *testing.T) {
 						return
 					}
 				}
-				if tok == token.EOF || tok2 == token.EOF {
+				if tok == gotoken.EOF || tok2 == gotoken.EOF {
 					break
 				}
 			}
@@ -547,11 +601,10 @@ func testScannerBugs(t *testing.T) {
 	type toks []struct {
 		off int
 		pos string
-		tok token.Token
+		tok gotoken.Token
 		lit string
 	}
-	fset := ftoken.NewFileSet()
-	l := NewLexer(nil, nil)
+	l := newLexer(nil, nil)
 	n := *oN
 	nerr := 0
 	cases := 0
@@ -559,77 +612,81 @@ func testScannerBugs(t *testing.T) {
 		src  string
 		toks toks
 	}{
-		{" (", toks{{1, "1:2", token.LPAREN, "("}}},
-		{" (\n", toks{{1, "1:2", token.LPAREN, "("}}},
-		{" z ", toks{{1, "1:2", token.IDENT, "z"}, {3, "1:4", token.SEMICOLON, "\n"}}},
-		{" z", toks{{1, "1:2", token.IDENT, "z"}, {2, "1:3", token.SEMICOLON, "\n"}}},
-		{" za ", toks{{1, "1:2", token.IDENT, "za"}, {4, "1:5", token.SEMICOLON, "\n"}}},
-		{" za", toks{{1, "1:2", token.IDENT, "za"}, {3, "1:4", token.SEMICOLON, "\n"}}},
+		{" (", toks{{1, "1:2", gotoken.LPAREN, "("}}},
+		{" (\n", toks{{1, "1:2", gotoken.LPAREN, "("}}},
+		{" z ", toks{{1, "1:2", gotoken.IDENT, "z"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
+		{" z", toks{{1, "1:2", gotoken.IDENT, "z"}, {2, "1:3", gotoken.SEMICOLON, "\n"}}},
+		{" za ", toks{{1, "1:2", gotoken.IDENT, "za"}, {4, "1:5", gotoken.SEMICOLON, "\n"}}},
+		{" za", toks{{1, "1:2", gotoken.IDENT, "za"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
 		{" « ", toks{{1, "1:2", tokenLTLT, "«"}}},
-		{" » ", toks{{1, "1:2", tokenGTGT, "»"}, {4, "1:5", token.SEMICOLON, "\n"}}},
+		{" » ", toks{{1, "1:2", tokenGTGT, "»"}, {4, "1:5", gotoken.SEMICOLON, "\n"}}},
 		{"", nil},
-		{"'\\U00000000'!", toks{{0, "1:1", token.CHAR, "'\\U00000000'"}, {12, "1:13", token.NOT, "!"}}},
-		{"'\\U00000000'", toks{{0, "1:1", token.CHAR, "'\\U00000000'"}, {12, "1:13", token.SEMICOLON, "\n"}}},
-		{"'\\u0000'!", toks{{0, "1:1", token.CHAR, "'\\u0000'"}, {8, "1:9", token.NOT, "!"}}},
-		{"'\\u0000'", toks{{0, "1:1", token.CHAR, "'\\u0000'"}, {8, "1:9", token.SEMICOLON, "\n"}}},
-		{"'\\x00'!", toks{{0, "1:1", token.CHAR, "'\\x00'"}, {6, "1:7", token.NOT, "!"}}},
-		{"'\\x00'", toks{{0, "1:1", token.CHAR, "'\\x00'"}, {6, "1:7", token.SEMICOLON, "\n"}}},
-		{"'foo';", toks{{0, "1:1", token.CHAR, "'foo'"}, {5, "1:6", token.SEMICOLON, ";"}}},
-		{"( ", toks{{0, "1:1", token.LPAREN, "("}}},
-		{"(", toks{{0, "1:1", token.LPAREN, "("}}},
-		{"/***/func", toks{{5, "1:6", token.FUNC, "func"}}},
-		{"/**/func", toks{{4, "1:5", token.FUNC, "func"}}},
-		{"/*\n */\nfunc ", toks{{7, "3:1", token.FUNC, "func"}}},
-		{"/*\n *\n */\nfunc ", toks{{10, "4:1", token.FUNC, "func"}}},
-		{"/*\n*/\nfunc ", toks{{6, "3:1", token.FUNC, "func"}}},
-		{"/*\n\n*/\nfunc ", toks{{7, "4:1", token.FUNC, "func"}}},
+		{"'\\U00000000'!", toks{{0, "1:1", gotoken.CHAR, "'\\U00000000'"}, {12, "1:13", gotoken.NOT, "!"}}},
+		{"'\\U00000000'", toks{{0, "1:1", gotoken.CHAR, "'\\U00000000'"}, {12, "1:13", gotoken.SEMICOLON, "\n"}}},
+		{"'\\u0000'!", toks{{0, "1:1", gotoken.CHAR, "'\\u0000'"}, {8, "1:9", gotoken.NOT, "!"}}},
+		{"'\\u0000'", toks{{0, "1:1", gotoken.CHAR, "'\\u0000'"}, {8, "1:9", gotoken.SEMICOLON, "\n"}}},
+		{"'\\x00'!", toks{{0, "1:1", gotoken.CHAR, "'\\x00'"}, {6, "1:7", gotoken.NOT, "!"}}},
+		{"'\\x00'", toks{{0, "1:1", gotoken.CHAR, "'\\x00'"}, {6, "1:7", gotoken.SEMICOLON, "\n"}}},
+		{"'foo';", toks{{0, "1:1", gotoken.CHAR, "'foo'"}, {5, "1:6", gotoken.SEMICOLON, ";"}}},
+		{"( ", toks{{0, "1:1", gotoken.LPAREN, "("}}},
+		{"(", toks{{0, "1:1", gotoken.LPAREN, "("}}},
+		{".", toks{{0, "1:1", gotoken.PERIOD, "."}}},
+		{"..3", toks{{0, "1:1", gotoken.PERIOD, "."}, {1, "1:2", gotoken.FLOAT, ".3"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
+		{"/***/func", toks{{5, "1:6", gotoken.FUNC, "func"}}},
+		{"/**/func", toks{{4, "1:5", gotoken.FUNC, "func"}}},
+		{"/*\n */\nfunc ", toks{{7, "3:1", gotoken.FUNC, "func"}}},
+		{"/*\n *\n */\nfunc ", toks{{10, "4:1", gotoken.FUNC, "func"}}},
+		{"/*\n*/\nfunc ", toks{{6, "3:1", gotoken.FUNC, "func"}}},
+		{"/*\n\n*/\nfunc ", toks{{7, "4:1", gotoken.FUNC, "func"}}},
 		{"//", nil},
 		{"//\n", nil},
 		{"//\n//", nil},
 		{"//\n//\n", nil},
-		{"//\n//\n@", toks{{6, "3:1", token.ILLEGAL, "@"}}},
-		{"//\n//\nz", toks{{6, "3:1", token.IDENT, "z"}, {7, "3:2", token.SEMICOLON, "\n"}}},
-		{"//\n//\nz1", toks{{6, "3:1", token.IDENT, "z1"}, {8, "3:3", token.SEMICOLON, "\n"}}},
-		{"//\n@", toks{{3, "2:1", token.ILLEGAL, "@"}}},
-		{"//\nz", toks{{3, "2:1", token.IDENT, "z"}, {4, "2:2", token.SEMICOLON, "\n"}}},
-		{"//\nz1", toks{{3, "2:1", token.IDENT, "z1"}, {5, "2:3", token.SEMICOLON, "\n"}}},
-		{";\xf0;", toks{{0, "1:1", token.SEMICOLON, ";"}, {1, "1:2", token.IDENT, "\xf0"}, {2, "1:3", token.SEMICOLON, ";"}}},
-		{"\"\\U00000000\"!", toks{{0, "1:1", token.STRING, "\"\\U00000000\""}, {12, "1:13", token.NOT, "!"}}},
-		{"\"\\U00000000\"", toks{{0, "1:1", token.STRING, "\"\\U00000000\""}, {12, "1:13", token.SEMICOLON, "\n"}}},
-		{"\"\\u0000\"!", toks{{0, "1:1", token.STRING, "\"\\u0000\""}, {8, "1:9", token.NOT, "!"}}},
-		{"\"\\u0000\"", toks{{0, "1:1", token.STRING, "\"\\u0000\""}, {8, "1:9", token.SEMICOLON, "\n"}}},
-		{"\"\\x00\"!", toks{{0, "1:1", token.STRING, "\"\\x00\""}, {6, "1:7", token.NOT, "!"}}},
-		{"\"\\x00\"", toks{{0, "1:1", token.STRING, "\"\\x00\""}, {6, "1:7", token.SEMICOLON, "\n"}}},
-		{"\xf0", toks{{0, "1:1", token.IDENT, "\xf0"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"\xf0;", toks{{0, "1:1", token.IDENT, "\xf0"}, {1, "1:2", token.SEMICOLON, ";"}}},
-		{"a @= b", toks{{0, "1:1", token.IDENT, "a"}, {2, "1:3", token.ILLEGAL, "@"}, {3, "1:4", token.ASSIGN, "="}, {5, "1:6", token.IDENT, "b"}, {6, "1:7", token.SEMICOLON, "\n"}}},
-		{"a/**/", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"a/**//**/", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"a/*\n*/", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"a/*\n*//**/", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"a//", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"a//\n", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"a«z", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", tokenLTLT, "«"}, {3, "1:4", token.IDENT, "z"}, {4, "1:5", token.SEMICOLON, "\n"}}},
-		{"a»z", toks{{0, "1:1", token.IDENT, "a"}, {1, "1:2", tokenGTGT, "»"}, {3, "1:4", token.IDENT, "z"}, {4, "1:5", token.SEMICOLON, "\n"}}},
-		{"d/*\\\n*/0", toks{{0, "1:1", token.IDENT, "d"}, {1, "1:2", token.SEMICOLON, "\n"}, {7, "2:3", token.INT, "0"}, {8, "2:4", token.SEMICOLON, "\n"}}},
-		{"import ( ", toks{{0, "1:1", token.IMPORT, "import"}, {7, "1:8", token.LPAREN, "("}}},
-		{"import (", toks{{0, "1:1", token.IMPORT, "import"}, {7, "1:8", token.LPAREN, "("}}},
-		{"import (\n", toks{{0, "1:1", token.IMPORT, "import"}, {7, "1:8", token.LPAREN, "("}}},
-		{"import (\n\t", toks{{0, "1:1", token.IMPORT, "import"}, {7, "1:8", token.LPAREN, "("}}},
-		{"z ", toks{{0, "1:1", token.IDENT, "z"}, {2, "1:3", token.SEMICOLON, "\n"}}},
-		{"z w", toks{{0, "1:1", token.IDENT, "z"}, {2, "1:3", token.IDENT, "w"}, {3, "1:4", token.SEMICOLON, "\n"}}},
-		{"z", toks{{0, "1:1", token.IDENT, "z"}, {1, "1:2", token.SEMICOLON, "\n"}}},
-		{"za ", toks{{0, "1:1", token.IDENT, "za"}, {3, "1:4", token.SEMICOLON, "\n"}}},
-		{"za wa", toks{{0, "1:1", token.IDENT, "za"}, {3, "1:4", token.IDENT, "wa"}, {5, "1:6", token.SEMICOLON, "\n"}}},
-		{"za", toks{{0, "1:1", token.IDENT, "za"}, {2, "1:3", token.SEMICOLON, "\n"}}},
+		{"//\n//\n@", toks{{6, "3:1", gotoken.ILLEGAL, "@"}}},
+		{"//\n//\nz", toks{{6, "3:1", gotoken.IDENT, "z"}, {7, "3:2", gotoken.SEMICOLON, "\n"}}},
+		{"//\n//\nz1", toks{{6, "3:1", gotoken.IDENT, "z1"}, {8, "3:3", gotoken.SEMICOLON, "\n"}}},
+		{"//\n@", toks{{3, "2:1", gotoken.ILLEGAL, "@"}}},
+		{"//\nz", toks{{3, "2:1", gotoken.IDENT, "z"}, {4, "2:2", gotoken.SEMICOLON, "\n"}}},
+		{"//\nz1", toks{{3, "2:1", gotoken.IDENT, "z1"}, {5, "2:3", gotoken.SEMICOLON, "\n"}}},
+		{";\xf0;", toks{{0, "1:1", gotoken.SEMICOLON, ";"}, {1, "1:2", gotoken.IDENT, "\xf0"}, {2, "1:3", gotoken.SEMICOLON, ";"}}},
+		{"<de..f0", toks{{0, "1:1", gotoken.LSS, "<"}, {1, "1:2", gotoken.IDENT, "de"}, {3, "1:4", gotoken.PERIOD, "."}, {4, "1:5", gotoken.PERIOD, "."}, {5, "1:6", gotoken.IDENT, "f0"}, {7, "1:8", gotoken.SEMICOLON, "\n"}}},
+		{"<dt..e?", toks{{0, "1:1", gotoken.LSS, "<"}, {1, "1:2", gotoken.IDENT, "dt"}, {3, "1:4", gotoken.PERIOD, "."}, {4, "1:5", gotoken.PERIOD, "."}, {5, "1:6", gotoken.IDENT, "e"}, {6, "1:7", gotoken.ILLEGAL, "?"}, {7, "1:8", gotoken.SEMICOLON, "\n"}}},
+		{"\"\\U00000000\"!", toks{{0, "1:1", gotoken.STRING, "\"\\U00000000\""}, {12, "1:13", gotoken.NOT, "!"}}},
+		{"\"\\U00000000\"", toks{{0, "1:1", gotoken.STRING, "\"\\U00000000\""}, {12, "1:13", gotoken.SEMICOLON, "\n"}}},
+		{"\"\\u0000\"!", toks{{0, "1:1", gotoken.STRING, "\"\\u0000\""}, {8, "1:9", gotoken.NOT, "!"}}},
+		{"\"\\u0000\"", toks{{0, "1:1", gotoken.STRING, "\"\\u0000\""}, {8, "1:9", gotoken.SEMICOLON, "\n"}}},
+		{"\"\\x00\"!", toks{{0, "1:1", gotoken.STRING, "\"\\x00\""}, {6, "1:7", gotoken.NOT, "!"}}},
+		{"\"\\x00\"", toks{{0, "1:1", gotoken.STRING, "\"\\x00\""}, {6, "1:7", gotoken.SEMICOLON, "\n"}}},
+		{"\xf0", toks{{0, "1:1", gotoken.IDENT, "\xf0"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"\xf0;", toks{{0, "1:1", gotoken.IDENT, "\xf0"}, {1, "1:2", gotoken.SEMICOLON, ";"}}},
+		{"a @= b", toks{{0, "1:1", gotoken.IDENT, "a"}, {2, "1:3", gotoken.ILLEGAL, "@"}, {3, "1:4", gotoken.ASSIGN, "="}, {5, "1:6", gotoken.IDENT, "b"}, {6, "1:7", gotoken.SEMICOLON, "\n"}}},
+		{"a/**/", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"a/**//**/", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"a/*\n*/", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"a/*\n*//**/", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"a//", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"a//\n", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"a«z", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", tokenLTLT, "«"}, {3, "1:4", gotoken.IDENT, "z"}, {4, "1:5", gotoken.SEMICOLON, "\n"}}},
+		{"a»z", toks{{0, "1:1", gotoken.IDENT, "a"}, {1, "1:2", tokenGTGT, "»"}, {3, "1:4", gotoken.IDENT, "z"}, {4, "1:5", gotoken.SEMICOLON, "\n"}}},
+		{"d/*\\\n*/0", toks{{0, "1:1", gotoken.IDENT, "d"}, {1, "1:2", gotoken.SEMICOLON, "\n"}, {7, "2:3", gotoken.INT, "0"}, {8, "2:4", gotoken.SEMICOLON, "\n"}}},
+		{"import ( ", toks{{0, "1:1", gotoken.IMPORT, "import"}, {7, "1:8", gotoken.LPAREN, "("}}},
+		{"import (", toks{{0, "1:1", gotoken.IMPORT, "import"}, {7, "1:8", gotoken.LPAREN, "("}}},
+		{"import (\n", toks{{0, "1:1", gotoken.IMPORT, "import"}, {7, "1:8", gotoken.LPAREN, "("}}},
+		{"import (\n\t", toks{{0, "1:1", gotoken.IMPORT, "import"}, {7, "1:8", gotoken.LPAREN, "("}}},
+		{"z ", toks{{0, "1:1", gotoken.IDENT, "z"}, {2, "1:3", gotoken.SEMICOLON, "\n"}}},
+		{"z w", toks{{0, "1:1", gotoken.IDENT, "z"}, {2, "1:3", gotoken.IDENT, "w"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
+		{"z", toks{{0, "1:1", gotoken.IDENT, "z"}, {1, "1:2", gotoken.SEMICOLON, "\n"}}},
+		{"za ", toks{{0, "1:1", gotoken.IDENT, "za"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
+		{"za wa", toks{{0, "1:1", gotoken.IDENT, "za"}, {3, "1:4", gotoken.IDENT, "wa"}, {5, "1:6", gotoken.SEMICOLON, "\n"}}},
+		{"za", toks{{0, "1:1", gotoken.IDENT, "za"}, {2, "1:3", gotoken.SEMICOLON, "\n"}}},
 		{"«", toks{{0, "1:1", tokenLTLT, "«"}}},
-		{"«a", toks{{0, "1:1", tokenLTLT, "«"}, {2, "1:3", token.IDENT, "a"}, {3, "1:4", token.SEMICOLON, "\n"}}},
+		{"«a", toks{{0, "1:1", tokenLTLT, "«"}, {2, "1:3", gotoken.IDENT, "a"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
 		{"««", toks{{0, "1:1", tokenLTLT, "«"}, {2, "1:3", tokenLTLT, "«"}}},
-		{"«»", toks{{0, "1:1", tokenLTLT, "«"}, {2, "1:3", tokenGTGT, "»"}, {4, "1:5", token.SEMICOLON, "\n"}}},
-		{"»", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", token.SEMICOLON, "\n"}}},
-		{"»a", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", token.IDENT, "a"}, {3, "1:4", token.SEMICOLON, "\n"}}},
+		{"«»", toks{{0, "1:1", tokenLTLT, "«"}, {2, "1:3", tokenGTGT, "»"}, {4, "1:5", gotoken.SEMICOLON, "\n"}}},
+		{"»", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", gotoken.SEMICOLON, "\n"}}},
+		{"»a", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", gotoken.IDENT, "a"}, {3, "1:4", gotoken.SEMICOLON, "\n"}}},
 		{"»«", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", tokenLTLT, "«"}}},
-		{"»»", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", tokenGTGT, "»"}, {4, "1:5", token.SEMICOLON, "\n"}}},
+		{"»»", toks{{0, "1:1", tokenGTGT, "»"}, {2, "1:3", tokenGTGT, "»"}, {4, "1:5", gotoken.SEMICOLON, "\n"}}},
 	} {
 		if n >= 0 && i != n {
 			continue
@@ -638,7 +695,7 @@ func testScannerBugs(t *testing.T) {
 		cases++
 		src := v.src
 		bsrc := []byte(src)
-		fi := fset.AddFile("", -1, len(src))
+		fi := token.NewFile("", len(src))
 		l.init(fi, bsrc)
 		for j, v := range v.toks {
 			off, tok := l.Scan()
@@ -663,7 +720,7 @@ func testScannerBugs(t *testing.T) {
 			}
 		}
 		off, tok := l.Scan()
-		if g, e := tok, token.EOF; g != e {
+		if g, e := tok, gotoken.EOF; g != e {
 			nerr++
 			t.Errorf("%v tok %q(|% x|) %q %q", i, src, src, g, e)
 		}
@@ -679,10 +736,9 @@ func testScannerBugs(t *testing.T) {
 }
 
 func testScanner(t *testing.T, paths []string) {
-	fset := ftoken.NewFileSet()
-	fset2 := token.NewFileSet()
+	fset2 := gotoken.NewFileSet()
 	var s scanner.Scanner
-	l := NewLexer(nil, nil)
+	l := newLexer(nil, nil)
 	sum := 0
 	toks := 0
 	files := 0
@@ -695,12 +751,12 @@ outer:
 		}
 
 		sum += len(src)
-		fi := fset.AddFile(path, -1, len(src))
+		fi := token.NewFile(path, len(src))
 		fi2 := fset2.AddFile(path, -1, len(src))
 		var se scanner.ErrorList
 		l.init(fi, src)
-		l.fname = &path
-		l.CommentHandler = func(off int32, lit []byte) {
+		l.fname = path
+		l.commentHandler = func(off int, lit []byte) {
 			if bytes.HasPrefix(lit, lineDirective) {
 				if l.position(off).Column != 1 {
 					return
@@ -722,15 +778,15 @@ outer:
 					if !filepath.IsAbs(s) {
 						s = filepath.Join(filepath.Dir(path), s)
 					}
-					if l.off != int32(len(l.src)) {
-						l.fname = &s
+					if l.off != int(len(l.src)) {
+						l.fname = s
 						l.file.AddLineInfo(int(l.off)-1, s, ln-1)
 					}
 				}
 			}
 		}
 		l.errHandler = func(position token.Position, msg string, arg ...interface{}) {
-			se.Add(position, fmt.Sprintf(msg, arg...))
+			se.Add(gotoken.Position(position), fmt.Sprintf(msg, arg...))
 		}
 		s.Init(fi2, src, nil, 0)
 		files++
@@ -740,14 +796,14 @@ outer:
 
 			off, gt := l.Scan()
 			if gt == tokenBOM {
-				gt = token.ILLEGAL
+				gt = gotoken.ILLEGAL
 			}
 			toks++
 			glit := string(l.lit)
 			pos, et, lit := s.Scan()
 			position := fi2.Position(pos)
 			g := l.position(off)
-			if e := position; g != e {
+			if e := token.Position(position); g != e {
 				t.Errorf("%s: position mismatch, expected %s", g, e)
 				continue outer
 			}
@@ -757,8 +813,8 @@ outer:
 				continue outer
 			}
 
-			if gt == token.EOF {
-				if et != token.EOF {
+			if gt == gotoken.EOF {
+				if et != gotoken.EOF {
 					t.Errorf("%s: unexpected eof", position)
 					continue outer
 				}
@@ -768,17 +824,17 @@ outer:
 
 			if g, e := gt, et; g != e {
 				// Whitelist $GOROOT/test/fixedbugs/issue11359.go:11:5: token mismatch "IDENT" "ILLEGAL"
-				if gt == token.IDENT && et == token.ILLEGAL && strings.HasPrefix(path, grt) {
+				if gt == gotoken.IDENT && et == gotoken.ILLEGAL && strings.HasPrefix(path, grt) {
 					continue outer
 				}
 
 				// Whitelist $GOROOT/test/syntax/ddd.go:10:5: token mismatch "." "ILLEGAL"
-				if gt == token.PERIOD && et == token.ILLEGAL && strings.HasPrefix(path, grt) {
+				if gt == gotoken.PERIOD && et == gotoken.ILLEGAL && strings.HasPrefix(path, grt) {
 					continue outer
 				}
 
 				// Whitelist testdata/errchk/issue15292/0.go:33:12: token mismatch "token(87)" "ILLEGAL"
-				if (gt == tokenLTLT || gt == tokenGTGT) && et == token.ILLEGAL && strings.HasPrefix(path, "testdata") {
+				if (gt == tokenLTLT || gt == tokenGTGT) && et == gotoken.ILLEGAL && strings.HasPrefix(path, "testdata") {
 					continue outer
 				}
 
@@ -791,7 +847,7 @@ outer:
 			}
 			if g, e := glit, lit; g != e {
 				// Whitelist $GOROOT/test/fixedbugs/bug163.go:10:2: literal mismatch "x⊛y" "x"
-				if gt == token.IDENT && strings.HasPrefix(glit, lit) && strings.HasPrefix(path, grt) {
+				if gt == gotoken.IDENT && strings.HasPrefix(glit, lit) && strings.HasPrefix(path, grt) {
 					continue outer
 				}
 
@@ -804,16 +860,16 @@ outer:
 }
 
 func TestScanner(t *testing.T) {
-	_ = t.Run("States", testScannerStates) && //TODOOK
-		t.Run("Bugs", testScannerBugs) &&
-		t.Run("GOROOT", func(t *testing.T) { testScanner(t, gorootFiles) }) &&
-		t.Run("Errchk", func(t *testing.T) { testScanner(t, errchkFiles) })
+	t.Run("States", testScannerStates)
+	t.Run("Bugs", testScannerBugs)
+	t.Run("GOROOT", func(t *testing.T) { testScanner(t, gorootFiles) })
+	t.Run("Errchk", func(t *testing.T) { testScanner(t, errchkFiles) })
 }
 
 func BenchmarkScanner(b *testing.B) {
 	b.Run("StdGo", func(b *testing.B) {
 		c := make(chan error, len(stdLibFiles))
-		fset := token.NewFileSet()
+		fset := gotoken.NewFileSet()
 		b.ResetTimer()
 		var sum int32
 		for i := 0; i < b.N; i++ {
@@ -830,7 +886,7 @@ func BenchmarkScanner(b *testing.B) {
 					var s scanner.Scanner
 					s.Init(fset.AddFile(v, -1, len(src)), src, nil, 0)
 					for {
-						if _, tok, _ := s.Scan(); tok == token.EOF {
+						if _, tok, _ := s.Scan(); tok == gotoken.EOF {
 							break
 						}
 					}
@@ -848,7 +904,6 @@ func BenchmarkScanner(b *testing.B) {
 
 	b.Run("Std", func(b *testing.B) {
 		c := make(chan error, len(stdLibFiles))
-		fset := ftoken.NewFileSet()
 		b.ResetTimer()
 		var sum int32
 		for i := 0; i < b.N; i++ {
@@ -872,9 +927,10 @@ func BenchmarkScanner(b *testing.B) {
 					defer src.Unmap()
 
 					atomic.AddInt32(&sum, int32(len(src)))
-					l := NewLexer(fset.AddFile(v, -1, len(src)), src)
+					sf := &SourceFile{File: token.NewFile(v, len(src))}
+					l := newLexer(sf, src)
 					for {
-						if _, tok := l.Scan(); tok == token.EOF {
+						if _, tok := l.Scan(); tok == gotoken.EOF {
 							break
 						}
 					}
@@ -895,7 +951,7 @@ func BenchmarkParser(b *testing.B) {
 	var sum int32
 	b.Run("StdGo", func(b *testing.B) {
 		c := make(chan error, len(stdLibFiles))
-		fset := token.NewFileSet()
+		fset := gotoken.NewFileSet()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			sum = 0
@@ -932,6 +988,85 @@ func BenchmarkParser(b *testing.B) {
 				b.Fatal(err)
 			}
 
+			ctx.tweaks.noChecks = true
+			b.StartTimer()
+			for i, v := range stdLibPackages { //TODO parallel
+				a[i] = ctx.load(token.Position{}, v.ImportPath, nil, errorList)
+			}
+			for _, v := range a {
+				v.waitFor()
+			}
+			if err := errorList.error(); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if sum != 0 {
+			b.SetBytes(int64(sum))
+		}
+	})
+}
+
+func BenchmarkChecker(b *testing.B) {
+	var sum int
+	b.Run("StdGo", func(b *testing.B) {
+		type item struct {
+			importPath string
+			files      []string
+		}
+
+		fset := gotoken.NewFileSet()
+		conf := types.Config{Importer: importer.Default()}
+		conf.FakeImportC = true
+
+		var list []item
+		for _, v := range stdLibPackages {
+			if v.ImportPath == "builtin" {
+				continue
+			}
+
+			item := item{importPath: v.ImportPath}
+			for _, w := range v.SourceFiles {
+				item.files = append(item.files, w.Path)
+			}
+			list = append(list, item)
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, item := range list {
+				var files []*ast.File
+				for _, fn := range item.files {
+					f, err := goparser.ParseFile(fset, fn, nil, 0)
+					if err != nil {
+						b.Fatal(err)
+					}
+
+					files = append(files, f)
+				}
+				conf.Check(item.importPath, fset, files, nil)
+			}
+			if sum == 0 {
+				b.StopTimer()
+				fset.Iterate(func(f *gotoken.File) bool { sum += f.Size(); return true })
+				b.StartTimer()
+			}
+		}
+		if sum != 0 {
+			b.SetBytes(int64(sum))
+		}
+	})
+
+	b.Run("Std", func(b *testing.B) {
+		a := make([]*Package, len(stdLibPackages))
+		errorList := newErrorList(1, false)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			ctx, err := newTestContext()
+			if err != nil {
+				b.Fatal(err)
+			}
+
 			b.StartTimer()
 			for i, v := range stdLibPackages {
 				a[i] = ctx.load(token.Position{}, v.ImportPath, nil, errorList)
@@ -950,7 +1085,7 @@ func BenchmarkParser(b *testing.B) {
 }
 
 type ylex struct {
-	*Lexer
+	*lexer
 	lbrace        int
 	lbraceRule    int
 	lbraceStack   []int
@@ -958,19 +1093,19 @@ type ylex struct {
 	loophackStack []bool
 	p             *yparser
 	pos           token.Position
-	tok           token.Token
+	tok           gotoken.Token
 }
 
-func (l *ylex) init(file *ftoken.File, src []byte) {
-	l.Lexer.init(file, src)
+func (l *ylex) init(file *token.File, src []byte) {
+	l.lexer.init(file, src)
 	l.lbrace = 0
 	l.lbraceStack = l.lbraceStack[:0]
 	l.loophack = false
 	l.loophackStack = l.loophackStack[:0]
 }
 
-func newYlex(l *Lexer, p *yparser) *ylex {
-	yl := &ylex{Lexer: l, p: p}
+func newYlex(l *lexer, p *yparser) *ylex {
+	yl := &ylex{lexer: l, p: p}
 	for _, v := range p.Rules {
 		if v.Sym.Name == "lbrace" {
 			yl.lbraceRule = v.RuleNum
@@ -989,26 +1124,26 @@ func (l *ylex) lex() (token.Position, *y.Symbol) {
 	}
 
 	switch tok {
-	case token.FOR, token.IF, token.SELECT, token.SWITCH:
+	case gotoken.FOR, gotoken.IF, gotoken.SELECT, gotoken.SWITCH:
 		l.loophack = true
-	case token.LPAREN, token.LBRACK:
+	case gotoken.LPAREN, gotoken.LBRACK:
 		if l.loophack || len(l.loophackStack) != 0 {
 			l.loophackStack = append(l.loophackStack, l.loophack)
 			l.loophack = false
 		}
-	case token.RPAREN, token.RBRACK:
+	case gotoken.RPAREN, gotoken.RBRACK:
 		if n := len(l.loophackStack); n != 0 {
 			l.loophack = l.loophackStack[n-1]
 			l.loophackStack = l.loophackStack[:n-1]
 		}
-	case token.LBRACE:
+	case gotoken.LBRACE:
 		l.lbrace++
 		if l.loophack {
 			tok = tokenBODY
 			sym = l.p.tok2sym[tok]
 			l.loophack = false
 		}
-	case token.RBRACE:
+	case gotoken.RBRACE:
 		l.lbrace--
 		if n := len(l.lbraceStack); n != 0 && l.lbraceStack[n-1] == l.lbrace {
 			l.lbraceStack = l.lbraceStack[:n-1]
@@ -1022,10 +1157,10 @@ func (l *ylex) lex() (token.Position, *y.Symbol) {
 func (l *ylex) fixLbr() {
 	n := l.lbrace - 1
 	switch l.tok {
-	case token.RBRACE:
+	case gotoken.RBRACE:
 		l.loophack = true
 		return
-	case token.LBRACE:
+	case gotoken.LBRACE:
 		n--
 	}
 
@@ -1137,23 +1272,23 @@ func (p *yparser) sym2str(sym *y.Symbol) string {
 	return "@"
 }
 
-func (*yparser) tok2str(tok token.Token) string {
+func (*yparser) tok2str(tok gotoken.Token) string {
 	switch tok {
-	case token.ILLEGAL:
+	case gotoken.ILLEGAL:
 		return "@"
-	case token.COMMENT, token.EOF, tokenNL, tokenLTLT, tokenGTGT:
+	case gotoken.COMMENT, gotoken.EOF, tokenNL, tokenLTLT, tokenGTGT:
 		return ""
-	case token.IDENT:
+	case gotoken.IDENT:
 		return "a"
-	case token.INT:
+	case gotoken.INT:
 		return "1"
-	case token.FLOAT:
+	case gotoken.FLOAT:
 		return "2.3"
-	case token.IMAG:
+	case gotoken.IMAG:
 		return "4i"
-	case token.CHAR:
+	case gotoken.CHAR:
 		return "'b'"
-	case token.STRING:
+	case gotoken.STRING:
 		return `"c"`
 	case tokenBODY:
 		return "{"
@@ -1210,12 +1345,11 @@ func testParserYacc(t *testing.T, files []string) {
 	)
 	cover = yp.newCover()
 	cn0 := len(cover)
-	l := NewLexer(nil, nil)
+	l := newLexer(nil, nil)
 	yl = newYlex(l, yp)
 	sum := 0
 	toks := 0
 	nfiles := 0
-	fset := ftoken.NewFileSet()
 	for _, path := range files {
 		src, err := ioutil.ReadFile(path)
 		if err != nil {
@@ -1224,7 +1358,7 @@ func testParserYacc(t *testing.T, files []string) {
 
 		nfiles++
 		sum += len(src)
-		yl.init(fset.AddFile(path, -1, len(src)), src)
+		yl.init(token.NewFile(path, len(src)), src)
 		var pos token.Position
 		if err = yp.parse(
 			func(int) (s *y.Symbol) {
@@ -1264,9 +1398,8 @@ func (p *parser) fail(nm string) string {
 		},
 		func(st int) { states = append(states, st) },
 	)
-	yl = newYlex(NewLexer(nil, nil), yp)
-	fset := ftoken.NewFileSet()
-	yl.init(fset.AddFile("", -1, len(p.l.src)), p.l.src)
+	yl = newYlex(newLexer(nil, nil), yp)
+	yl.init(token.NewFile("", len(p.l.src)), p.l.src)
 	yp.parse(
 		func(st int) *y.Symbol {
 			if pos, s := yl.lex(); pos.Offset <= int(p.off) {
@@ -1291,7 +1424,7 @@ func newTestContext(opt ...Option) (*Context, error) {
 	}
 	tags := build.Default.ReleaseTags
 	if os.Getenv("CGO_ENABLED") != "0" {
-		tags = append(tags, "cgo")
+		tags = append(tags[:len(tags):len(tags)], "cgo")
 	}
 	return NewContext(runtime.GOOS, runtime.GOARCH, tags, append([]string{filepath.Join(runtime.GOROOT(), "src")}, a...), opt...)
 }
@@ -1303,8 +1436,9 @@ func testParser(t *testing.T, packages []*Package) {
 		return
 	}
 
-	errorList := newErrorList(0, false)
 	for _, v := range packages {
+		errorList := newErrorList(0, false)
+		ctx.tweaks.noChecks = strings.Contains(v.ImportPath, filepath.FromSlash("/testdata/parser"))
 		ctx.load(
 			token.Position{},
 			v.ImportPath,
@@ -1314,7 +1448,13 @@ func testParser(t *testing.T, packages []*Package) {
 			errorList,
 		).waitFor()
 		if err := errorList.error(); err != nil {
-			t.Fatal(err)
+			s := strings.TrimSpace(err.Error())
+			a := strings.Split(s, "\n")
+			if len(a) == 3 && strings.Contains(s, `cannot find package "github.com/google/pprof/third_party/svg" in any of:`) {
+				continue
+			}
+
+			t.Fatal(s)
 		}
 	}
 	t.Logf("packages: %v", len(packages))
@@ -1329,9 +1469,8 @@ func testParserRejectFS(t *testing.T) {
 	ctx.tweaks.ignoreImports = true
 	ctx.tweaks.ignoreRedeclarations = true
 	yp := newYParser(nil, nil)
-	l := NewLexer(nil, nil)
+	l := newLexer(nil, nil)
 	cases := 0
-	fset := ftoken.NewFileSet()
 	for state, s := range yp0.States {
 		syms, _ := s.Syms0()
 		var a []string
@@ -1350,11 +1489,12 @@ func testParserRejectFS(t *testing.T) {
 			}
 
 			s := s0 + yp.sym2str(sym) + "@"
-			l.init(fset.AddFile("", -1, len(s)), []byte(s))
+			//dbg("%s\n", s)
+			l.init(token.NewFile("", len(s)), []byte(s))
 			pkg := newPackage(ctx, "", "", newErrorList(-1, false))
 			sf := newSourceFile(pkg, "", nil, nil)
 			p := newParser(sf, l)
-			off := int32(-1)
+			off := -1
 			p.syntaxError = func(*parser) {
 				if off < 0 {
 					off = p.off
@@ -1366,7 +1506,7 @@ func testParserRejectFS(t *testing.T) {
 				t.Fatalf(`%d: "%s" unexpected success, final sym %q`, state, s, sym)
 			}
 
-			if g, e := off, int32(len(s0)); g < e {
+			if g, e := off, len(s0); g < e {
 				t.Fatalf(`Follow set %v
 state %3d: %s unexpected error position, got %v expected %v
            %s^`, yp.followList(state), state, s, g+1, e+1, strings.Repeat("-", int(g)))
@@ -1485,7 +1625,7 @@ outer:
 	}
 	if !syntaxOnly {
 		for _, e := range expect {
-			a = append(a, &scanner.Error{Pos: e.pos, Msg: fmt.Sprintf("[FAIL errorcheck: missing error] %s", e.re)})
+			a = append(a, &scanner.Error{Pos: gotoken.Position(e.pos), Msg: fmt.Sprintf("[FAIL errorcheck: missing error] %s", e.re)})
 		}
 	}
 	a.Sort()
@@ -1505,33 +1645,33 @@ func testParserErrchk(t *testing.T) {
 	var (
 		checks errchks
 		errors scanner.ErrorList
-		l      = NewLexer(nil, nil)
+		l      = newLexer(nil, nil)
 	)
 
 	ctx.tweaks.ignoreImports = true
-	l.CommentHandler = func(off int32, lit []byte) {
+	l.commentHandler = func(off int, lit []byte) {
 		checks.comment(l.position(off), lit)
 	}
-	fset := ftoken.NewFileSet()
-	ctx.FileSet = fset
 	for _, fn := range errchkFiles {
 		src, err := ioutil.ReadFile(fn)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		l.init(fset.AddFile(fn, -1, len(src)), src)
+		l.init(token.NewFile(fn, len(src)), src)
 		pkg := newPackage(ctx, "", "", newErrorList(-1, false))
 		sf := newSourceFile(pkg, fn, nil, nil)
+		sf.File = l.file
+		l.sourceFile = sf
 		p := newParser(sf, l)
 		p.syntaxError = func(*parser) {
 			// Whitelist cases like
 			//	testdata/errchk/gc/syntax/semi1.go:14:2: [FAIL errorcheck: extra error] syntax error, lookahead "EOF"=""
-			if p.c == token.EOF || p.l.off+1 >= int32(len(p.l.src))-1 {
+			if p.c == gotoken.EOF || p.l.off+1 >= len(p.l.src)-1 {
 				return
 			}
 
-			errors.Add(p.position(), fmt.Sprintf("syntax error, lookahead %q=%q, p.l.off %d/%d", p.c, p.l.lit, p.l.off, len(p.l.src)))
+			errors.Add(gotoken.Position(p.position()), fmt.Sprintf("syntax error, lookahead %q=%q, p.l.off %d/%d", p.c, p.l.lit, p.l.off, len(p.l.src)))
 		}
 		errors = errors[:0]
 		checks = checks[:0]
@@ -1547,10 +1687,10 @@ func testParserErrchk(t *testing.T) {
 func TestParser(t *testing.T) {
 	cover := append(gorootFiles, yaccCover)
 	coverPackages := append(gorootPackages, newPackage(nil, filepath.Join(selfImportPath, filepath.Dir(yaccCover)), "", nil))
-	_ = t.Run("Yacc", func(t *testing.T) { testParserYacc(t, cover) }) && //TODOOK
-		t.Run("GOROOT", func(t *testing.T) { testParser(t, coverPackages) }) &&
-		t.Run("RejectFollowSet", testParserRejectFS) &&
-		t.Run("Errchk", testParserErrchk)
+	t.Run("Yacc", func(t *testing.T) { testParserYacc(t, cover) })
+	t.Run("GOROOT", func(t *testing.T) { testParser(t, coverPackages) })
+	t.Run("RejectFollowSet", testParserRejectFS)
+	t.Run("Errchk", testParserErrchk)
 }
 
 // https://github.com/cznic/browse/issues/3
@@ -1570,16 +1710,100 @@ func TestBrowserIssue3(t *testing.T) {
 	}
 }
 
-func TestTmp(t *testing.T) { //TODO-
-	ctx, err := newTestContext(NoErrorLimit())
+func TestPrecedence(t *testing.T) {
+	ctx, err := newTestContext()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	p, err := ctx.Load(filepath.Join(selfImportPath, "testdata", "parser", "precedence"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = ctx.Build([]string{filepath.Join(runtime.GOROOT(), "test/syntax/vareq1.go")})
-	if err == nil {
-		t.Fatal("unexpected success")
+	x := p.Scope.Bindings["main"]
+	if g, e := strings.TrimSpace(pretty2(x)), strings.TrimSpace(`
+&gc.FuncDecl{
+· Body: &gc.StmtBlock{
+· · List: []*gc.SimpleStmtAssignment{ // len 4
+· · · 0: &gc.SimpleStmtAssignment{
+· · · · LHS: []*gc.PrimaryExprIdent{ // len 1
+· · · · · 0: &gc.PrimaryExprIdent{
+· · · · · · Ident: precedence.go:4:2: "_",
+· · · · · },
+· · · · },
+· · · · RHS: []*gc.PrimaryExprIntLiteral{ // len 1
+· · · · · 0: &gc.PrimaryExprIntLiteral{
+· · · · · · Literal: precedence.go:4:6: "1",
+· · · · · },
+· · · · },
+· · · },
+· · · 1: &gc.SimpleStmtAssignment{
+· · · · LHS: []*gc.PrimaryExprIdent{ // len 1
+· · · · · 0: &gc.PrimaryExprIdent{
+· · · · · · Ident: precedence.go:15:2: "_",
+· · · · · },
+· · · · },
+· · · · RHS: []*gc.ExprADD{ // len 1
+· · · · · 0: &gc.ExprADD{
+· · · · · · LHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · Literal: precedence.go:15:6: "1",
+· · · · · · },
+· · · · · · RHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · Literal: precedence.go:15:10: "2",
+· · · · · · },
+· · · · · },
+· · · · },
+· · · },
+· · · 2: &gc.SimpleStmtAssignment{
+· · · · LHS: []*gc.PrimaryExprIdent{ // len 1
+· · · · · 0: &gc.PrimaryExprIdent{
+· · · · · · Ident: precedence.go:29:2: "_",
+· · · · · },
+· · · · },
+· · · · RHS: []*gc.ExprADD{ // len 1
+· · · · · 0: &gc.ExprADD{
+· · · · · · LHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · Literal: precedence.go:29:6: "1",
+· · · · · · },
+· · · · · · RHS: &gc.ExprMUL{
+· · · · · · · LHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · · Literal: precedence.go:29:10: "2",
+· · · · · · · },
+· · · · · · · RHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · · Literal: precedence.go:29:12: "3",
+· · · · · · · },
+· · · · · · },
+· · · · · },
+· · · · },
+· · · },
+· · · 3: &gc.SimpleStmtAssignment{
+· · · · LHS: []*gc.PrimaryExprIdent{ // len 1
+· · · · · 0: &gc.PrimaryExprIdent{
+· · · · · · Ident: precedence.go:49:2: "_",
+· · · · · },
+· · · · },
+· · · · RHS: []*gc.ExprADD{ // len 1
+· · · · · 0: &gc.ExprADD{
+· · · · · · LHS: &gc.ExprMUL{
+· · · · · · · LHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · · Literal: precedence.go:49:6: "1",
+· · · · · · · },
+· · · · · · · RHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · · Literal: precedence.go:49:8: "2",
+· · · · · · · },
+· · · · · · },
+· · · · · · RHS: &gc.PrimaryExprIntLiteral{
+· · · · · · · Literal: precedence.go:49:12: "3",
+· · · · · · },
+· · · · · },
+· · · · },
+· · · },
+· · },
+· },
+}
+`); g != e {
+		t.Fatalf("got\n%s\nexp\n%s", g, e)
 	}
-
-	t.Logf("\n%s", errString(err))
 }

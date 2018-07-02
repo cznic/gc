@@ -6,14 +6,13 @@ package gc
 
 import (
 	"fmt"
-	"go/token"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync"
 
-	"github.com/cznic/gc/internal/ftoken"
+	"github.com/cznic/token"
 	"github.com/edsrzf/mmap-go"
 )
 
@@ -57,6 +56,247 @@ var (
 	}
 )
 
+func universeConsts() map[string]Operand {
+	return map[string]Operand{
+		"false": UntypedFalse{},
+		"iota":  UntypedIntOperand{},
+		"true":  UntypedTrue{},
+	}
+}
+
+func universeFuncs() map[string]Type {
+	return map[string]Type{
+		"append": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newSliceType(npos{}, BuiltinGeneric)},
+					{Type: newSliceType(npos{}, BuiltinGeneric), Variadic: true},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newSliceType(npos{}, BuiltinGeneric)},
+				},
+			},
+		),
+		"copy": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newSliceType(npos{}, BuiltinGeneric)},
+					{Type: newSliceType(npos{}, BuiltinGeneric)},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: Int},
+				},
+			},
+		),
+		"delete": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newMapType(npos{}, BuiltinGeneric, BuiltinGeneric2)},
+					{Type: BuiltinGeneric2},
+				},
+			},
+			nil,
+		),
+		"len": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGeneric},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: Int},
+				},
+			},
+		),
+		"cap": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGeneric},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: Int},
+				},
+			},
+		),
+		"make": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGeneric},
+					{Type: newSliceType(npos{}, BuiltinGenericInteger), Variadic: true},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGeneric},
+				},
+			},
+		),
+		"new": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGeneric},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newPointerType(npos{}, BuiltinGeneric)},
+				},
+			},
+		),
+		"complex": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGenericFloat},
+					{Type: BuiltinGenericFloat},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGenericComplex},
+				},
+			},
+		),
+		"real": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGenericComplex},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGenericFloat},
+				},
+			},
+		),
+		"imag": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGenericComplex},
+				},
+			},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: BuiltinGenericFloat},
+				},
+			},
+		),
+		"close": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newChannelType(npos{}, TxChan, BuiltinGeneric)},
+				},
+			},
+			nil,
+		),
+		"panic": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newInterfaceType(npos{})},
+				},
+			},
+			nil,
+		),
+		"recover": newFunctionType(
+			npos{},
+			nil,
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newInterfaceType(npos{})},
+				},
+			},
+		),
+		"print": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newSliceType(npos{}, BuiltinGeneric), Variadic: true},
+				},
+			},
+			nil,
+		),
+		"println": newFunctionType(
+			npos{},
+			&ParamTypeListType{
+				List: []*ParamTypeType{
+					{Type: newSliceType(npos{}, BuiltinGeneric), Variadic: true},
+				},
+			},
+			nil,
+		),
+	}
+}
+
+func universeTypes() map[string]Type {
+	return map[string]Type{
+		"ComplexType": BuiltinGenericComplex,
+		"FloatType":   BuiltinGenericFloat,
+		"IntegerType": BuiltinGenericInteger,
+		"Type":        BuiltinGeneric,
+		"Type1":       BuiltinGeneric2,
+
+		"bool":       Bool,
+		"byte":       Uint8,
+		"complex128": Complex128,
+		"complex64":  Complex64,
+		"float32":    Float32,
+		"float64":    Float64,
+		"int":        Int,
+		"int16":      Int16,
+		"int32":      Int32,
+		"int64":      Int64,
+		"int8":       Int8,
+		"rune":       Int32,
+		"string":     String,
+		"uint":       Uint,
+		"uint16":     Uint16,
+		"uint32":     Uint32,
+		"uint64":     Uint64,
+		"uint8":      Uint8,
+		"uintptr":    Uintptr,
+
+		"error": func() Type {
+			r := newInterfaceType(npos{})
+			r.Methods = map[string]*FunctionType{
+				"Error": newFunctionType(
+					npos{},
+					emptyParamTypeList,
+					&ParamTypeListType{
+						List: []*ParamTypeType{
+							{Type: String},
+						},
+					},
+				),
+			}
+			return r
+		}(),
+	}
+}
+
+func universeVars() map[string]Type {
+	return map[string]Type{
+		"nil": UntypedNil,
+	}
+}
+
 func isValidArch(s string) bool {
 	_, ok := archModels[s]
 	return ok
@@ -68,24 +308,19 @@ type model struct {
 }
 
 type tweaks struct {
-	localImportsPath     string
-	errLimit             int
-	declarationXref      bool
+	errLimit         int
+	localImportsPath string
+
+	errchk               bool // misc. tweaks for TestErrchk
+	example              bool
 	ignoreImports        bool // Test hook.
 	ignoreRedeclarations bool
+	noChecks             bool // Benchmark hook
 	noErrorColumns       bool
 }
 
 // Option amends Context.
 type Option func(c *Context) error
-
-// DeclarationXref enables keeping a declaration cross reference.
-func DeclarationXref() Option {
-	return func(c *Context) error {
-		c.tweaks.declarationXref = true
-		return nil
-	}
-}
 
 // IgnoreRedeclarations disables reporting redeclarations as errors.
 func IgnoreRedeclarations() Option {
@@ -96,7 +331,7 @@ func IgnoreRedeclarations() Option {
 }
 
 // NoErrorColumns disable displaying of columns in error messages.
-func NoErrorColumns() Option {
+func NoErrorColumns() Option { // gc -C
 	return func(c *Context) error {
 		c.tweaks.noErrorColumns = true
 		return nil
@@ -104,7 +339,7 @@ func NoErrorColumns() Option {
 }
 
 // NoErrorLimit disables limit on number of errors reported.
-func NoErrorLimit() Option {
+func NoErrorLimit() Option { // gc -e
 	return func(c *Context) error {
 		c.tweaks.errLimit = -1
 		return nil
@@ -129,7 +364,6 @@ func addSearchPath(s string) Option { // gc -I path
 
 // Context describes the context of loaded packages.
 type Context struct {
-	FileSet     *ftoken.FileSet // Contains all loaded files.
 	goarch      string
 	goos        string
 	model       model
@@ -162,7 +396,6 @@ func NewContext(goos, goarch string, tags, searchPaths []string, options ...Opti
 	tm[goos] = struct{}{}
 	tm[goarch] = struct{}{}
 	c := &Context{
-		FileSet:     ftoken.NewFileSet(),
 		goarch:      goarch,
 		goos:        goos,
 		model:       model,
@@ -176,13 +409,34 @@ func NewContext(goos, goarch string, tags, searchPaths []string, options ...Opti
 			return nil, err
 		}
 	}
+	c.universe = newScope(UniverseScope, nil)
+	c.universe.Bindings = map[string]Declaration{}
+	for k, v := range universeConsts() {
+		d := newConstDecl(Token{Val: k}, token.NoPos)
+		d.Value = v
+		c.universe.Bindings[k] = d
+	}
+	for k, v := range universeFuncs() {
+		d := newFuncDecl(Token{Val: k}, token.NoPos)
+		d.setType(v)
+		c.universe.Bindings[k] = d
+	}
+	for k, v := range universeTypes() {
+		d := newTypeDecl(Token{Val: k}, token.NoPos)
+		d.setType(v)
+		c.universe.Bindings[k] = d
+	}
+	for k, v := range universeVars() {
+		d := newVarDecl(Token{Val: k}, token.NoPos, false)
+		d.setType(v)
+		c.universe.Bindings[k] = d
+	}
 	pkg, err := c.Load("builtin")
 	if err != nil {
 		return nil, err
 	}
 
-	c.universe = pkg.Scope
-	c.universe.Kind = UniverseScope
+	pkg.Scope = c.universe
 	return c, nil
 }
 
@@ -243,11 +497,21 @@ See https://golang.org/s/go15vendor for details.
 */
 func (c *Context) dirForImportPath(position token.Position, importPath string) (string, error) {
 	if strings.HasPrefix(importPath, "./") {
-		return filepath.Join(c.tweaks.localImportsPath, importPath), nil
+		dir := c.tweaks.localImportsPath
+		switch dir {
+		case "", ".":
+			dir = filepath.Dir(position.Filename)
+		}
+		ok, err := checkDir(dir)
+		if !ok || err != nil {
+			return dir, err
+		}
+
+		return dir, nil
 	}
 
 	var a []string
-	if importPath != "C" {
+	if importPath != "C" && !strings.HasPrefix(importPath, "/") {
 		s := importPath
 		a = []string{filepath.Join(s, "vendor")}
 		for s != "" {
@@ -364,6 +628,7 @@ func (c *Context) filesForImportPath(position token.Position, importPath string)
 }
 
 func (c *Context) load(position token.Position, importPath string, syntaxError func(*parser), errList *errorList) *Package {
+	//TODO must normalize relative import paths
 	c.packagesMu.Lock()
 
 	p := c.packages[importPath]
@@ -377,18 +642,10 @@ func (c *Context) load(position token.Position, importPath string, syntaxError f
 	c.packagesMu.Unlock()
 
 	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				errList.mu.Lock()
-				errList.list.Add(token.Position{}, fmt.Sprint(err))
-				errList.mu.Unlock()
-			}
-		}()
-
 		dir, files, _, err := c.filesForImportPath(position, importPath)
 		if err != nil {
+			errList.forcedAdd(position, "%s", err)
 			close(p.ready)
-			errList.Add(position, err.Error())
 			return
 		}
 
@@ -405,17 +662,12 @@ func (c *Context) build(files []string, errList *errorList) *Package {
 	for _, v := range c.searchPaths {
 		if strings.HasPrefix(dir, v) {
 			ip = ip[len(v):]
+			break
 		}
 	}
 	p := newPackage(c, ip, "", errList)
 	p.Dir = dir
 	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				errList.Add(token.Position{}, fmt.Sprintf("%s\nPANIC: %v", debug.Stack(), err))
-			}
-		}()
-
 		p.load(token.Position{}, files, nil)
 	}()
 
@@ -441,9 +693,9 @@ func (c *Context) Load(importPath string) (*Package, error) {
 //
 // The method is safe for concurrent use by multiple goroutines.
 func (c *Context) Build(files []string) (*Package, error) {
-	err := newErrorList(c.tweaks.errLimit, c.tweaks.noErrorColumns)
-	p := c.build(files, err).waitFor()
-	if err := err.error(); err != nil {
+	errList := newErrorList(c.tweaks.errLimit, c.tweaks.noErrorColumns)
+	p := c.build(files, errList).waitFor()
+	if err := errList.error(); err != nil {
 		return nil, err
 	}
 
@@ -452,42 +704,33 @@ func (c *Context) Build(files []string) (*Package, error) {
 
 // SourceFile describes a source file.
 type SourceFile struct {
-	File          *ftoken.File
-	ImportSpecs   []*ImportSpec
+	File          *token.File
+	ImportSpecs   []*ImportDecl
 	InitFunctions []Declaration
 	Package       *Package
 	Path          string
 	Scope         *Scope // File scope.
 	TopLevelDecls []Declaration
-	Xref          map[token.Pos]token.Pos // Identifier position: declaration position.
-	Xref0         map[Token]*Scope        // Token: Resolution scope. Enabled by DeclarationXref.
+	enquedChecks  []checker
+	f             *os.File  // Underlying src file.
+	src           mmap.MMap // Valid only during parsing and checking.
+	srcMu         sync.Mutex
 
 	build bool
-	f     *os.File  // Underlying src file.
-	src   mmap.MMap // Valid only during parsing and checking.
-	srcMu sync.Mutex
 }
 
 func newSourceFile(pkg *Package, path string, f *os.File, src mmap.MMap) *SourceFile {
 	var (
-		s     *Scope
-		fset  *ftoken.FileSet
-		xref0 map[Token]*Scope
+		s *Scope
 	)
 	if pkg != nil {
 		s = newScope(FileScope, pkg.Scope)
-		fset = pkg.ctx.FileSet
-		if pkg.ctx.tweaks.declarationXref {
-			xref0 = map[Token]*Scope{}
-		}
-	} else {
-		fset = ftoken.NewFileSet()
 	}
 	var nm string
 	if f != nil {
 		nm = f.Name()
 	}
-	file := fset.AddFile(nm, -1, len(src))
+	file := token.NewFile(nm, len(src))
 	return &SourceFile{
 		File:    file,
 		Package: pkg,
@@ -496,7 +739,34 @@ func newSourceFile(pkg *Package, path string, f *os.File, src mmap.MMap) *Source
 		build:   true,
 		f:       f,
 		src:     src,
-		Xref0:   xref0,
+	}
+}
+
+func (s *SourceFile) enqueue(c checker) { s.enquedChecks = append(s.enquedChecks, c) }
+
+func (s *SourceFile) checkEnqueued(cs *cstack) {
+	for {
+		n := len(s.enquedChecks)
+		if n == 0 {
+			return
+		}
+
+		c := s.enquedChecks[n-1]
+		s.enquedChecks = s.enquedChecks[:n-1]
+		if c == nil {
+			continue
+		}
+
+		switch c.state() {
+		case 0:
+			cs.reset().check(c, nil)
+		case checking:
+			panic("TODO763") // cycle
+		case checked:
+			// ok
+		default:
+			panic("internal error 035")
+		}
 	}
 }
 
@@ -506,11 +776,6 @@ func (s *SourceFile) init(pkg *Package, path string) {
 	s.TopLevelDecls = s.TopLevelDecls[:0]
 	s.Path = path
 	s.build = true
-	s.Xref0 = nil
-	s.Xref = nil
-	if pkg != nil && pkg.ctx.tweaks.declarationXref {
-		s.Xref0 = map[Token]*Scope{}
-	}
 }
 
 func (s *SourceFile) finit() {
@@ -523,6 +788,7 @@ func (s *SourceFile) finit() {
 		s.f.Close()
 		s.f = nil
 	}
+	s.enquedChecks = nil
 	s.srcMu.Unlock()
 }
 
@@ -530,16 +796,17 @@ func (s *SourceFile) finit() {
 type Package struct {
 	Dir            string
 	ImportPath     string
-	ImportedBy     map[string]struct{} // R/O, key: import path.
-	Imports        map[string]struct{} // R/O, key: import path.
+	ImportedBy     map[string]struct{} // import path: struct{}.
+	Imports        map[string]struct{} // import path: struct{}.
+	Methods        map[string]Bindings // receiver name: *MethodDecl
 	Name           string
 	Scope          *Scope // Package scope.
 	SourceFiles    []*SourceFile
 	ctx            *Context
 	errorList      *errorList
-	fileScopeNames map[string]token.Pos
+	fileScopeNames map[string]Declaration
 	importedByMu   sync.Mutex
-	named          token.Pos
+	nameOrigin     npos
 	ready          chan struct{}
 }
 
@@ -552,11 +819,12 @@ func newPackage(ctx *Context, importPath, nm string, errorList *errorList) *Pack
 		ImportPath:     importPath,
 		ImportedBy:     map[string]struct{}{},
 		Imports:        map[string]struct{}{},
+		Methods:        map[string]Bindings{},
 		Name:           nm,
 		Scope:          s,
 		ctx:            ctx,
 		errorList:      errorList,
-		fileScopeNames: map[string]token.Pos{},
+		fileScopeNames: map[string]Declaration{},
 		ready:          make(chan struct{}),
 	}
 	if s != nil {
@@ -565,35 +833,73 @@ func newPackage(ctx *Context, importPath, nm string, errorList *errorList) *Pack
 	return p
 }
 
+func (p *Package) isBuiltin() bool { return p != nil && p.ImportPath == "builtin" }
+
+func (p *Package) checkEnqueued(s *cstack) {
+	for _, v := range p.SourceFiles {
+		v.checkEnqueued(s)
+	}
+	for _, v := range p.SourceFiles {
+		if len(v.enquedChecks) != 0 {
+			panic("TODO843")
+		}
+	}
+}
+
 func (p *Package) load(position token.Position, paths []string, syntaxError func(*parser)) {
+	returned := false
 	defer func() {
+		err := recover()
+		if !returned && err == nil {
+			err = fmt.Errorf("panic(nil)\n%s", debug.Stack())
+		}
+		if err != nil {
+			//dbg("%v\n%s", err, stack())
+			p.errorList.forcedAdd(token.Position{}, "%v", err)
+		}
+
 		for _, v := range p.SourceFiles {
 			v.finit()
 		}
+		p.fileScopeNames = nil
 		close(p.ready)
 	}()
 
-	l := NewLexer(nil, nil)
+	l := newLexer(nil, nil)
 	y := newParser(nil, nil)
 	l.errHandler = y.err0
-	l.CommentHandler = y.commentHandler
+	l.commentHandler = y.commentHandler
 	y.syntaxError = syntaxError
 
 	for _, path := range paths {
 		f, err := os.Open(path)
 		if err != nil {
-			p.errorList.Add(position, err.Error())
+			p.errorList.forcedAdd(position, "%s", err)
+			returned = true
 			return
 		}
 
-		src, err := mmap.Map(f, 0, 0)
+		fi, err := f.Stat()
 		if err != nil {
 			f.Close()
-			p.errorList.Add(position, err.Error())
+			p.errorList.forcedAdd(position, "%s", err)
+			returned = true
 			return
+
+		}
+
+		var src mmap.MMap
+		if fi.Size() > 0 {
+			if src, err = mmap.Map(f, 0, 0); err != nil {
+				f.Close()
+				p.errorList.forcedAdd(position, "%s", err)
+				returned = true
+				return
+			}
 		}
 
 		sf := newSourceFile(p, path, f, src)
+		l.sourceFile = sf
 		l.init(sf.File, src)
 		y.init(sf, l)
 		y.file()
@@ -604,10 +910,53 @@ func (p *Package) load(position token.Position, paths []string, syntaxError func
 			sf.finit()
 		}
 	}
-	//TODO p.check()
+	if p.ctx.tweaks.noChecks {
+		returned = true
+		return
+	}
+
+	//TODO check unbound
+	cs := &cstack{p: p}
+	for _, sf := range p.SourceFiles {
+		for _, d := range sf.TopLevelDecls {
+			if x, ok := d.(*MethodDecl); ok {
+				cs.reset().check(x, nil)
+			}
+		}
+	}
+	for _, sf := range p.SourceFiles {
+		for _, d := range sf.TopLevelDecls {
+			if _, ok := d.(*MethodDecl); !ok {
+				cs.reset().check(d, nil)
+			}
+		}
+	}
+	p.checkEnqueued(cs)
+	for _, sf := range p.SourceFiles {
+		for _, d := range sf.InitFunctions {
+			d.(*FuncDecl).checkBody(cs)
+		}
+	}
+	p.checkEnqueued(cs)
+	for _, sf := range p.SourceFiles {
+		for _, d := range sf.TopLevelDecls {
+			switch x := d.(type) {
+			case *FuncDecl:
+				x.checkBody(cs)
+			case *MethodDecl:
+				x.checkBody(cs)
+			}
+		}
+	}
+	p.checkEnqueued(cs)
+	returned = true
 }
 
 func (p *Package) waitFor() *Package {
+	if p == nil {
+		return nil
+	}
+
 	<-p.ready
 	return p
 }

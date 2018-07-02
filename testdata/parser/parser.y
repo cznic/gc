@@ -339,17 +339,17 @@ interfaceDeclList:
 |	interfaceDeclList ';' interfaceDecl
 
 fieldDecl:
-	'*' embededName literalOpt
+	'*' embeddedName literalOpt
 |	identList typ literalOpt
-|	embededName literalOpt
+|	embeddedName literalOpt
 
-embededName:
+embeddedName:
 	IDENT
 |	IDENT '.' IDENT
 
 interfaceDecl:
 	IDENT '(' paramTypeListCommaOptOpt ')' result
-|	embededName
+|	embeddedName
 
 paramType:
 	IDENT dddType

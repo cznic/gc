@@ -7,7 +7,7 @@
 grep=--include=*.go --include=*.l --include=*.y --include=*.yy
 ngrep='TODOOK\|.*_string\.go\|testdata/errchk'
 
-all: editor
+all: editor0 editor
 	go vet 2>&1 | grep -v $(ngrep) || true
 	golint 2>&1 | grep -v $(ngrep) || true
 	make todo
@@ -25,23 +25,34 @@ cover:
 	t=$(shell tempfile) ; go test -coverprofile $$t && go tool cover -html $$t && unlink $$t
 
 cpu: clean
-	go test -run @ -bench . -cpuprofile cpu.out
-	go tool pprof -lines *.test cpu.out
-
-declarationkind_string.go: enum.go
-	stringer -type DeclarationKind
+	go test -run @ -bench Checker/StdCh$$ -cpuprofile cpu.out
+	go tool pprof -web *.test cpu.out
 
 edit:
-	@2>/dev/null gvim -p Makefile *.go
+	touch errchk.log log
+	@2>/dev/null gvim -p Makefile errchk.log log *.go
 
-editor: declarationkind_string.go
+editor0:
+	go generate 2>&1 | tee -a log
+	go test -i
+	go test -run Example | fe
+	grep -n Invalid example_test.go || true
+
+editor:
 	@echo $(shell LC_TIME=c date) | tee log
 	gofmt -l -s -w *.go
-	go test 2>&1 | tee -a log
-	#go build
+	go test -i
+	go test -noerrchk 2>&1 | tee -a log
+	@echo $(shell LC_TIME=c date) | tee errchk.log
+	go test -run TestErrchk -chk.summary 2>&1 | tee -a errchk.log
+	sed -i -e s\\$(shell pwd)\/\\\\ errchk.log
+	go build
+	grep -n '^TODO\|[^X]TODO' errchk.log | tee -a errchk.log
+	go test -run @ -bench . -benchmem | tee -a errchk.log
+	git diff errchk.log
 
 fuzz:
-	go-fuzz-build -func FuzzLexer github.com/cznic/gc
+	go-fuzz-build -func FuzzLexer github.com/cznic/gc-priv
 	rm -rf testdata/fuzz/lexer/corpus/ testdata/fuzz/lexer/crashers/ testdata/fuzz/lexer/suppressions/
 	-go-fuzz -bin gc-fuzz.zip -workdir testdata/fuzz/lexer/
 
@@ -64,9 +75,6 @@ mem: clean
 
 nuke: clean
 	go clean -i
-
-scopekind_string.go: enum.go
-	stringer -type ScopeKind
 
 todo:
 	@grep -nr $(grep) ^[[:space:]]*_[[:space:]]*=[[:space:]][[:alpha:]][[:alnum:]]* * | grep -v $(ngrep) || true
