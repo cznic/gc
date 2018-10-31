@@ -22,6 +22,7 @@ var (
 		"darwin":    true,
 		"dragonfly": true,
 		"freebsd":   true,
+		"js":        true,
 		"linux":     true,
 		"nacl":      true,
 		"netbsd":    true,
@@ -49,10 +50,13 @@ var (
 		"ppc":         {4, 4},
 		"ppc64":       {8, 8},
 		"ppc64le":     {8, 8},
+		"risc":        {4, 4},
+		"riscv64":     {8, 8},
 		"s390":        {4, 4},
 		"s390x":       {8, 8},
 		"sparc":       {4, 4},
 		"sparc64":     {8, 8},
+		"wasm":        {4, 4},
 	}
 )
 
@@ -577,7 +581,8 @@ func (c *Context) SourceFileForPath(path string) *SourceFile {
 	return nil
 }
 
-func (c *Context) filesForImportPath(position token.Position, importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
+// FilesForImportPath the package directory and a list of source and test files.
+func (c *Context) FilesForImportPath(position token.Position, importPath string) (dir string, sourceFiles []string, testFiles []string, err error) {
 	if importPath == "C" {
 		return "", nil, nil, nil
 	}
@@ -642,7 +647,7 @@ func (c *Context) load(position token.Position, importPath string, syntaxError f
 	c.packagesMu.Unlock()
 
 	go func() {
-		dir, files, _, err := c.filesForImportPath(position, importPath)
+		dir, files, _, err := c.FilesForImportPath(position, importPath)
 		if err != nil {
 			errList.forcedAdd(position, "%s", err)
 			close(p.ready)

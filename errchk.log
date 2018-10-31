@@ -1,11 +1,13 @@
-Mon Jul 2 19:15:42 CEST 2018
+Wed Oct 31 13:41:15 CET 2018
 # go run run.go -- 64bit.go
 incorrect output
 syntax error: package statement must be first
 
 FAIL	64bit.go
 # go run run.go -- alias3.go
-XTODO 1472 [go tool link -w -o a.exe -L . c.o]
+/home/jnml/go/src/go/build/build.go:1711:15: undefined: getToolDir
+
+/home/jnml/go/src/go/build/build.go:1711:15: undefined: getToolDir
 
 FAIL	alias3.go
 # go run run.go -- append1.go
@@ -5945,22 +5947,26 @@ compilation succeeded unexpectedly
 FAIL	fixedbugs/issue9634.go
   944 ok  
   500 FAIL
---- FAIL: TestErrchk (65.58s)
-	errchk_test.go:1345: os.Exit(1)
+--- FAIL: TestErrchk (44.71s)
+    errchk_test.go:1345: os.Exit(1)
 FAIL
 exit status 1
-FAIL	github.com/cznic/gc	66.571s
-4792:	issue15055.go:11: TODO3517
-4809:issue15055.go:11: TODO3517
-5196:-: TODO612
+FAIL	github.com/cznic/gc	45.610s
+4794:	issue15055.go:11: TODO3517
+4811:issue15055.go:11: TODO3517
+5198:-: TODO612
 goos: linux
 goarch: amd64
 pkg: github.com/cznic/gc
-BenchmarkScanner/StdGo-4         	      20	  94643552 ns/op	  98.01 MB/s	27338140 B/op	  829829 allocs/op
-BenchmarkScanner/Std-4           	      20	  94972466 ns/op	  97.67 MB/s	 8789388 B/op	   14922 allocs/op
-BenchmarkParser/StdGo-4          	       3	 359104508 ns/op	  25.83 MB/s	116054266 B/op	 2892660 allocs/op
-BenchmarkParser/Std-4            	       2	 675788018 ns/op	  13.73 MB/s	179955820 B/op	 5678508 allocs/op
-BenchmarkChecker/StdGo-4         	       1	2188310040 ns/op	   4.23 MB/s	341748608 B/op	 5232243 allocs/op
-BenchmarkChecker/Std-4           	       1	1193926475 ns/op	   7.76 MB/s	275295216 B/op	 6385688 allocs/op
-PASS
-ok  	github.com/cznic/gc	14.731s
+BenchmarkScanner/StdGo-4         	      20	  70463594 ns/op	 136.09 MB/s	28173157 B/op	  709314 allocs/op
+BenchmarkScanner/Std-4           	      20	  55880070 ns/op	 171.61 MB/s	 9160909 B/op	   15502 allocs/op
+BenchmarkParser/StdGo-4          	       5	 244899047 ns/op	  39.16 MB/s	119444201 B/op	 2835357 allocs/op
+BenchmarkParser/Std-4            	       2	 556420205 ns/op	  17.23 MB/s	185161100 B/op	 4035026 allocs/op
+BenchmarkChecker/StdGo-4         	       1	2320889467 ns/op	   4.13 MB/s	377564312 B/op	 5196207 allocs/op
+--- FAIL: BenchmarkChecker/Std
+    all_test.go:1078: /home/jnml/go/src/go/build/build.go:1711:15: undefined: getToolDir
+        
+--- FAIL: BenchmarkChecker
+FAIL
+exit status 1
+FAIL	github.com/cznic/gc	12.003s

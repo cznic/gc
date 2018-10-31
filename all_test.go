@@ -539,15 +539,15 @@ func testScannerStates(t *testing.T) {
 						nerr++
 						t.Errorf("%6d: pos.Filename[%d] %q(|% x|), %v %v (%v %v)", iCase, i, src, src, g, e, pos, pos2)
 					}
-					if g, e := int(pos.Line), pos2.Line; g != e {
+					if g, e := pos.Line, pos2.Line; g != e {
 						nerr++
 						t.Errorf("%6d: pos.Line[%d] %q(|% x|), %v %v (%v %v)", iCase, i, src, src, g, e, pos, pos2)
 					}
-					if g, e := int(pos.Column), pos2.Column; g != e {
+					if g, e := pos.Column, pos2.Column; g != e {
 						nerr++
 						t.Errorf("%6d: pos.Column[%d] %q(|% x|), %v %v (%v %v)", iCase, i, src, src, g, e, pos, pos2)
 					}
-					if g, e := int(pos.Offset), pos2.Offset; g != e {
+					if g, e := pos.Offset, pos2.Offset; g != e {
 						nerr++
 						t.Errorf("%6d: pos.Offset[%d] %q(|% x|), %v %v (%v %v)", iCase, i, src, src, g, e, pos, pos2)
 					}
@@ -699,7 +699,7 @@ func testScannerBugs(t *testing.T) {
 		l.init(fi, bsrc)
 		for j, v := range v.toks {
 			off, tok := l.Scan()
-			if g, e := int(off), v.off; g != e {
+			if g, e := off, v.off; g != e {
 				nerr++
 				t.Errorf("%v off[%d] %q(|% x|) %v %v", i, j, src, src, g, e)
 			}
@@ -724,7 +724,7 @@ func testScannerBugs(t *testing.T) {
 			nerr++
 			t.Errorf("%v tok %q(|% x|) %q %q", i, src, src, g, e)
 		}
-		if g, e := int(off), len(src); g != e {
+		if g, e := off, len(src); g != e {
 			nerr++
 			t.Errorf("%v off %q(|% x|) %v %v", i, src, src, g, e)
 		}
@@ -778,9 +778,9 @@ outer:
 					if !filepath.IsAbs(s) {
 						s = filepath.Join(filepath.Dir(path), s)
 					}
-					if l.off != int(len(l.src)) {
+					if l.off != len(l.src) {
 						l.fname = s
-						l.file.AddLineInfo(int(l.off)-1, s, ln-1)
+						l.file.AddLineInfo(l.off-1, s, ln-1)
 					}
 				}
 			}
@@ -1402,7 +1402,7 @@ func (p *parser) fail(nm string) string {
 	yl.init(token.NewFile("", len(p.l.src)), p.l.src)
 	yp.parse(
 		func(st int) *y.Symbol {
-			if pos, s := yl.lex(); pos.Offset <= int(p.off) {
+			if pos, s := yl.lex(); pos.Offset <= p.off {
 				return s
 			}
 
@@ -1509,7 +1509,7 @@ func testParserRejectFS(t *testing.T) {
 			if g, e := off, len(s0); g < e {
 				t.Fatalf(`Follow set %v
 state %3d: %s unexpected error position, got %v expected %v
-           %s^`, yp.followList(state), state, s, g+1, e+1, strings.Repeat("-", int(g)))
+           %s^`, yp.followList(state), state, s, g+1, e+1, strings.Repeat("-", g))
 			}
 		}
 	}
@@ -1700,7 +1700,7 @@ func TestBrowserIssue3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, _, err := ctx.filesForImportPath(token.Position{}, "github.com/gonum/matrix/mat64"); err != nil {
+	if _, _, _, err := ctx.FilesForImportPath(token.Position{}, "github.com/gonum/matrix/mat64"); err != nil {
 		return
 	}
 

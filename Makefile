@@ -14,7 +14,7 @@ all: editor0 editor
 	unused . || true
 	misspell *.go
 	gosimple || true
-	unconvert || true
+	unconvert -apply || true
 	maligned || true
 
 clean:
