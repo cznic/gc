@@ -1,9 +1,5 @@
-# gc
+`github.com/cznic/gc` has moved to [`modernc.org/gc`](https://godoc.org/modernc.org/gc) ([vcs](https://gitlab.com/cznic/gc)).
 
-Package GC is a Go compiler front end. (Work in progress)
+Please update your import paths to `modernc.org/gc`.
 
-Installation
-
-    $ go get github.com/cznic/gc
-
-Documentation: [godoc.org/github.com/cznic/gc](http://godoc.org/github.com/cznic/gc)
+This repo is now archived.
